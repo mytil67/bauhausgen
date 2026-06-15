@@ -683,9 +683,12 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
             }
 
-            // Path pour texte courbé
+            // Path pour texte courbé (arc de cercle)
             if (el.type === 'text' && el.curve && el.curve !== 0) {
-              const w = bboxes[el.id]?.width || 200;
+              // On utilise une largeur estimée stable pour éviter la boucle infinie avec getBBox
+              // (car le BBox d'un texte courbé change selon la courbure elle-même)
+              const estimatedWidth = el.text.length * el.fontSize * 0.55 * ((el.fontWidth ?? 100) / 100);
+              const w = Math.max(estimatedWidth, 10);
               const curve = el.curve;
               const r = Math.abs(10000 / curve);
               const sweep = curve > 0 ? 1 : 0;
