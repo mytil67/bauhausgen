@@ -226,28 +226,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="w-80 h-full bg-white border-r border-gray-200 flex flex-col overflow-y-auto p-4 gap-6 shadow-lg">
-      <div className="flex items-center justify-between border-b pb-2">
-        <h1 className="text-2xl font-bold tracking-tighter text-gray-900">BAUHAUS GEN</h1>
+    <div className="w-80 h-full bg-white/95 backdrop-blur-xl border-r border-gray-100 flex flex-col overflow-y-auto p-5 gap-6 shadow-2xl z-10 custom-scrollbar">
+      <div className="flex items-center justify-between pb-1">
+        <h1 className="text-xl font-black tracking-tight text-gray-900">BAUHAUS GEN</h1>
         <div className="flex gap-1">
-          <button onClick={onUndo} disabled={!canUndo} title="Annuler (Ctrl+Z)" className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><Undo2 size={16} /></button>
-          <button onClick={onRedo} disabled={!canRedo} title="Rétablir (Ctrl+Maj+Z)" className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"><Redo2 size={16} /></button>
+          <button onClick={onUndo} disabled={!canUndo} title="Annuler (Ctrl+Z)" className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent text-gray-500"><Undo2 size={16} /></button>
+          <button onClick={onRedo} disabled={!canRedo} title="Rétablir (Ctrl+Maj+Z)" className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent text-gray-500"><Redo2 size={16} /></button>
         </div>
       </div>
 
       {/* Add Elements Section */}
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
-          <Layers size={14} /> Ajouter Éléments
+        <h2 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+          <Layers size={12} /> Ajouter
         </h2>
-        <button onClick={() => onAddElement('text')} className="w-full flex items-center justify-center gap-2 px-3 py-2 mb-2 bg-gray-900 text-white rounded text-sm font-medium hover:bg-black transition-colors"><Type size={16} /> Ajouter un texte</button>
+        <button onClick={() => onAddElement('text')} className="w-full flex items-center justify-center gap-2 px-3 py-2 mb-2 bg-gray-900 text-white rounded text-sm font-medium hover:bg-blue-600 transition-colors shadow-sm"><Type size={16} /> Texte</button>
         <div className="grid grid-cols-4 gap-1.5">
           {SHAPES.map(({ type, label }) => (
             <button
               key={type}
               onClick={() => onAddElement(type)}
               title={label}
-              className="aspect-square flex items-center justify-center bg-gray-50 hover:bg-blue-50 hover:text-blue-600 text-gray-600 rounded border border-gray-200 hover:border-blue-300 transition-colors"
+              className="aspect-square flex items-center justify-center bg-gray-50 hover:bg-blue-50 hover:text-blue-600 text-gray-500 rounded border border-gray-100 hover:border-blue-200 transition-colors"
             >
               <ShapeIcon type={type} />
             </button>
@@ -257,15 +257,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Templates */}
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
-          <LayoutTemplate size={14} /> Templates
+        <h2 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+          <LayoutTemplate size={12} /> Modèles
         </h2>
         <div className="grid grid-cols-1 gap-1.5">
           {TEMPLATES.map((tpl) => (
             <button
               key={tpl.name}
               onClick={() => { if (window.confirm(`Charger « ${tpl.name} » ? La composition actuelle sera remplacée.`)) onLoadTemplate(tpl); }}
-              className="text-left px-3 py-2 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 text-xs font-medium transition-colors"
+              className="text-left px-3 py-2 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded border border-gray-100 hover:border-blue-200 text-xs font-medium transition-colors"
             >
               {tpl.name}
             </button>
@@ -275,16 +275,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Format du canvas */}
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
-          <Frame size={14} /> Format
+        <h2 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+          <Frame size={12} /> Format
         </h2>
         <div className="grid grid-cols-3 gap-1.5">
           <button
             onClick={onToggleAutoCanvasSize}
-            className={`py-1.5 rounded border text-[10px] font-bold uppercase transition-colors ${autoCanvasSize ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+            className={`py-1.5 rounded border text-[9px] font-bold uppercase tracking-wider transition-colors ${autoCanvasSize ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
             title="S'adapte à l'écran"
           >
-            Auto Fit
+            Auto
           </button>
           {CANVAS_PRESETS.map((p) => {
             const active = !autoCanvasSize && canvasWidth === p.w && canvasHeight === p.h;
@@ -292,7 +292,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={p.name}
                 onClick={() => onSetCanvasSize(p.w, p.h)}
-                className={`py-1.5 rounded border text-[10px] font-bold uppercase transition-colors ${active ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                className={`py-1.5 rounded border text-[9px] font-bold uppercase tracking-wider transition-colors ${active ? 'bg-gray-900 text-white border-gray-900 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
                 title={`${p.w}×${p.h}`}
               >
                 {p.name}

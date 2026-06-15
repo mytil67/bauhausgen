@@ -68,11 +68,11 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   };
 
   return (
-    <div className="w-64 h-full bg-white border-l border-gray-200 flex flex-col shadow-lg">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 p-4 pb-2 border-b">
-        Calques ({elements.length})
+    <div className="w-64 h-full bg-white/95 backdrop-blur-xl border-l border-gray-100 flex flex-col shadow-2xl z-10">
+      <h2 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 p-5 pb-3 border-b border-gray-100 flex items-center gap-2">
+        <Layers size={12} /> Calques <span className="opacity-50">({elements.length})</span>
       </h2>
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
         {ordered.length === 0 && (
           <p className="text-gray-300 text-xs text-center px-4 py-8 italic">Aucun élément.</p>
         )}

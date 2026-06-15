@@ -238,7 +238,7 @@ function App() {
   }, [setCanvasSize]);
 
   return (
-    <div className="flex h-screen w-screen bg-gray-100 overflow-hidden font-sans text-gray-900">
+    <div className="flex h-screen w-screen bg-[#eef0f2] overflow-hidden font-sans text-gray-900 selection:bg-blue-200">
       <Sidebar
         elements={elements}
         selectedElement={selectedElement}
