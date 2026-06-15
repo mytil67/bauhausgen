@@ -28,6 +28,7 @@ interface CanvasProps {
   onSendToBack: () => void;
   onBringForward: () => void;
   onSendBackward: () => void;
+  zoom: number;
 }
 
 interface Marquee { x1: number; y1: number; x2: number; y2: number; additive: boolean; }
@@ -61,6 +62,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   onSendToBack,
   onBringForward,
   onSendBackward,
+  zoom,
 }) => {
   const [dragMode, setDragMode] = useState<DragMode>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -79,6 +81,12 @@ export const Canvas: React.FC<CanvasProps> = ({
   const selectionCount = selectedIds.length;
   const singleSelected = selectionCount === 1;
   const marqueeActive = marquee !== null;
+
+  // Constantes compensant le zoom pour la taille des éléments d'interface UI
+  const hz = 10 / zoom;         // Taille des poignées
+  const ho = 5 / zoom;          // Offset des poignées
+  const strokeZ = 1.5 / zoom;   // Épaisseur de trait standard UI
+  const strokeGuide = 1 / zoom; // Épaisseur des guides
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();

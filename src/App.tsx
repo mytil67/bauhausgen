@@ -3,6 +3,7 @@ import { useComposition } from './hooks/useComposition';
 import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
 import { LayersPanel } from './components/LayersPanel';
+import { Plus, Minus } from 'lucide-react';
 import type { ElementBounds, AlignDirection, DistributeAxis } from './types';
 
 // Polices Google utilisées dans l'éditeur (pour tentative d'embarquement à l'export)
@@ -74,12 +75,21 @@ function App() {
     [distributeElements, selectedIds],
   );
 
+  const [zoom, setZoom] = useState(1);
+
   // Raccourcis clavier globaux
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA';
       const mod = e.ctrlKey || e.metaKey;
+
+      if (mod) {
+        if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom(z => Math.min(5, z + 0.25)); return; }
+        if (e.key === '-') { e.preventDefault(); setZoom(z => Math.max(0.1, z - 0.25)); return; }
+        if (e.key === '0') { e.preventDefault(); setZoom(1); return; }
+      }
+
       if (!mod) {
         if (e.key === 'Escape') selectElement(null);
         return;
@@ -304,7 +314,15 @@ function App() {
           onSendToBack={() => sendToBack(selectedIds)}
           onBringForward={() => bringForward(selectedIds)}
           onSendBackward={() => sendBackward(selectedIds)}
+          zoom={zoom}
           />
+        {/* Zoom Controls */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur px-2 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-2 text-xs font-mono text-gray-600">
+          <button onClick={() => setZoom(z => Math.max(0.1, z - 0.25))} className="p-1 hover:bg-gray-100 rounded" title="Dézoomer (Ctrl + -)"><Minus size={14} /></button>
+          <span className="w-12 text-center cursor-pointer hover:bg-gray-100 rounded" onClick={() => setZoom(1)} title="Taille réelle (Ctrl + 0)">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} className="p-1 hover:bg-gray-100 rounded" title="Zoomer (Ctrl + +)"><Plus size={14} /></button>
+        </div>
+
         {/* Status Bar */}
         <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur px-3 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-4 text-[10px] font-mono text-gray-500 uppercase tracking-widest">
           <span>{elements.length} éléments</span>
