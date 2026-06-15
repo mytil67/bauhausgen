@@ -9,11 +9,16 @@ aucune installation côté serveur, tout est sauvegardé localement dans ton nav
 ## Fonctionnalités
 
 - **Éléments** : texte, rectangle, cercle, triangle.
-- **Manipulation directe sur le canvas** : déplacement, redimensionnement par 8 poignées.
+- **Manipulation directe** : déplacement, redimensionnement par 8 poignées, rotation.
+- **Multi-sélection** : cadre de sélection (lasso) et Shift+Clic pour gérer plusieurs éléments.
+- **Groupement** : grouper/dégrouper des éléments pour des manipulations coordonnées.
+- **Menu Contextuel** : clic droit pour accéder rapidement aux actions (copier, coller, grouper, ordre...).
 - **Smart guides** : lignes d'alignement automatiques (bords + centres) pendant le drag.
 - **Cotes de mesure dynamiques** : distances aux bords/voisins affichées en temps réel,
   détection d'espacement égal (distribution).
 - **Alignement & distribution** automatiques depuis la barre latérale.
+- **Presse-papiers** : copier, coller et dupliquer des éléments.
+- **Historique** : annuler et rétablir (Undo/Redo) les actions.
 - **Z-order** : premier plan / arrière-plan.
 - **Couleurs** : sélecteur + saisie hex + palette Bauhaus + couleurs mémorisées.
 - **Polices** : Google Fonts (Montserrat, Outfit, Space Grotesk, Syne) + import de tes

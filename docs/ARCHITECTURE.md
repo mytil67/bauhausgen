@@ -84,9 +84,9 @@ C'est le composant le plus riche. Responsabilités :
    aux poignées et aux mesures. Fallback `{-50,-25,100,50}` en attendant le 1er calcul.
 
 ### Smart guides (snapping)
-Pendant un déplacement, on collecte des cibles de snap :
+Pendant un déplacement (élément seul ou groupe), on collecte des cibles de snap :
 - bords et centre du canvas (`0`, `w/2`, `w` ; idem vertical) ;
-- pour chaque autre élément : centre, bord gauche/droit (et haut/bas).
+- pour chaque autre élément (non sélectionné) : centre, bord gauche/droit (et haut/bas).
 
 On retient la cible la plus proche sous `SNAP_DISTANCE = 8` px et on dessine des lignes
 **magenta** sur les axes actifs.
@@ -97,9 +97,27 @@ Toujours pendant le déplacement, on calcule et affiche :
 - la détection d'**espacement égal** entre triplets d'éléments (libellé ambre `EQUAL`),
   avec aimantation pour faciliter une distribution régulière à la main.
 
+### Multi-sélection et Groupement
+L'application supporte désormais la multi-sélection (via cadre de sélection ou Shift+Clic).
+- **Cadre de sélection** : clic-glisse sur le fond du canvas.
+- **Groupement** (`Ctrl+G`) : permet de manipuler plusieurs éléments comme une unité
+  (déplacement, rotation, suppression). Les groupes peuvent être dégroupés (`Ctrl+Maj+G`).
+- **Rotation de groupe** : une poignée de rotation est affichée au-dessus de la boîte
+  englobante de la sélection multiple.
+
+### Menu Contextuel
+Un clic droit sur le canvas ouvre un menu contextuel offrant des actions rapides :
+- Sur sélection : grouper/dégrouper, dupliquer, copier, changer l'ordre (Z-order), supprimer.
+- Sur le fond : coller.
+
+### Presse-papiers
+Support du copier/coller/dupliquer (`Ctrl+C`, `Ctrl+V`, `Ctrl+D`) pour un ou plusieurs
+éléments simultanément.
+
 ### Clavier
 `Arrow*` déplace (Maj → pas de 10 px), `Delete`/`Backspace` supprime. Ignoré si le focus
-est dans un `input`/`textarea`.
+est dans un `input`/`textarea`. Raccourcis standards supportés (Ctrl+Z/Y pour l'historique,
+Ctrl+C/V/D pour le presse-papiers, Ctrl+G pour les groupes).
 
 ## 5. Export (`src/App.tsx`)
 
