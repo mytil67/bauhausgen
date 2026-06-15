@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { CompositionElement } from '../types';
 import {
   Eye, EyeOff, Lock, Unlock, Trash2, GripVertical,
-  Type, Square, Circle, Triangle, Minus,
+  Type, Square, Circle, Triangle, Minus, Layers,
 } from 'lucide-react';
 
 interface LayersPanelProps {
