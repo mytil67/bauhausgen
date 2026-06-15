@@ -287,8 +287,16 @@ function App() {
           onRemoveSelection={removeSelection}
           onBeginHistory={beginHistory}
           onBoundsChange={handleBoundsChange}
-        />
-
+          onDuplicate={() => duplicateSelection(selectedIds)}
+          onCopy={() => copySelection(selectedIds)}
+          onPaste={pasteClipboard}
+          onGroup={() => groupSelection(selectedIds)}
+          onUngroup={() => ungroupSelection(selectedIds)}
+          onBringToFront={bringToFront}
+          onSendToBack={sendToBack}
+          onBringForward={bringForward}
+          onSendBackward={sendBackward}
+          />
         {/* Status Bar */}
         <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur px-3 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-4 text-[10px] font-mono text-gray-500 uppercase tracking-widest">
           <span>{elements.length} éléments</span>

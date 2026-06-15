@@ -1,4 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Trash2, Copy, LayoutTemplate, ArrowUp, ArrowDown, Download,
+  ChevronUp, ChevronDown
+} from 'lucide-react';
 import type { CompositionElement, ElementBounds } from '../types';
 
 interface CanvasProps {
@@ -15,9 +19,19 @@ interface CanvasProps {
   onRemoveSelection: (ids: string[]) => void;
   onBeginHistory: () => void;
   onBoundsChange: (bounds: ElementBounds) => void;
+  onDuplicate: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
+  onGroup: () => void;
+  onUngroup: () => void;
+  onBringToFront: (id: string) => void;
+  onSendToBack: (id: string) => void;
+  onBringForward: (id: string) => void;
+  onSendBackward: (id: string) => void;
 }
 
 interface Marquee { x1: number; y1: number; x2: number; y2: number; additive: boolean; }
+interface ContextMenuState { x: number; y: number; visible: boolean; }
 
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 type DragMode = 'move' | 'rotate' | ResizeHandle | null;
@@ -38,6 +52,15 @@ export const Canvas: React.FC<CanvasProps> = ({
   onRemoveSelection,
   onBeginHistory,
   onBoundsChange,
+  onDuplicate,
+  onCopy,
+  onPaste,
+  onGroup,
+  onUngroup,
+  onBringToFront,
+  onSendToBack,
+  onBringForward,
+  onSendBackward,
 }) => {
   const [dragMode, setDragMode] = useState<DragMode>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -47,13 +70,24 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [measurements, setMeasurements] = useState<{ x1: number, y1: number, x2: number, y2: number, value: number, kind: 'spacing' | 'equal' }[]>([]);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false });
   const editInputRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const elementRefs = useRef<{ [key: string]: SVGGElement | null }>({});
   const [bboxes, setBboxes] = useState<{ [key: string]: DOMRect }>({});
 
-  const singleSelected = selectedIds.length === 1;
+  const selectionCount = selectedIds.length;
+  const singleSelected = selectionCount === 1;
   const marqueeActive = marquee !== null;
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, visible: true });
+  };
+
+  const closeContextMenu = () => {
+    if (contextMenu.visible) setContextMenu({ ...contextMenu, visible: false });
+  };
 
   const getGroupAABB = () => {
     if (selectedIds.length === 0) return null;
@@ -144,6 +178,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   // Démarre un cadre de sélection sur le fond du canvas
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    closeContextMenu();
     if (e.target !== svgRef.current) return;
     const pos = getMousePosition(e);
     setMarquee({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, additive: e.shiftKey });
@@ -262,7 +297,11 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.stopPropagation();
     onBeginHistory();
     setDragMode('rotate');
-    setActiveId(targetId || selectedIds[0]);
+    if (selectionCount > 1 && !targetId) {
+      setActiveId('group');
+    } else {
+      setActiveId(targetId || selectedIds[0]);
+    }
   };
 
   useEffect(() => {
@@ -276,6 +315,28 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       if (dragMode === 'rotate') {
         const target = el || elements.find(item => item.id === activeId);
+        
+        // Rotation de groupe (>1 sélectionné)
+        if (activeId === 'group') {
+          const g = groupAABB;
+          if (!g) return;
+          const angleRad = Math.atan2(pos.y - g.cy, pos.x - g.cx);
+          let deg = angleRad * (180 / Math.PI) + 90;
+          if (e.shiftKey) deg = Math.round(deg / 15) * 15;
+          deg = ((deg % 360) + 360) % 360;
+          
+          // On mémorise l'angle initial au début du drag pour calculer un delta
+          // Ou plus simplement : on applique la rotation absolue par rapport au centre du groupe
+          // Pour que ce soit propre, il faudrait que les éléments pivotent AUTOUR du centre du groupe.
+          // Pour l'instant, on applique la rotation à chaque élément (plus simple).
+          const bulkUpdates: Record<string, Partial<CompositionElement>> = {};
+          selectedIds.forEach((id) => {
+            bulkUpdates[id] = { rotation: deg };
+          });
+          onUpdateElementsLive(bulkUpdates);
+          return;
+        }
+
         if (!target) return;
         const angleRad = Math.atan2(pos.y - target.y, pos.x - target.x);
         let deg = Math.round(angleRad * (180 / Math.PI) + 90);
@@ -286,28 +347,24 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
 
       if (dragMode === 'move') {
-        if (!el) return;
         const mouseX = pos.x - dragOffset.x;
         const mouseY = pos.y - dragOffset.y;
-
-        // Déplacement de groupe (>1 sélectionné) : delta simple, sans guides
-        if (!singleSelected) {
-          setActiveGuides({ x: [], y: [] });
-          setMeasurements([]);
-          onNudge(Math.round(mouseX) - el.x, Math.round(mouseY) - el.y, selectedIds);
-          return;
-        }
 
         let newX = mouseX;
         let newY = mouseY;
 
-        const currentBbox = bboxes[activeId] || FALLBACK_BBOX;
-        const halfW = (currentBbox.width / 2) * el.scaleX;
-        const halfH = (currentBbox.height / 2) * el.scaleY;
+        // Référentiel de l'élément (ou du groupe) déplacé
+        const currentBbox = singleSelected ? (bboxes[activeId] || FALLBACK_BBOX) : groupAABB;
+        if (!currentBbox) return;
+        const halfW = (currentBbox.width / 2) * (singleSelected ? el?.scaleX || 1 : 1);
+        const halfH = (currentBbox.height / 2) * (singleSelected ? el?.scaleY || 1 : 1);
+        const currentX = singleSelected ? el!.x : groupAABB!.cx;
+        const currentY = singleSelected ? el!.y : groupAABB!.cy;
 
-        // Boîtes absolues des autres éléments
+        // Boîtes absolues des autres éléments (non sélectionnés)
+        const selectedSet = new Set(selectedIds);
         const others = elements
-          .filter((o) => o.id !== activeId)
+          .filter((o) => !selectedSet.has(o.id))
           .map((o) => {
             const ob = bboxes[o.id] || FALLBACK_BBOX;
             const ohw = (ob.width / 2) * o.scaleX;
@@ -315,7 +372,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             return { left: o.x - ohw, right: o.x + ohw, cx: o.x, top: o.y - ohh, bottom: o.y + ohh, cy: o.y };
           });
 
-        // --- 1. Aimantation d'alignement (bords + centres) ---
+        // --- 1. Aimantation d'alignement ---
         const xTargets = [0, width / 2, width, ...others.flatMap((o) => [o.left, o.cx, o.right])];
         const yTargets = [0, height / 2, height, ...others.flatMap((o) => [o.top, o.cy, o.bottom])];
 
@@ -338,9 +395,9 @@ export const Canvas: React.FC<CanvasProps> = ({
 
         const box = () => ({ left: newX - halfW, right: newX + halfW, cx: newX, top: newY - halfH, bottom: newY + halfH, cy: newY });
         let D = box();
-        const EQ = SNAP_DISTANCE * 1.5; // tolérance d'aimantation d'espacement
+        const EQ = SNAP_DISTANCE * 1.5;
 
-        // --- 2. Espacement égal HORIZONTAL (reproduit l'écart de la paire voisine) ---
+        // --- 2. Espacement égal HORIZONTAL ---
         let equalH = false;
         const equalSegH: { a: number; b: number }[] = [];
         let valueH = 0;
@@ -356,13 +413,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           const gR = R ? R.left - D.right : Infinity;
 
           if (!xSnapped && L && R && gL > 0 && gR > 0 && Math.abs(gL - gR) <= EQ) {
-            // Centré entre deux voisins
             newX = (L.right + R.left) / 2; D = box();
             valueH = Math.round(D.left - L.right);
             equalSegH.push({ a: L.right, b: D.left }, { a: D.right, b: R.left });
             equalH = true;
           } else if (!xSnapped && L && LL) {
-            const ref = L.left - LL.right; // écart de la paire à gauche
+            const ref = L.left - LL.right;
             if (ref > 0 && Math.abs(gL - ref) <= EQ) {
               newX = L.right + ref + halfW; D = box();
               valueH = Math.round(ref);
@@ -371,7 +427,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             }
           }
           if (!equalH && !xSnapped && R && RR) {
-            const ref = RR.left - R.right; // écart de la paire à droite
+            const ref = RR.left - R.right;
             if (ref > 0 && Math.abs(gR - ref) <= EQ) {
               newX = R.left - ref - halfW; D = box();
               valueH = Math.round(ref);
@@ -421,7 +477,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           }
         }
 
-        // --- 4. Voisins finaux (pour l'affichage de distance) ---
+        // --- 4. Voisins finaux ---
         const hOverlap = others.filter((o) => o.top < D.bottom && o.bottom > D.top);
         const vOverlap = others.filter((o) => o.left < D.right && o.right > D.left);
         const leftN = hOverlap.filter((o) => o.right <= D.left + 0.5).sort((a, b) => b.right - a.right)[0];
@@ -429,30 +485,21 @@ export const Canvas: React.FC<CanvasProps> = ({
         const topN = vOverlap.filter((o) => o.bottom <= D.top + 0.5).sort((a, b) => b.bottom - a.bottom)[0];
         const bottomN = vOverlap.filter((o) => o.top >= D.bottom - 0.5).sort((a, b) => a.top - b.top)[0];
 
-        // --- 5. Lignes d'alignement actives ---
         const guideX = new Set<number>();
         const guideY = new Set<number>();
-        for (const t of xTargets) {
-          if (Math.abs(D.left - t) < 0.5 || Math.abs(D.cx - t) < 0.5 || Math.abs(D.right - t) < 0.5) guideX.add(t);
-        }
-        for (const t of yTargets) {
-          if (Math.abs(D.top - t) < 0.5 || Math.abs(D.cy - t) < 0.5 || Math.abs(D.bottom - t) < 0.5) guideY.add(t);
-        }
+        for (const t of xTargets) { if (Math.abs(D.left - t) < 0.5 || Math.abs(D.cx - t) < 0.5 || Math.abs(D.right - t) < 0.5) guideX.add(t); }
+        for (const t of yTargets) { if (Math.abs(D.top - t) < 0.5 || Math.abs(D.cy - t) < 0.5 || Math.abs(D.bottom - t) < 0.5) guideY.add(t); }
         setActiveGuides({ x: [...guideX], y: [...guideY] });
 
-        // --- 6. Mesures (doubles flèches) ---
         const m: typeof measurements = [];
-
         if (equalH) {
           equalSegH.forEach((s) => m.push({ x1: s.a, y1: D.cy, x2: s.b, y2: D.cy, value: valueH, kind: 'equal' }));
         } else {
-          // distance au voisin le plus proche (ou au bord du canvas)
           const gapL = Math.round(D.left - (leftN ? leftN.right : 0));
           const gapR = Math.round((rightN ? rightN.left : width) - D.right);
           if (gapL > 0) m.push({ x1: leftN ? leftN.right : 0, y1: D.cy, x2: D.left, y2: D.cy, value: gapL, kind: 'spacing' });
           if (gapR > 0) m.push({ x1: D.right, y1: D.cy, x2: rightN ? rightN.left : width, y2: D.cy, value: gapR, kind: 'spacing' });
         }
-
         if (equalV) {
           equalSegV.forEach((s) => m.push({ x1: D.cx, y1: s.a, x2: D.cx, y2: s.b, value: valueV, kind: 'equal' }));
         } else {
@@ -463,8 +510,9 @@ export const Canvas: React.FC<CanvasProps> = ({
         }
 
         setMeasurements(m);
-        onNudge(Math.round(newX) - el.x, Math.round(newY) - el.y, selectedIds);
-      } else {
+        onNudge(Math.round(newX) - currentX, Math.round(newY) - currentY, selectedIds);
+      }
+ else {
         // Redimensionnement
         let mouseX = pos.x;
         let mouseY = pos.y;
@@ -563,7 +611,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements]);
 
   return (
-    <div className="flex items-center justify-center bg-gray-200 p-8 w-full h-full overflow-auto">
+    <div className="flex items-center justify-center bg-gray-200 p-8 w-full h-full overflow-auto relative">
       <svg
         ref={svgRef}
         id="bauhaus-svg"
@@ -573,6 +621,8 @@ export const Canvas: React.FC<CanvasProps> = ({
         style={{ backgroundColor }}
         className="shadow-2xl cursor-default"
         onMouseDown={handleCanvasMouseDown}
+        onContextMenu={handleContextMenu}
+        onClick={closeContextMenu}
       >
         {elements.map((el) => {
           if (el.visible === false) return null;
@@ -712,6 +762,10 @@ export const Canvas: React.FC<CanvasProps> = ({
             <rect x={groupAABB.x + groupAABB.width / 2 - 5} y={groupAABB.y + groupAABB.height} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 's')} />
             <rect x={groupAABB.x - 10} y={groupAABB.y + groupAABB.height / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'w')} />
             <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y + groupAABB.height / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'e')} />
+
+            {/* Rotation de groupe */}
+            <line x1={groupAABB.x + groupAABB.width / 2} y1={groupAABB.y - 5} x2={groupAABB.x + groupAABB.width / 2} y2={groupAABB.y - 28} stroke="#3b82f6" strokeWidth="1.5" className="pointer-events-none" />
+            <circle cx={groupAABB.x + groupAABB.width / 2} cy={groupAABB.y - 32} r="6" fill="white" stroke="#3b82f6" strokeWidth="1.5" style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e)} />
           </g>
         )}
 
@@ -735,6 +789,16 @@ export const Canvas: React.FC<CanvasProps> = ({
 
             return (
               <g key={`m-${i}`}>
+                {m.kind === 'equal' && (
+                  <rect
+                    x={isVertical ? m.x1 - 10 : Math.min(m.x1, m.x2)}
+                    y={isVertical ? Math.min(m.y1, m.y2) : m.y1 - 10}
+                    width={isVertical ? 20 : Math.abs(m.x2 - m.x1)}
+                    height={isVertical ? Math.abs(m.y2 - m.y1) : 20}
+                    fill={color}
+                    opacity="0.1"
+                  />
+                )}
                 <line x1={m.x1} y1={m.y1} x2={m.x2} y2={m.y2} stroke={color} strokeWidth="1" />
                 {/* Doubles flèches aux extrémités */}
                 {isVertical ? (
@@ -772,6 +836,59 @@ export const Canvas: React.FC<CanvasProps> = ({
           />
         )}
       </svg>
+
+      {/* Menu Contextuel (Clic droit) */}
+      {contextMenu.visible && (
+        <div 
+          className="fixed z-[9999] bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden py-1.5 w-52 flex flex-col font-sans"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {selectionCount > 0 ? (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase border-b border-gray-100 mb-1">Sélection ({selectionCount})</div>
+              {selectionCount >= 2 && (
+                <button onClick={() => { onGroup(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                  <Copy size={14} className="opacity-60" /> Grouper <span className="ml-auto text-[10px] opacity-40">Ctrl+G</span>
+                </button>
+              )}
+              {selectedIds.some(id => elements.find(e => e.id === id)?.groupId) && (
+                <button onClick={() => { onUngroup(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                  <LayoutTemplate size={14} className="opacity-60" /> Dégrouper <span className="ml-auto text-[10px] opacity-40">Ctrl+Maj+G</span>
+                </button>
+              )}
+              <div className="h-px bg-gray-100 my-1 mx-2" />
+              <button onClick={() => { onDuplicate(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                <Copy size={14} className="opacity-60" /> Dupliquer <span className="ml-auto text-[10px] opacity-40">Ctrl+D</span>
+              </button>
+              <button onClick={() => { onCopy(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                <Copy size={14} className="opacity-60" /> Copier <span className="ml-auto text-[10px] opacity-40">Ctrl+C</span>
+              </button>
+              <div className="h-px bg-gray-100 my-1 mx-2" />
+              <button onClick={() => { selectedIds.forEach(id => onBringToFront(id)); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                <ArrowUp size={14} className="opacity-60" /> Tout devant
+              </button>
+              <button onClick={() => { selectedIds.forEach(id => onBringForward(id)); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                <ChevronUp size={14} className="opacity-60" /> Avancer
+              </button>
+              <button onClick={() => { selectedIds.forEach(id => onSendBackward(id)); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                <ChevronDown size={14} className="opacity-60" /> Reculer
+              </button>
+              <button onClick={() => { selectedIds.forEach(id => onSendToBack(id)); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                <ArrowDown size={14} className="opacity-60" /> Tout derrière
+              </button>
+              <div className="h-px bg-gray-100 my-1 mx-2" />
+              <button onClick={() => { onRemoveSelection(selectedIds); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-red-50 hover:text-red-700 text-xs text-red-600 font-medium transition-colors">
+                <Trash2 size={14} className="opacity-60" /> Supprimer <span className="ml-auto text-[10px] opacity-40">Suppr</span>
+              </button>
+            </>
+          ) : (
+            <button onClick={() => { onPaste(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+              <Download size={14} className="opacity-60" /> Coller ici <span className="ml-auto text-[10px] opacity-40">Ctrl+V</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
