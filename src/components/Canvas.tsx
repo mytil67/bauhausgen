@@ -1,73 +1,201 @@
-import React, { useState, useRef, useEffect } from 'react';
-import type { CompositionElement } from '../types';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import type { CompositionElement, ElementBounds } from '../types';
+import { ZoomIn, ZoomOut, Maximize, Hand } from 'lucide-react';
 
 interface CanvasProps {
   elements: CompositionElement[];
-  selectedId: string | null;
+  selectedIds: string[];
   backgroundColor: string;
   width: number;
   height: number;
-  onSelect: (id: string | null) => void;
-  onUpdate: (id: string, updates: Partial<CompositionElement>) => void;
-  onRemove: (id: string) => void;
+  onSelect: (id: string | null, additive?: boolean) => void;
+  onSelectMany: (ids: string[], additive?: boolean) => void;
+  onUpdateLive: (id: string, updates: Partial<CompositionElement>) => void;
+  onNudge: (dx: number, dy: number, ids: string[]) => void;
+  onRemoveSelection: (ids: string[]) => void;
+  onBeginHistory: () => void;
+  onBoundsChange: (bounds: ElementBounds) => void;
 }
 
+interface Marquee { x1: number; y1: number; x2: number; y2: number; additive: boolean; }
+
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+type DragMode = 'move' | 'rotate' | ResizeHandle | null;
+
+const FALLBACK_BBOX = { x: -50, y: -25, width: 100, height: 50 } as DOMRect;
 
 export const Canvas: React.FC<CanvasProps> = ({
   elements,
-  selectedId,
+  selectedIds,
   backgroundColor,
   width,
   height,
   onSelect,
-  onUpdate,
-  onRemove,
+  onSelectMany,
+  onUpdateLive,
+  onNudge,
+  onRemoveSelection,
+  onBeginHistory,
+  onBoundsChange,
 }) => {
-  const [dragMode, setDragMode] = useState<'move' | ResizeHandle | null>(null);
+  const [dragMode, setDragMode] = useState<DragMode>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [initialSize, setInitialSize] = useState({ width: 0, height: 0, scaleX: 1, scaleY: 1 });
   const [activeGuides, setActiveGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] });
-  const [measurements, setMeasurements] = useState<{ x1: number, y1: number, x2: number, y2: number, value: number, label: string }[]>([]);
+  const [measurements, setMeasurements] = useState<{ x1: number, y1: number, x2: number, y2: number, value: number, kind: 'spacing' | 'equal' }[]>([]);
+  const [marquee, setMarquee] = useState<Marquee | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const elementRefs = useRef<{ [key: string]: SVGGElement | null }>({});
   const [bboxes, setBboxes] = useState<{ [key: string]: DOMRect }>({});
 
+  // Vue : zoom & déplacement (pan)
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [spaceDown, setSpaceDown] = useState(false);
+  const [panning, setPanning] = useState(false);
+
+  const singleSelected = selectedIds.length === 1;
+  const marqueeActive = marquee !== null;
+
+  // Focus + sélection du texte quand on entre en édition
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
+
+  // --- Vue : ajuster, zoomer, déplacer ---
+  const fitView = useCallback(() => {
+    const c = containerRef.current;
+    if (!c) return;
+    const rect = c.getBoundingClientRect();
+    const pad = 80;
+    const z = Math.max(0.05, Math.min((rect.width - pad) / width, (rect.height - pad) / height, 4));
+    setZoom(z);
+    setPan({ x: (rect.width - width * z) / 2, y: (rect.height - height * z) / 2 });
+  }, [width, height]);
+
+  // Ajuste la vue quand la taille du canvas change
+  useEffect(() => { fitView(); }, [fitView]);
+
+  const zoomAt = useCallback((factor: number, clientX: number, clientY: number) => {
+    const c = containerRef.current;
+    if (!c) return;
+    const rect = c.getBoundingClientRect();
+    const cx = clientX - rect.left;
+    const cy = clientY - rect.top;
+    setZoom((z) => {
+      const nz = Math.max(0.05, Math.min(z * factor, 8));
+      setPan((p) => ({ x: cx - ((cx - p.x) / z) * nz, y: cy - ((cy - p.y) / z) * nz }));
+      return nz;
+    });
+  }, []);
+
+  const zoomByCenter = useCallback((factor: number) => {
+    const c = containerRef.current;
+    if (!c) return;
+    const rect = c.getBoundingClientRect();
+    zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }, [zoomAt]);
+
+  // Molette : zoom (Ctrl/⌘) ou déplacement (listener non-passif pour preventDefault)
+  useEffect(() => {
+    const c = containerRef.current;
+    if (!c) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
+      } else {
+        setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+      }
+    };
+    c.addEventListener('wheel', onWheel, { passive: false });
+    return () => c.removeEventListener('wheel', onWheel);
+  }, [zoomAt]);
+
+  // Barre d'espace = mode déplacement
+  useEffect(() => {
+    const isTyping = (t: EventTarget | null) =>
+      t instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(t.tagName);
+    const down = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !isTyping(e.target)) { e.preventDefault(); setSpaceDown(true); }
+    };
+    const up = (e: KeyboardEvent) => { if (e.code === 'Space') setSpaceDown(false); };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+  }, []);
+
+  const startPan = (clientX: number, clientY: number) => {
+    setPanning(true);
+    const start = { x: clientX, y: clientY };
+    const sp = { ...pan };
+    const move = (ev: MouseEvent) => setPan({ x: sp.x + (ev.clientX - start.x), y: sp.y + (ev.clientY - start.y) });
+    const up = () => {
+      setPanning(false);
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  const handleViewportMouseDown = (e: React.MouseEvent) => {
+    if (spaceDown || e.button === 1) { e.preventDefault(); startPan(e.clientX, e.clientY); }
+  };
+
+  // Entrer en édition de texte (double-clic)
+  const startEditing = (el: CompositionElement) => {
+    if (el.type !== 'text' || el.locked) return;
+    onSelect(el.id);
+    onBeginHistory();
+    setEditingId(el.id);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedId) return;
-      
-      // Don't trigger if typing in a textarea/input
+      if (selectedIds.length === 0) return;
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
 
-      const el = elements.find(item => item.id === selectedId);
-      if (!el) return;
-
       const step = e.shiftKey ? 10 : 1;
-
       switch (e.key) {
         case 'Delete':
         case 'Backspace':
-          onRemove(selectedId);
+          e.preventDefault();
+          onRemoveSelection(selectedIds);
           break;
         case 'ArrowLeft':
-          onUpdate(selectedId, { x: el.x - step });
+          e.preventDefault();
+          onBeginHistory();
+          onNudge(-step, 0, selectedIds);
           break;
         case 'ArrowRight':
-          onUpdate(selectedId, { x: el.x + step });
+          e.preventDefault();
+          onBeginHistory();
+          onNudge(step, 0, selectedIds);
           break;
         case 'ArrowUp':
-          onUpdate(selectedId, { y: el.y - step });
+          e.preventDefault();
+          onBeginHistory();
+          onNudge(0, -step, selectedIds);
           break;
         case 'ArrowDown':
-          onUpdate(selectedId, { y: el.y + step });
+          e.preventDefault();
+          onBeginHistory();
+          onNudge(0, step, selectedIds);
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, elements, onRemove, onUpdate]);
+  }, [selectedIds, onRemoveSelection, onNudge, onBeginHistory]);
 
   const getMousePosition = (e: React.MouseEvent | MouseEvent) => {
     if (!svgRef.current) return { x: 0, y: 0 };
@@ -79,257 +207,343 @@ export const Canvas: React.FC<CanvasProps> = ({
     };
   };
 
+  // Démarre un cadre de sélection sur le fond du canvas
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (e.target !== svgRef.current) return;
+    const pos = getMousePosition(e);
+    setMarquee({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, additive: e.shiftKey });
+  };
+
+  useEffect(() => {
+    if (!marqueeActive) return;
+
+    const move = (e: MouseEvent) => {
+      const pos = getMousePosition(e);
+      setMarquee((m) => (m ? { ...m, x2: pos.x, y2: pos.y } : m));
+    };
+
+    const up = () => {
+      setMarquee((m) => {
+        if (!m) return null;
+        const minX = Math.min(m.x1, m.x2);
+        const maxX = Math.max(m.x1, m.x2);
+        const minY = Math.min(m.y1, m.y2);
+        const maxY = Math.max(m.y1, m.y2);
+
+        // Simple clic (cadre négligeable) : désélection
+        if (maxX - minX < 3 && maxY - minY < 3) {
+          if (!m.additive) onSelect(null);
+          return null;
+        }
+
+        // Sélectionne tout élément dont la boîte croise le cadre
+        const ids = elements
+          .filter((el) => {
+            if (el.locked || el.visible === false) return false;
+            const bbox = bboxes[el.id] || FALLBACK_BBOX;
+            const left = el.x + bbox.x * el.scaleX;
+            const top = el.y + bbox.y * el.scaleY;
+            const right = left + bbox.width * el.scaleX;
+            const bottom = top + bbox.height * el.scaleY;
+            return left < maxX && right > minX && top < maxY && bottom > minY;
+          })
+          .map((el) => el.id);
+
+        onSelectMany(ids, m.additive);
+        return null;
+      });
+    };
+
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, [marqueeActive, elements, bboxes, onSelect, onSelectMany]);
+
   useEffect(() => {
     const newBboxes: { [key: string]: DOMRect } = {};
     elements.forEach((el) => {
       const ref = elementRefs.current[el.id];
       if (ref) {
-        const content = ref.querySelector('text, rect, circle, polygon') as SVGGraphicsElement;
+        const content = ref.querySelector('text, rect, circle, polygon, path') as SVGGraphicsElement;
         if (content) {
           newBboxes[el.id] = content.getBBox();
         }
       }
     });
     setBboxes(newBboxes);
-  }, [elements, selectedId]);
+    onBoundsChange(newBboxes);
+  }, [elements, selectedIds, onBoundsChange]);
 
   const handleMouseDown = (e: React.MouseEvent, el: CompositionElement) => {
     e.stopPropagation();
-    onSelect(el.id);
+    if (el.locked) return; // élément verrouillé : non manipulable au canvas
+    // Shift+clic : (dé)sélection additive, sans démarrer de déplacement
+    if (e.shiftKey) {
+      onSelect(el.id, true);
+      return;
+    }
+    // Clic simple sur un élément déjà dans la sélection multiple : on garde le groupe
+    if (!selectedIds.includes(el.id)) {
+      onSelect(el.id);
+    }
+    onBeginHistory();
+    setActiveId(el.id);
     setDragMode('move');
     const pos = getMousePosition(e);
-    setDragOffset({
-      x: pos.x - el.x,
-      y: pos.y - el.y,
-    });
+    setDragOffset({ x: pos.x - el.x, y: pos.y - el.y });
   };
 
   const handleResizeMouseDown = (e: React.MouseEvent, el: CompositionElement, handle: ResizeHandle) => {
     e.stopPropagation();
     onSelect(el.id);
+    onBeginHistory();
+    setActiveId(el.id);
     setDragMode(handle);
     const pos = getMousePosition(e);
     setDragOffset({ x: pos.x, y: pos.y });
-    
-    // Use bbox if available, otherwise fallback to element property or 100
+
     const bbox = bboxes[el.id];
-    const width = bbox ? bbox.width : ('width' in el ? el.width : 100);
-    const height = bbox ? bbox.height : ('height' in el ? el.height : 100);
-    
-    setInitialSize({ 
-      width, 
-      height, 
-      scaleX: el.scaleX, 
-      scaleY: el.scaleY 
-    });
+    const w = bbox ? bbox.width : ('width' in el ? el.width : 100);
+    const h = bbox ? bbox.height : ('height' in el ? el.height : 100);
+    setInitialSize({ width: w, height: h, scaleX: el.scaleX, scaleY: el.scaleY });
+  };
+
+  const handleRotateMouseDown = (e: React.MouseEvent, el: CompositionElement) => {
+    e.stopPropagation();
+    onSelect(el.id);
+    onBeginHistory();
+    setActiveId(el.id);
+    setDragMode('rotate');
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!dragMode || !selectedId) return;
-      const el = elements.find(item => item.id === selectedId);
+      if (!dragMode || !activeId) return;
+      const el = elements.find((item) => item.id === activeId);
       if (!el) return;
 
       const pos = getMousePosition(e);
       const SNAP_DISTANCE = 8;
 
+      if (dragMode === 'rotate') {
+        const angleRad = Math.atan2(pos.y - el.y, pos.x - el.x);
+        let deg = Math.round(angleRad * (180 / Math.PI) + 90);
+        if (e.shiftKey) deg = Math.round(deg / 15) * 15; // aimantation 15°
+        deg = ((deg % 360) + 360) % 360;
+        onUpdateLive(activeId, { rotation: deg });
+        return;
+      }
+
       if (dragMode === 'move') {
         const mouseX = pos.x - dragOffset.x;
         const mouseY = pos.y - dragOffset.y;
-        
+
+        // Déplacement de groupe (>1 sélectionné) : delta simple, sans guides
+        if (!singleSelected) {
+          setActiveGuides({ x: [], y: [] });
+          setMeasurements([]);
+          onNudge(Math.round(mouseX) - el.x, Math.round(mouseY) - el.y, selectedIds);
+          return;
+        }
+
         let newX = mouseX;
         let newY = mouseY;
-        
-        const currentBbox = bboxes[selectedId] || { x: -50, y: -25, width: 100, height: 50 };
+
+        const currentBbox = bboxes[activeId] || FALLBACK_BBOX;
         const halfW = (currentBbox.width / 2) * el.scaleX;
         const halfH = (currentBbox.height / 2) * el.scaleY;
 
-        const snapX: number[] = [];
-        const snapY: number[] = [];
-
-        // Collect all possible snap points (Edges + Centers)
-        const targetsX = new Set<number>([0, width / 2, width]);
-        const targetsY = new Set<number>([0, height / 2, height]);
-
-        elements.forEach(other => {
-          if (other.id === selectedId) return;
-          const otherBbox = bboxes[other.id] || { x: -50, y: -25, width: 100, height: 50 };
-          const oHalfW = (otherBbox.width / 2) * other.scaleX;
-          const oHalfH = (otherBbox.height / 2) * other.scaleY;
-
-          targetsX.add(other.x); // Center
-          targetsX.add(other.x - oHalfW); // Left
-          targetsX.add(other.x + oHalfW); // Right
-
-          targetsY.add(other.y); // Center
-          targetsY.add(other.y - oHalfH); // Top
-          targetsY.add(other.y + oHalfH); // Bottom
-        });
-
-        // Check horizontal snaps
-        let bestDiffX = SNAP_DISTANCE;
-        targetsX.forEach(tx => {
-          // Check dragged center
-          if (Math.abs(mouseX - tx) < bestDiffX) {
-            newX = tx;
-            bestDiffX = Math.abs(mouseX - tx);
-            snapX.push(tx);
-          }
-          // Check dragged left
-          if (Math.abs((mouseX - halfW) - tx) < bestDiffX) {
-            newX = tx + halfW;
-            bestDiffX = Math.abs((mouseX - halfW) - tx);
-            snapX.push(tx);
-          }
-          // Check dragged right
-          if (Math.abs((mouseX + halfW) - tx) < bestDiffX) {
-            newX = tx - halfW;
-            bestDiffX = Math.abs((mouseX + halfW) - tx);
-            snapX.push(tx);
-          }
-        });
-
-        // Check vertical snaps
-        let bestDiffY = SNAP_DISTANCE;
-        targetsY.forEach(ty => {
-          if (Math.abs(mouseY - ty) < bestDiffY) {
-            newY = ty;
-            bestDiffY = Math.abs(mouseY - ty);
-            snapY.push(ty);
-          }
-          if (Math.abs((mouseY - halfH) - ty) < bestDiffY) {
-            newY = ty + halfH;
-            bestDiffY = Math.abs((mouseY - halfH) - ty);
-            snapY.push(ty);
-          }
-          if (Math.abs((mouseY + halfH) - ty) < bestDiffY) {
-            newY = ty - halfH;
-            bestDiffY = Math.abs((mouseY + halfH) - ty);
-            snapY.push(ty);
-          }
-        });
-
-        // Keep only the current active snap lines
-        setActiveGuides({ 
-          x: snapX.filter(val => Math.abs(val - (newX - halfW)) < 1 || Math.abs(val - newX) < 1 || Math.abs(val - (newX + halfW)) < 1), 
-          y: snapY.filter(val => Math.abs(val - (newY - halfH)) < 1 || Math.abs(val - newY) < 1 || Math.abs(val - (newY + halfH)) < 1) 
-        });
-
-        // Dynamic Measurements (Minimalist Pro UI)
-        const newMeasurements: typeof measurements = [];
-        
-        // Helper to find closest targets
-        const findClosest = (val: number, targets: number[]) => {
-          return targets.reduce((prev, curr) => Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev, targets[0]);
-        };
-
-        const canvasX = [0, width];
-        const canvasY = [0, height];
-        const otherX: number[] = [];
-        const otherY: number[] = [];
-
-        elements.forEach(other => {
-          if (other.id === selectedId) return;
-          const otherBbox = bboxes[other.id] || { x: -50, y: -25, width: 100, height: 50 };
-          const oHalfW = (otherBbox.width / 2) * other.scaleX;
-          const oHalfH = (otherBbox.height / 2) * other.scaleY;
-          otherX.push(other.x - oHalfW, other.x + oHalfW);
-          otherY.push(other.y - oHalfH, other.y + oHalfH);
-        });
-
-        // 1. Measure Horizontal (Closest)
-        const leftTarget = findClosest(newX - halfW, [...canvasX, ...otherX].filter(t => t <= newX - halfW));
-        const rightTarget = findClosest(newX + halfW, [...canvasX, ...otherX].filter(t => t >= newX + halfW));
-        
-        if (leftTarget !== undefined) newMeasurements.push({ x1: leftTarget, y1: newY, x2: newX - halfW, y2: newY, value: Math.round(newX - halfW - leftTarget), label: 'H' });
-        if (rightTarget !== undefined) newMeasurements.push({ x1: newX + halfW, y1: newY, x2: rightTarget, y2: newY, value: Math.round(rightTarget - (newX + halfW)), label: 'H' });
-
-        // 2. Measure Vertical (Closest)
-        const topTarget = findClosest(newY - halfH, [...canvasY, ...otherY].filter(t => t <= newY - halfH));
-        const bottomTarget = findClosest(newY + halfH, [...canvasY, ...otherY].filter(t => t >= newY + halfH));
-
-        if (topTarget !== undefined) newMeasurements.push({ x1: newX, y1: topTarget, x2: newX, y2: newY - halfH, value: Math.round(newY - halfH - topTarget), label: 'V' });
-        if (bottomTarget !== undefined) newMeasurements.push({ x1: newX, y1: newY + halfH, x2: newX, y2: bottomTarget, value: Math.round(bottomTarget - (newY + halfH)), label: 'V' });
-
-        // 3. EQUAL Spacing Check (Simplified visualization)
-        elements.forEach(other => {
-          if (other.id === selectedId) return;
-          const otherBbox = bboxes[other.id] || { x: -50, y: -25, width: 100, height: 50 };
-          const oHalfW = (otherBbox.width / 2) * other.scaleX;
-          const oHalfH = (otherBbox.height / 2) * other.scaleY;
-
-          const gapX = Math.round(Math.abs(newX - other.x) - (halfW + oHalfW));
-          const gapY = Math.round(Math.abs(newY - other.y) - (halfH + oHalfH));
-
-          elements.forEach(third => {
-            if (third.id === selectedId || third.id === other.id) return;
-            const thirdBbox = bboxes[third.id] || { x: -50, y: -25, width: 100, height: 50 };
-            const tHalfW = (thirdBbox.width / 2) * third.scaleX;
-            const tHalfH = (thirdBbox.height / 2) * third.scaleY;
-            const tGapX = Math.round(Math.abs(other.x - third.x) - (oHalfW + tHalfW));
-            const tGapY = Math.round(Math.abs(other.y - third.y) - (oHalfH + tHalfH));
-
-            if (gapX > 0 && Math.abs(gapX - tGapX) < 4 && Math.abs(newY - other.y) < 20) {
-               newX = other.x + (newX > other.x ? (oHalfW + halfW + tGapX) : -(oHalfW + halfW + tGapX));
-               newMeasurements.push({ x1: other.x + (newX > other.x ? oHalfW : -oHalfW), y1: other.y, x2: third.x + (other.x > third.x ? -tHalfW : tHalfW), y2: other.y, value: tGapX, label: 'EQUAL' });
-            }
-            if (gapY > 0 && Math.abs(gapY - tGapY) < 4 && Math.abs(newX - other.x) < 20) {
-               newY = other.y + (newY > other.y ? (oHalfH + halfH + tGapY) : -(oHalfH + halfH + tGapY));
-               newMeasurements.push({ x1: other.x, y1: other.y + (newY > other.y ? oHalfH : -oHalfH), x2: other.x, y2: third.y + (other.y > third.y ? -tHalfH : tHalfH), value: tGapY, label: 'EQUAL' });
-            }
+        // Boîtes absolues des autres éléments
+        const others = elements
+          .filter((o) => o.id !== activeId)
+          .map((o) => {
+            const ob = bboxes[o.id] || FALLBACK_BBOX;
+            const ohw = (ob.width / 2) * o.scaleX;
+            const ohh = (ob.height / 2) * o.scaleY;
+            return { left: o.x - ohw, right: o.x + ohw, cx: o.x, top: o.y - ohh, bottom: o.y + ohh, cy: o.y };
           });
-        });
 
-        setMeasurements(newMeasurements.filter(m => m.value > 1));
-        onUpdate(selectedId, { x: Math.round(newX), y: Math.round(newY) });
+        // --- 1. Aimantation d'alignement (bords + centres) ---
+        const xTargets = [0, width / 2, width, ...others.flatMap((o) => [o.left, o.cx, o.right])];
+        const yTargets = [0, height / 2, height, ...others.flatMap((o) => [o.top, o.cy, o.bottom])];
+
+        let bestX = SNAP_DISTANCE;
+        for (const t of xTargets) {
+          for (const anchor of [-halfW, 0, halfW]) {
+            const d = Math.abs(mouseX + anchor - t);
+            if (d < bestX) { bestX = d; newX = t - anchor; }
+          }
+        }
+        let bestY = SNAP_DISTANCE;
+        for (const t of yTargets) {
+          for (const anchor of [-halfH, 0, halfH]) {
+            const d = Math.abs(mouseY + anchor - t);
+            if (d < bestY) { bestY = d; newY = t - anchor; }
+          }
+        }
+        const xSnapped = bestX < SNAP_DISTANCE;
+        const ySnapped = bestY < SNAP_DISTANCE;
+
+        const box = () => ({ left: newX - halfW, right: newX + halfW, cx: newX, top: newY - halfH, bottom: newY + halfH, cy: newY });
+        let D = box();
+        const EQ = SNAP_DISTANCE * 1.5; // tolérance d'aimantation d'espacement
+
+        // --- 2. Espacement égal HORIZONTAL (reproduit l'écart de la paire voisine) ---
+        let equalH = false;
+        const equalSegH: { a: number; b: number }[] = [];
+        let valueH = 0;
+        {
+          const hOverlap = others.filter((o) => o.top < D.bottom && o.bottom > D.top);
+          const row = [
+            ...hOverlap.map((o) => ({ left: o.left, right: o.right, cx: o.cx, isD: false })),
+            { left: D.left, right: D.right, cx: D.cx, isD: true },
+          ].sort((a, b) => a.cx - b.cx);
+          const di = row.findIndex((r) => r.isD);
+          const L = row[di - 1], R = row[di + 1], LL = row[di - 2], RR = row[di + 2];
+          const gL = L ? D.left - L.right : Infinity;
+          const gR = R ? R.left - D.right : Infinity;
+
+          if (!xSnapped && L && R && gL > 0 && gR > 0 && Math.abs(gL - gR) <= EQ) {
+            // Centré entre deux voisins
+            newX = (L.right + R.left) / 2; D = box();
+            valueH = Math.round(D.left - L.right);
+            equalSegH.push({ a: L.right, b: D.left }, { a: D.right, b: R.left });
+            equalH = true;
+          } else if (!xSnapped && L && LL) {
+            const ref = L.left - LL.right; // écart de la paire à gauche
+            if (ref > 0 && Math.abs(gL - ref) <= EQ) {
+              newX = L.right + ref + halfW; D = box();
+              valueH = Math.round(ref);
+              equalSegH.push({ a: LL.right, b: L.left }, { a: L.right, b: D.left });
+              equalH = true;
+            }
+          }
+          if (!equalH && !xSnapped && R && RR) {
+            const ref = RR.left - R.right; // écart de la paire à droite
+            if (ref > 0 && Math.abs(gR - ref) <= EQ) {
+              newX = R.left - ref - halfW; D = box();
+              valueH = Math.round(ref);
+              equalSegH.push({ a: D.right, b: R.left }, { a: R.right, b: RR.left });
+              equalH = true;
+            }
+          }
+        }
+
+        // --- 3. Espacement égal VERTICAL ---
+        let equalV = false;
+        const equalSegV: { a: number; b: number }[] = [];
+        let valueV = 0;
+        {
+          const vOverlap = others.filter((o) => o.left < D.right && o.right > D.left);
+          const row = [
+            ...vOverlap.map((o) => ({ top: o.top, bottom: o.bottom, cy: o.cy, isD: false })),
+            { top: D.top, bottom: D.bottom, cy: D.cy, isD: true },
+          ].sort((a, b) => a.cy - b.cy);
+          const di = row.findIndex((r) => r.isD);
+          const T = row[di - 1], B = row[di + 1], TT = row[di - 2], BB = row[di + 2];
+          const gT = T ? D.top - T.bottom : Infinity;
+          const gB = B ? B.top - D.bottom : Infinity;
+
+          if (!ySnapped && T && B && gT > 0 && gB > 0 && Math.abs(gT - gB) <= EQ) {
+            newY = (T.bottom + B.top) / 2; D = box();
+            valueV = Math.round(D.top - T.bottom);
+            equalSegV.push({ a: T.bottom, b: D.top }, { a: D.bottom, b: B.top });
+            equalV = true;
+          } else if (!ySnapped && T && TT) {
+            const ref = T.top - TT.bottom;
+            if (ref > 0 && Math.abs(gT - ref) <= EQ) {
+              newY = T.bottom + ref + halfH; D = box();
+              valueV = Math.round(ref);
+              equalSegV.push({ a: TT.bottom, b: T.top }, { a: T.bottom, b: D.top });
+              equalV = true;
+            }
+          }
+          if (!equalV && !ySnapped && B && BB) {
+            const ref = BB.top - B.bottom;
+            if (ref > 0 && Math.abs(gB - ref) <= EQ) {
+              newY = B.top - ref - halfH; D = box();
+              valueV = Math.round(ref);
+              equalSegV.push({ a: D.bottom, b: B.top }, { a: B.bottom, b: BB.top });
+              equalV = true;
+            }
+          }
+        }
+
+        // --- 4. Voisins finaux (pour l'affichage de distance) ---
+        const hOverlap = others.filter((o) => o.top < D.bottom && o.bottom > D.top);
+        const vOverlap = others.filter((o) => o.left < D.right && o.right > D.left);
+        const leftN = hOverlap.filter((o) => o.right <= D.left + 0.5).sort((a, b) => b.right - a.right)[0];
+        const rightN = hOverlap.filter((o) => o.left >= D.right - 0.5).sort((a, b) => a.left - b.left)[0];
+        const topN = vOverlap.filter((o) => o.bottom <= D.top + 0.5).sort((a, b) => b.bottom - a.bottom)[0];
+        const bottomN = vOverlap.filter((o) => o.top >= D.bottom - 0.5).sort((a, b) => a.top - b.top)[0];
+
+        // --- 5. Lignes d'alignement actives ---
+        const guideX = new Set<number>();
+        const guideY = new Set<number>();
+        for (const t of xTargets) {
+          if (Math.abs(D.left - t) < 0.5 || Math.abs(D.cx - t) < 0.5 || Math.abs(D.right - t) < 0.5) guideX.add(t);
+        }
+        for (const t of yTargets) {
+          if (Math.abs(D.top - t) < 0.5 || Math.abs(D.cy - t) < 0.5 || Math.abs(D.bottom - t) < 0.5) guideY.add(t);
+        }
+        setActiveGuides({ x: [...guideX], y: [...guideY] });
+
+        // --- 6. Mesures (doubles flèches) ---
+        const m: typeof measurements = [];
+
+        if (equalH) {
+          equalSegH.forEach((s) => m.push({ x1: s.a, y1: D.cy, x2: s.b, y2: D.cy, value: valueH, kind: 'equal' }));
+        } else {
+          // distance au voisin le plus proche (ou au bord du canvas)
+          const gapL = Math.round(D.left - (leftN ? leftN.right : 0));
+          const gapR = Math.round((rightN ? rightN.left : width) - D.right);
+          if (gapL > 0) m.push({ x1: leftN ? leftN.right : 0, y1: D.cy, x2: D.left, y2: D.cy, value: gapL, kind: 'spacing' });
+          if (gapR > 0) m.push({ x1: D.right, y1: D.cy, x2: rightN ? rightN.left : width, y2: D.cy, value: gapR, kind: 'spacing' });
+        }
+
+        if (equalV) {
+          equalSegV.forEach((s) => m.push({ x1: D.cx, y1: s.a, x2: D.cx, y2: s.b, value: valueV, kind: 'equal' }));
+        } else {
+          const gapT = Math.round(D.top - (topN ? topN.bottom : 0));
+          const gapB = Math.round((bottomN ? bottomN.top : height) - D.bottom);
+          if (gapT > 0) m.push({ x1: D.cx, y1: topN ? topN.bottom : 0, x2: D.cx, y2: D.top, value: gapT, kind: 'spacing' });
+          if (gapB > 0) m.push({ x1: D.cx, y1: D.bottom, x2: D.cx, y2: bottomN ? bottomN.top : height, value: gapB, kind: 'spacing' });
+        }
+
+        setMeasurements(m);
+        onNudge(Math.round(newX) - el.x, Math.round(newY) - el.y, selectedIds);
       } else {
+        // Redimensionnement (uniquement en sélection unique)
         let mouseX = pos.x;
         let mouseY = pos.y;
-        
         const snapX: number[] = [];
         const snapY: number[] = [];
-
-        // Collect all possible snap points
         const targetsX = new Set<number>([0, width / 2, width]);
         const targetsY = new Set<number>([0, height / 2, height]);
 
-        elements.forEach(other => {
-          if (other.id === selectedId) return;
-          const otherBbox = bboxes[other.id] || { x: -50, y: -25, width: 100, height: 50 };
+        elements.forEach((other) => {
+          if (other.id === activeId) return;
+          const otherBbox = bboxes[other.id] || FALLBACK_BBOX;
           const oHalfW = (otherBbox.width / 2) * other.scaleX;
           const oHalfH = (otherBbox.height / 2) * other.scaleY;
-          targetsX.add(other.x);
-          targetsX.add(other.x - oHalfW);
-          targetsX.add(other.x + oHalfW);
-          targetsY.add(other.y);
-          targetsY.add(other.y - oHalfH);
-          targetsY.add(other.y + oHalfH);
+          targetsX.add(other.x); targetsX.add(other.x - oHalfW); targetsX.add(other.x + oHalfW);
+          targetsY.add(other.y); targetsY.add(other.y - oHalfH); targetsY.add(other.y + oHalfH);
         });
 
-        // Snap the mouse position (the handle)
-        targetsX.forEach(tx => {
-          if (Math.abs(mouseX - tx) < SNAP_DISTANCE) {
-            mouseX = tx;
-            snapX.push(tx);
-          }
-        });
-        targetsY.forEach(ty => {
-          if (Math.abs(mouseY - ty) < SNAP_DISTANCE) {
-            mouseY = ty;
-            snapY.push(ty);
-          }
-        });
+        targetsX.forEach((tx) => { if (Math.abs(mouseX - tx) < SNAP_DISTANCE) { mouseX = tx; snapX.push(tx); } });
+        targetsY.forEach((ty) => { if (Math.abs(mouseY - ty) < SNAP_DISTANCE) { mouseY = ty; snapY.push(ty); } });
 
         const dx = mouseX - dragOffset.x;
         const dy = mouseY - dragOffset.y;
 
         setActiveGuides({ x: snapX, y: snapY });
-        setMeasurements([]); // Hide measurements during resize for clarity
+        setMeasurements([]);
 
-        // Determine multiplier based on handle position
         let multX = 0;
         let multY = 0;
-
         if (dragMode.includes('e')) multX = 1;
         if (dragMode.includes('w')) multX = -1;
         if (dragMode.includes('s')) multY = 1;
@@ -338,31 +552,28 @@ export const Canvas: React.FC<CanvasProps> = ({
         if (el.type === 'text') {
           const ratioX = 1 + (dx * multX * 2) / Math.max(1, initialSize.width);
           const ratioY = 1 + (dy * multY * 2) / Math.max(1, initialSize.height);
-
           const updates: Partial<CompositionElement> = {};
           if (multX !== 0) updates.scaleX = Math.max(0.1, initialSize.scaleX * ratioX);
           if (multY !== 0) updates.scaleY = Math.max(0.1, initialSize.scaleY * ratioY);
-          onUpdate(selectedId, updates);
+          onUpdateLive(activeId, updates);
         } else if (el.type === 'circle') {
-          // Circles always maintain aspect ratio
           const delta = Math.max(dx * multX, dy * multY);
           if (multX !== 0 || multY !== 0) {
-            onUpdate(selectedId, { 
-              width: Math.max(10, initialSize.width + delta * 2),
-              height: Math.max(10, initialSize.width + delta * 2)
-            } as any);
+            const size = Math.max(10, initialSize.width + delta * 2);
+            onUpdateLive(activeId, { width: size, height: size });
           }
         } else {
-          const updates: any = {};
+          const updates: { width?: number; height?: number } = {};
           if (multX !== 0) updates.width = Math.max(10, initialSize.width + dx * multX * 2);
           if (multY !== 0) updates.height = Math.max(10, initialSize.height + dy * multY * 2);
-          onUpdate(selectedId, updates as Partial<CompositionElement>);
+          onUpdateLive(activeId, updates);
         }
       }
     };
 
     const handleMouseUp = () => {
       setDragMode(null);
+      setActiveId(null);
       setActiveGuides({ x: [], y: [] });
       setMeasurements([]);
     };
@@ -376,7 +587,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragMode, selectedId, dragOffset, onUpdate, elements, initialSize, width, height, bboxes]);
+  }, [dragMode, activeId, dragOffset, onUpdateLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected]);
 
   return (
     <div className="flex items-center justify-center bg-gray-200 p-8 w-full h-full overflow-auto">
@@ -388,18 +599,16 @@ export const Canvas: React.FC<CanvasProps> = ({
         viewBox={`0 0 ${width} ${height}`}
         style={{ backgroundColor }}
         className="shadow-2xl cursor-default"
-        onClick={(e) => {
-          if (e.target === svgRef.current) onSelect(null);
-        }}
+        onMouseDown={handleCanvasMouseDown}
       >
         {elements.map((el) => {
-          const isSelected = el.id === selectedId;
-          // Split transform: outer for position/rotation, inner for scale
+          if (el.visible === false) return null;
+          const isSelected = selectedIds.includes(el.id);
+          const showHandles = singleSelected && isSelected && editingId !== el.id;
           const outerTransform = `translate(${el.x}, ${el.y}) rotate(${el.rotation})`;
           const innerTransform = `scale(${el.scaleX}, ${el.scaleY})`;
-          const bbox = bboxes[el.id] || { x: -50, y: -25, width: 100, height: 50 };
-          
-          // Scaled dimensions for the selection UI
+          const bbox = bboxes[el.id] || FALLBACK_BBOX;
+
           const sw = bbox.width * el.scaleX;
           const sh = bbox.height * el.scaleY;
           const sx = bbox.x * el.scaleX;
@@ -412,105 +621,136 @@ export const Canvas: React.FC<CanvasProps> = ({
               transform={outerTransform}
               onMouseDown={(e) => handleMouseDown(e, el)}
               onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => { e.stopPropagation(); startEditing(el); }}
               style={{ cursor: dragMode === 'move' && isSelected ? 'grabbing' : 'grab', opacity: el.opacity }}
             >
-              {/* Scaled Content Layer */}
               <g transform={innerTransform}>
-                {el.type === 'text' && (
+                {el.type === 'text' && editingId !== el.id && (
                   <text x="0" y="0" fontSize={el.fontSize} fontFamily={el.fontFamily} fontWeight={el.fontWeight} fill={el.color} textAnchor="middle" dominantBaseline="middle" className="select-none">
                     {el.text}
                   </text>
                 )}
-                {el.type === 'rect' && <rect x={-el.width / 2} y={-el.height / 2} width={el.width} height={el.height} fill={el.color} />}
+                {el.type === 'text' && editingId === el.id && (() => {
+                  const w = Math.max((bboxes[el.id]?.width ?? 200) + 40, 60);
+                  const h = el.fontSize * 1.4;
+                  return (
+                    <foreignObject x={-w / 2} y={-h / 2} width={w} height={h} style={{ overflow: 'visible' }}>
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <input
+                          ref={editInputRef}
+                          value={el.text}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onChange={(e) => onUpdateLive(el.id, { text: e.target.value })}
+                          onBlur={() => setEditingId(null)}
+                          onKeyDown={(e) => {
+                            e.stopPropagation();
+                            if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); setEditingId(null); }
+                          }}
+                          style={{
+                            width: '100%', textAlign: 'center', padding: 0, margin: 0,
+                            border: 'none', outline: '1px dashed #3b82f6',
+                            background: 'rgba(255,255,255,0.5)',
+                            fontSize: el.fontSize, fontFamily: el.fontFamily, fontWeight: el.fontWeight as React.CSSProperties['fontWeight'],
+                            color: el.color, lineHeight: 1.2,
+                          }}
+                        />
+                      </div>
+                    </foreignObject>
+                  );
+                })()}
+                {(el.type === 'rect' || el.type === 'line') && <rect x={-el.width / 2} y={-el.height / 2} width={el.width} height={el.height} fill={el.color} />}
                 {el.type === 'circle' && <circle cx="0" cy="0" r={el.width / 2} fill={el.color} />}
                 {el.type === 'triangle' && <polygon points={`0,${-el.height / 2} ${el.width / 2},${el.height / 2} ${-el.width / 2},${el.height / 2}`} fill={el.color} />}
+                {el.type === 'semicircle' && <path d={`M ${-el.width / 2},${el.height / 2} A ${el.width / 2} ${el.height} 0 0 1 ${el.width / 2} ${el.height / 2} Z`} fill={el.color} />}
+                {el.type === 'quarter' && <path d={`M ${-el.width / 2},${el.height / 2} L ${el.width / 2},${el.height / 2} A ${el.width} ${el.height} 0 0 0 ${-el.width / 2},${-el.height / 2} Z`} fill={el.color} />}
+                {el.type === 'ring' && <path fillRule="evenodd" d={`M ${-el.width / 2},0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${el.width / 2} 0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${-el.width / 2} 0 Z M ${-el.width / 4},0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${el.width / 4} 0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${-el.width / 4} 0 Z`} fill={el.color} />}
               </g>
-              
-              {/* Constant-size Selection UI Layer (not affected by innerTransform scale) */}
+
+              {/* Contour de sélection (toujours visible si sélectionné) */}
               {isSelected && (
-                <>
-                  <rect x={sx - 5} y={sy - 5} width={sw + 10} height={sh + 10} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="4" className="pointer-events-none" />
-                  
-                  {/* Corners */}
+                <rect x={sx - 5} y={sy - 5} width={sw + 10} height={sh + 10} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray={showHandles ? '4' : '2'} className="pointer-events-none export-ignore" />
+              )}
+
+              {/* Poignées (sélection unique uniquement) */}
+              {showHandles && (
+                <g className="export-ignore">
+                  {/* Poignée de rotation */}
+                  <line x1={sx + sw / 2} y1={sy - 5} x2={sx + sw / 2} y2={sy - 28} stroke="#3b82f6" strokeWidth="1.5" className="pointer-events-none" />
+                  <circle cx={sx + sw / 2} cy={sy - 32} r="6" fill="white" stroke="#3b82f6" strokeWidth="1.5" style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e, el)} />
+
+                  {/* Coins */}
                   <rect x={sx - 10} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'nw')} />
                   <rect x={sx + sw} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'ne')} />
                   <rect x={sx - 10} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'sw')} />
                   <rect x={sx + sw} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'se')} />
-                  
-                  {/* Mid-points */}
+
+                  {/* Milieux */}
                   <rect x={sx + sw / 2 - 5} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'n')} />
                   <rect x={sx + sw / 2 - 5} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 's')} />
                   <rect x={sx - 10} y={sy + sh / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'w')} />
                   <rect x={sx + sw} y={sy + sh / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'e')} />
-                </>
+                </g>
               )}
             </g>
           );
         })}
 
-        {/* Overlay Layer (Guides & Measurements) */}
-        <g className="pointer-events-none">
-          {/* Alignment Guides */}
-          {activeGuides.x.map((x, i) => <line key={`gx-${i}`} x1={x} y1="0" x2={x} y2={height} stroke="#ff00ff" strokeWidth="1" strokeDasharray="4" />)}
-          {activeGuides.y.map((y, i) => <line key={`gy-${i}`} x1="0" y1={y} x2={width} y2={y} stroke="#ff00ff" strokeWidth="1" strokeDasharray="4" />)}
+        {/* Overlay : guides & mesures */}
+        <g className="pointer-events-none export-ignore">
+          {/* Lignes d'alignement (rouge, nettes) */}
+          {activeGuides.x.map((x, i) => <line key={`gx-${i}`} x1={x} y1="0" x2={x} y2={height} stroke="#f43f5e" strokeWidth="1" />)}
+          {activeGuides.y.map((y, i) => <line key={`gy-${i}`} x1="0" y1={y} x2={width} y2={y} stroke="#f43f5e" strokeWidth="1" />)}
 
-          {/* Measurements */}
+          {/* Badges d'espacement (bleu) / espacement égal (rose) */}
           {measurements.map((m, i) => {
-            const labelStr = m.value.toString();
-            const labelW = Math.max(20, labelStr.length * 8 + 8);
             const isVertical = m.x1 === m.x2;
-            const isDistribution = m.label === 'EQUAL';
-            const color = isDistribution ? "#f59e0b" : "#3b82f6";
-            
-            // Calculate arrow points
-            const arrowSize = 4;
-            const renderArrows = m.value > 15; // Only show arrows if space allows
+            const color = m.kind === 'equal' ? '#ec4899' : '#2563eb';
+            const labelW = Math.max(18, String(m.value).length * 7 + 8);
+            const mx = (m.x1 + m.x2) / 2;
+            const my = (m.y1 + m.y2) / 2;
+            const a = 3; // taille des têtes de flèche
+            // Pastille décalée pour ne pas masquer la ligne de mesure
+            const labelCx = isVertical ? mx + labelW / 2 + 5 : mx;
+            const labelCy = isVertical ? my : my - 11;
 
             return (
               <g key={`m-${i}`}>
-                {/* Segment Line */}
                 <line x1={m.x1} y1={m.y1} x2={m.x2} y2={m.y2} stroke={color} strokeWidth="1" />
-                
-                {/* Arrows */}
-                {renderArrows && (
-                  isVertical ? (
-                    <>
-                      <path d={`M${m.x1-arrowSize},${m.y1+arrowSize} L${m.x1},${m.y1} L${m.x1+arrowSize},${m.y1+arrowSize}`} fill="none" stroke={color} strokeWidth="1" />
-                      <path d={`M${m.x1-arrowSize},${m.y2-arrowSize} L${m.x1},${m.y2} L${m.x1+arrowSize},${m.y2-arrowSize}`} fill="none" stroke={color} strokeWidth="1" />
-                    </>
-                  ) : (
-                    <>
-                      <path d={`M${m.x1+arrowSize},${m.y1-arrowSize} L${m.x1},${m.y1} L${m.x1+arrowSize},${m.y1+arrowSize}`} fill="none" stroke={color} strokeWidth="1" />
-                      <path d={`M${m.x2-arrowSize},${m.y1-arrowSize} L${m.x2},${m.y1} L${m.x2-arrowSize},${m.y1+arrowSize}`} fill="none" stroke={color} strokeWidth="1" />
-                    </>
-                  )
+                {/* Doubles flèches aux extrémités */}
+                {isVertical ? (
+                  <>
+                    <path d={`M${m.x1 - a},${m.y1 + a} L${m.x1},${m.y1} L${m.x1 + a},${m.y1 + a}`} fill="none" stroke={color} strokeWidth="1" />
+                    <path d={`M${m.x2 - a},${m.y2 - a} L${m.x2},${m.y2} L${m.x2 + a},${m.y2 - a}`} fill="none" stroke={color} strokeWidth="1" />
+                  </>
+                ) : (
+                  <>
+                    <path d={`M${m.x1 + a},${m.y1 - a} L${m.x1},${m.y1} L${m.x1 + a},${m.y1 + a}`} fill="none" stroke={color} strokeWidth="1" />
+                    <path d={`M${m.x2 - a},${m.y2 - a} L${m.x2},${m.y2} L${m.x2 - a},${m.y2 + a}`} fill="none" stroke={color} strokeWidth="1" />
+                  </>
                 )}
-
-                {/* Compact Label */}
-                <rect 
-                  x={(m.x1 + m.x2) / 2 - labelW / 2} 
-                  y={(m.y1 + m.y2) / 2 - 7} 
-                  width={labelW} 
-                  height="14" 
-                  fill={color} 
-                  rx="2" 
-                />
-                <text 
-                  x={(m.x1 + m.x2) / 2} 
-                  y={(m.y1 + m.y2) / 2} 
-                  fontSize="8" 
-                  fontWeight="bold" 
-                  fill="white" 
-                  textAnchor="middle" 
-                  dominantBaseline="middle"
-                  className="select-none font-mono"
-                >
+                <rect x={labelCx - labelW / 2} y={labelCy - 7} width={labelW} height="14" fill={color} rx="3" />
+                <text x={labelCx} y={labelCy} fontSize="9" fontWeight="bold" fill="white" textAnchor="middle" dominantBaseline="central" className="select-none font-mono">
                   {m.value}
                 </text>
               </g>
             );
           })}
         </g>
+
+        {/* Cadre de sélection (rubber-band) — très discret */}
+        {marquee && (
+          <rect
+            x={Math.min(marquee.x1, marquee.x2)}
+            y={Math.min(marquee.y1, marquee.y2)}
+            width={Math.abs(marquee.x2 - marquee.x1)}
+            height={Math.abs(marquee.y2 - marquee.y1)}
+            fill="rgba(59, 130, 246, 0.06)"
+            stroke="#3b82f6"
+            strokeWidth="0.5"
+            strokeDasharray="3 3"
+            className="pointer-events-none export-ignore"
+          />
+        )}
       </svg>
     </div>
   );

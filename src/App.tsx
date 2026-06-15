@@ -1,21 +1,44 @@
+import { useEffect, useRef, useCallback } from 'react';
 import { useComposition } from './hooks/useComposition';
 import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
+import { LayersPanel } from './components/LayersPanel';
+import type { ElementBounds, AlignDirection, DistributeAxis } from './types';
+
+// Polices Google utilisées dans l'éditeur (pour tentative d'embarquement à l'export)
+const GOOGLE_FONTS_CSS =
+  'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Outfit:wght@400;700;900&family=Space+Grotesk:wght@400;700&family=Syne:wght@400;700;800&display=swap';
 
 function App() {
   const {
     elements,
-    selectedId,
+    selectedIds,
     backgroundColor,
     canvasWidth,
     canvasHeight,
     customColors,
     customFonts,
+    canUndo,
+    canRedo,
     addElement,
     updateElement,
-    removeElement,
+    updateElementLive,
+    nudgeSelection,
+    removeSelection,
+    duplicateSelection,
     selectElement,
+    selectAll,
+    selectMany,
+    toggleVisible,
+    toggleLock,
+    renameElement,
+    reorderElements,
+    copySelection,
+    pasteClipboard,
+    setCanvasSize,
+    loadTemplate,
     setBackgroundColor,
+    applyColor,
     saveColor,
     addCustomFont,
     bringToFront,
@@ -23,66 +46,181 @@ function App() {
     clearCanvas,
     alignElements,
     distributeElements,
+    beginHistory,
+    undo,
+    redo,
   } = useComposition();
 
-  const selectedElement = elements.find((el) => el.id === selectedId) || null;
+  const selectedElement =
+    selectedIds.length === 1 ? elements.find((el) => el.id === selectedIds[0]) ?? null : null;
 
-  const handleExport = (format: 'svg' | 'png' | 'jpg') => {
-    const svgElement = document.getElementById('bauhaus-svg');
-    if (!svgElement) return;
+  // Boîtes englobantes mesurées par le Canvas (pour un alignement aux bords réels)
+  const boundsRef = useRef<ElementBounds>({});
+  const handleBoundsChange = useCallback((b: ElementBounds) => {
+    boundsRef.current = b;
+  }, []);
+  const handleAlign = useCallback(
+    (dir: AlignDirection, toPage: boolean) => alignElements(dir, selectedIds, boundsRef.current, toPage),
+    [alignElements, selectedIds],
+  );
+  const handleDistribute = useCallback(
+    (axis: DistributeAxis) => distributeElements(axis, selectedIds, boundsRef.current),
+    [distributeElements, selectedIds],
+  );
+
+  // Raccourcis clavier globaux
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA';
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) {
+        if (e.key === 'Escape') selectElement(null);
+        return;
+      }
+      switch (e.key.toLowerCase()) {
+        case 'z':
+          if (typing) return;
+          e.preventDefault();
+          if (e.shiftKey) redo();
+          else undo();
+          break;
+        case 'y':
+          if (typing) return;
+          e.preventDefault();
+          redo();
+          break;
+        case 'd':
+          if (typing) return;
+          e.preventDefault();
+          duplicateSelection(selectedIds);
+          break;
+        case 'a':
+          if (typing) return;
+          e.preventDefault();
+          selectAll();
+          break;
+        case 'c':
+          if (typing) return;
+          copySelection(selectedIds);
+          break;
+        case 'x':
+          if (typing) return;
+          copySelection(selectedIds);
+          removeSelection(selectedIds);
+          break;
+        case 'v':
+          if (typing) return;
+          e.preventDefault();
+          pasteClipboard();
+          break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [undo, redo, duplicateSelection, selectAll, selectElement, selectedIds, copySelection, removeSelection, pasteClipboard]);
+
+  /** Construit une chaîne SVG exportable : UI de sélection retirée + polices embarquées. */
+  const buildExportSvg = async (): Promise<string | null> => {
+    const svgElement = document.getElementById('bauhaus-svg') as SVGSVGElement | null;
+    if (!svgElement) return null;
+
+    const clone = svgElement.cloneNode(true) as SVGSVGElement;
+    clone.querySelectorAll('.export-ignore').forEach((node) => node.remove());
+
+    // @font-face pour les polices importées (data URL → autonome)
+    const faces = customFonts
+      .map((f) => `@font-face{font-family:'${f.name}';src:url(${f.data});}`)
+      .join('\n');
+
+    // Tentative d'embarquement des Google Fonts (fonctionne en ligne)
+    let googleCss = '';
+    try {
+      const res = await fetch(GOOGLE_FONTS_CSS);
+      if (res.ok) googleCss = await res.text();
+    } catch {
+      /* hors-ligne : on retombe sur les polices système */
+    }
+
+    if (faces || googleCss) {
+      const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      styleEl.textContent = `${googleCss}\n${faces}`;
+      clone.insertBefore(styleEl, clone.firstChild);
+    }
+
+    return new XMLSerializer().serializeToString(clone);
+  };
+
+  const downloadUrl = (url: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExport = async (format: 'svg' | 'png' | 'jpg') => {
+    const svgData = await buildExportSvg();
+    if (!svgData) return;
 
     if (format === 'svg') {
-      const svgData = new XMLSerializer().serializeToString(svgElement);
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'bauhaus-composition.svg';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      const svgData = new XMLSerializer().serializeToString(svgElement);
-      const canvas = document.createElement('canvas');
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const img = new Image();
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-
-      img.onload = () => {
-        ctx.fillStyle = backgroundColor;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-
-        const dataUrl = canvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 1.0);
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = `bauhaus-composition.${format}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      };
-      img.src = url;
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      downloadUrl(url, 'bauhaus-composition.svg');
+      URL.revokeObjectURL(url);
+      return;
     }
+
+    // Assure que les polices sont prêtes avant la rastérisation
+    if (document.fonts?.ready) {
+      try { await document.fonts.ready; } catch { /* ignore */ }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    img.onload = () => {
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const dataUrl = canvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 1.0);
+      downloadUrl(dataUrl, `bauhaus-composition.${format}`);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      alert("Échec de l'export de l'image.");
+    };
+    img.src = url;
   };
 
   return (
     <div className="flex h-screen w-screen bg-gray-100 overflow-hidden font-sans text-gray-900">
       <Sidebar
         selectedElement={selectedElement}
+        selectionCount={selectedIds.length}
+        elementCount={elements.length}
         backgroundColor={backgroundColor}
         customColors={customColors}
         customFonts={customFonts}
         canvasWidth={canvasWidth}
         canvasHeight={canvasHeight}
+        canUndo={canUndo}
+        canRedo={canRedo}
         onAddElement={addElement}
         onUpdateElement={updateElement}
-        onRemoveElement={removeElement}
+        onUpdateElementLive={updateElementLive}
+        onBeginHistory={beginHistory}
+        onRemoveElement={(id) => removeSelection([id])}
+        onDuplicate={() => duplicateSelection(selectedIds)}
         onUpdateBackground={setBackgroundColor}
         onSaveColor={saveColor}
         onAddCustomFont={addCustomFont}
@@ -90,27 +228,48 @@ function App() {
         onSendToBack={sendToBack}
         onExport={handleExport}
         onClearCanvas={clearCanvas}
-        onAlign={alignElements}
-        onDistribute={distributeElements}
+        onAlign={handleAlign}
+        onDistribute={handleDistribute}
+        onUndo={undo}
+        onRedo={redo}
+        onApplyColor={(color) => applyColor(color, selectedIds)}
+        onSetCanvasSize={setCanvasSize}
+        onLoadTemplate={loadTemplate}
       />
       <main className="flex-1 h-full relative overflow-hidden flex items-center justify-center">
         <Canvas
           elements={elements}
-          selectedId={selectedId}
+          selectedIds={selectedIds}
           backgroundColor={backgroundColor}
           width={canvasWidth}
           height={canvasHeight}
           onSelect={selectElement}
-          onUpdate={updateElement}
-          onRemove={removeElement}
+          onSelectMany={selectMany}
+          onUpdateLive={updateElementLive}
+          onNudge={nudgeSelection}
+          onRemoveSelection={removeSelection}
+          onBeginHistory={beginHistory}
+          onBoundsChange={handleBoundsChange}
         />
-        
+
         {/* Status Bar */}
         <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur px-3 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-4 text-[10px] font-mono text-gray-500 uppercase tracking-widest">
-           <span>{elements.length} éléments</span>
-           <span>{canvasWidth}x{canvasHeight}px</span>
+          <span>{elements.length} éléments</span>
+          {selectedIds.length > 0 && <span>{selectedIds.length} sél.</span>}
+          <span>{canvasWidth}x{canvasHeight}px</span>
         </div>
       </main>
+
+      <LayersPanel
+        elements={elements}
+        selectedIds={selectedIds}
+        onSelect={selectElement}
+        onReorder={reorderElements}
+        onToggleVisible={toggleVisible}
+        onToggleLock={toggleLock}
+        onRename={renameElement}
+        onRemove={(id) => removeSelection([id])}
+      />
     </div>
   );
 }

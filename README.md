@@ -1,73 +1,48 @@
-# React + TypeScript + Vite
+# Bauhaus Visual Generator 🎨
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Éditeur graphique vectoriel (SVG) dans le navigateur pour composer des affiches et
+visuels inspirés du **Bauhaus**. Glisse, aligne et exporte — 100 % côté client,
+aucune installation côté serveur, tout est sauvegardé localement dans ton navigateur.
 
-Currently, two official plugins are available:
+![Bauhaus](docs/Gemini_Generated_Image_wt0a5qwt0a5qwt0a.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Fonctionnalités
 
-## React Compiler
+- **Éléments** : texte, rectangle, cercle, triangle.
+- **Manipulation directe sur le canvas** : déplacement, redimensionnement par 8 poignées.
+- **Smart guides** : lignes d'alignement automatiques (bords + centres) pendant le drag.
+- **Cotes de mesure dynamiques** : distances aux bords/voisins affichées en temps réel,
+  détection d'espacement égal (distribution).
+- **Alignement & distribution** automatiques depuis la barre latérale.
+- **Z-order** : premier plan / arrière-plan.
+- **Couleurs** : sélecteur + saisie hex + palette Bauhaus + couleurs mémorisées.
+- **Polices** : Google Fonts (Montserrat, Outfit, Space Grotesk, Syne) + import de tes
+  propres polices (OTF/TTF/WOFF).
+- **Clavier** : flèches pour déplacer (Maj = pas de 10 px), Suppr/Backspace pour supprimer.
+- **Export** : SVG, PNG, JPG.
+- **Persistance** : ta composition est sauvegardée automatiquement (localStorage).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Démarrage
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev      # http://localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Scripts
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Commande          | Description                          |
+|-------------------|--------------------------------------|
+| `npm run dev`     | Serveur de développement (HMR)       |
+| `npm run build`   | Build de production (`tsc -b` + Vite)|
+| `npm run lint`    | Analyse ESLint                       |
+| `npm run preview` | Prévisualise le build de production  |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Stack
+
+React 19 · TypeScript · Vite 8 · Tailwind CSS v4 · lucide-react
+
+## Documentation
+
+Voir [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) pour le détail technique
+(modèle de données, flux d'état, fonctionnement des smart guides, export).

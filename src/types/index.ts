@@ -1,4 +1,5 @@
-export type ElementType = 'text' | 'rect' | 'circle' | 'triangle';
+export type ShapeType = 'rect' | 'circle' | 'triangle' | 'semicircle' | 'quarter' | 'ring' | 'line';
+export type ElementType = 'text' | ShapeType;
 
 export interface BaseElement {
   id: string;
@@ -10,6 +11,12 @@ export interface BaseElement {
   scaleY: number;
   color: string;
   opacity: number;
+  /** Métadonnées de calque (optionnelles, défauts appliqués au rendu). */
+  name?: string;
+  visible?: boolean;
+  locked?: boolean;
+  /** Identifiant de groupe : les éléments partageant la même valeur se sélectionnent ensemble. */
+  groupId?: string;
 }
 
 export interface TextElement extends BaseElement {
@@ -21,19 +28,31 @@ export interface TextElement extends BaseElement {
 }
 
 export interface ShapeElement extends BaseElement {
-  type: 'rect' | 'circle' | 'triangle';
+  type: ShapeType;
   width: number;
   height: number;
 }
 
 export type CompositionElement = TextElement | ShapeElement;
 
-export interface CompositionState {
+/** Police importée par l'utilisateur. `data` est un data URL base64 (persistable). */
+export interface CustomFont {
+  name: string;
+  data: string;
+}
+
+/** Partie « document » de l'état : c'est elle qui est historisée (undo/redo). */
+export interface DocState {
   elements: CompositionElement[];
-  selectedId: string | null;
   backgroundColor: string;
   canvasWidth: number;
   canvasHeight: number;
   customColors: string[];
-  customFonts: string[];
+  customFonts: CustomFont[];
 }
+
+export type AlignDirection = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
+export type DistributeAxis = 'horizontal' | 'vertical';
+
+/** Boîtes englobantes locales (pré-scale) mesurées via getBBox, indexées par id. */
+export type ElementBounds = Record<string, { x: number; y: number; width: number; height: number }>;
