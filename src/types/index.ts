@@ -25,6 +25,11 @@ export interface TextElement extends BaseElement {
   fontSize: number;
   fontFamily: string;
   fontWeight: string;
+  letterSpacing?: number;
+  lineHeight?: number;
+  textAlign?: 'start' | 'middle' | 'end';
+  textTransform?: 'none' | 'uppercase' | 'lowercase';
+  italic?: boolean;
 }
 
 export interface ShapeElement extends BaseElement {

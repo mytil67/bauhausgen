@@ -25,10 +25,20 @@ const sh = (
 
 const tx = (
   x: number, y: number, text: string, fontSize: number, color: string,
-  extra: Extra & { fontWeight?: string } = {},
+  extra: Extra & {
+    fontWeight?: string;
+    fontFamily?: string;
+    letterSpacing?: number;
+    lineHeight?: number;
+    textAlign?: 'start' | 'middle' | 'end';
+    textTransform?: 'none' | 'uppercase' | 'lowercase';
+    italic?: boolean;
+  } = {},
 ): TextElement => ({
   id: nid(), type: 'text', x, y, text, fontSize,
-  fontFamily: "'Syne', sans-serif", fontWeight: '800', color,
+  fontFamily: extra.fontFamily || "'Syne', sans-serif",
+  fontWeight: extra.fontWeight || '800',
+  color,
   rotation: 0, scaleX: 1, scaleY: 1, opacity: 1, visible: true, locked: false, name: 'Texte',
   ...extra,
 });
@@ -75,6 +85,21 @@ export const TEMPLATES: Template[] = [
       sh('semicircle', 560, 280, 280, 140, RED),
       sh('quarter', 240, 600, 240, 240, YELLOW),
       sh('rect', 620, 620, 180, 180, BLACK),
+    ],
+  },
+  {
+    name: 'Modernisme Suisse',
+    backgroundColor: '#ffffff',
+    canvasWidth: 800,
+    canvasHeight: 1100,
+    elements: [
+      sh('rect', 0, 0, 1600, 240, RED, { x: 400, y: 120 }),
+      tx(40, 100, 'AKZIDENZ', 110, '#ffffff', { fontFamily: "'Inter', sans-serif", fontWeight: '900', textAlign: 'start', letterSpacing: -5 }),
+      tx(40, 200, 'GROTESK', 110, '#ffffff', { fontFamily: "'Inter', sans-serif", fontWeight: '900', textAlign: 'start', letterSpacing: -5 }),
+      tx(40, 300, 'Typography is the art of arranging type to make written language legible, readable and appealing when displayed.', 16, BLACK, { fontFamily: "'Inter', sans-serif", fontWeight: '400', textAlign: 'start', lineHeight: 1.5, x: 400, y: 400, scaleX: 1, scaleY: 1 }),
+      sh('line', 400, 350, 720, 2, BLACK),
+      tx(400, 600, 'SWISS', 280, BLACK, { fontFamily: "'Archivo Black', sans-serif", letterSpacing: -15, opacity: 0.1 }),
+      tx(760, 1050, 'ZURICH, 1957', 12, BLACK, { fontFamily: "'Space Grotesk', sans-serif", fontWeight: '700', textAlign: 'end' }),
     ],
   },
 ];

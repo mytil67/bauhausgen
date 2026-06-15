@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { CompositionElement, ElementBounds } from '../types';
-import { ZoomIn, ZoomOut, Maximize, Hand } from 'lucide-react';
 
 interface CanvasProps {
   elements: CompositionElement[];
@@ -11,6 +10,7 @@ interface CanvasProps {
   onSelect: (id: string | null, additive?: boolean) => void;
   onSelectMany: (ids: string[], additive?: boolean) => void;
   onUpdateLive: (id: string, updates: Partial<CompositionElement>) => void;
+  onUpdateElementsLive: (updates: Record<string, Partial<CompositionElement>>) => void;
   onNudge: (dx: number, dy: number, ids: string[]) => void;
   onRemoveSelection: (ids: string[]) => void;
   onBeginHistory: () => void;
@@ -33,6 +33,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   onSelect,
   onSelectMany,
   onUpdateLive,
+  onUpdateElementsLive,
   onNudge,
   onRemoveSelection,
   onBeginHistory,
@@ -48,18 +49,33 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const elementRefs = useRef<{ [key: string]: SVGGElement | null }>({});
   const [bboxes, setBboxes] = useState<{ [key: string]: DOMRect }>({});
 
-  // Vue : zoom & déplacement (pan)
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [spaceDown, setSpaceDown] = useState(false);
-  const [panning, setPanning] = useState(false);
-
   const singleSelected = selectedIds.length === 1;
   const marqueeActive = marquee !== null;
+
+  const getGroupAABB = () => {
+    if (selectedIds.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let found = false;
+    selectedIds.forEach((id) => {
+      const el = elements.find((e) => e.id === id);
+      if (!el) return;
+      found = true;
+      const bbox = bboxes[id] || FALLBACK_BBOX;
+      const hw = (bbox.width / 2) * el.scaleX;
+      const hh = (bbox.height / 2) * el.scaleY;
+      minX = Math.min(minX, el.x - hw);
+      maxX = Math.max(maxX, el.x + hw);
+      minY = Math.min(minY, el.y - hh);
+      maxY = Math.max(maxY, el.y + hh);
+    });
+    if (!found) return null;
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
+  };
+
+  const groupAABB = getGroupAABB();
 
   // Focus + sélection du texte quand on entre en édition
   useEffect(() => {
@@ -68,87 +84,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       editInputRef.current.select();
     }
   }, [editingId]);
-
-  // --- Vue : ajuster, zoomer, déplacer ---
-  const fitView = useCallback(() => {
-    const c = containerRef.current;
-    if (!c) return;
-    const rect = c.getBoundingClientRect();
-    const pad = 80;
-    const z = Math.max(0.05, Math.min((rect.width - pad) / width, (rect.height - pad) / height, 4));
-    setZoom(z);
-    setPan({ x: (rect.width - width * z) / 2, y: (rect.height - height * z) / 2 });
-  }, [width, height]);
-
-  // Ajuste la vue quand la taille du canvas change
-  useEffect(() => { fitView(); }, [fitView]);
-
-  const zoomAt = useCallback((factor: number, clientX: number, clientY: number) => {
-    const c = containerRef.current;
-    if (!c) return;
-    const rect = c.getBoundingClientRect();
-    const cx = clientX - rect.left;
-    const cy = clientY - rect.top;
-    setZoom((z) => {
-      const nz = Math.max(0.05, Math.min(z * factor, 8));
-      setPan((p) => ({ x: cx - ((cx - p.x) / z) * nz, y: cy - ((cy - p.y) / z) * nz }));
-      return nz;
-    });
-  }, []);
-
-  const zoomByCenter = useCallback((factor: number) => {
-    const c = containerRef.current;
-    if (!c) return;
-    const rect = c.getBoundingClientRect();
-    zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
-  }, [zoomAt]);
-
-  // Molette : zoom (Ctrl/⌘) ou déplacement (listener non-passif pour preventDefault)
-  useEffect(() => {
-    const c = containerRef.current;
-    if (!c) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (e.ctrlKey || e.metaKey) {
-        zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
-      } else {
-        setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
-      }
-    };
-    c.addEventListener('wheel', onWheel, { passive: false });
-    return () => c.removeEventListener('wheel', onWheel);
-  }, [zoomAt]);
-
-  // Barre d'espace = mode déplacement
-  useEffect(() => {
-    const isTyping = (t: EventTarget | null) =>
-      t instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(t.tagName);
-    const down = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !isTyping(e.target)) { e.preventDefault(); setSpaceDown(true); }
-    };
-    const up = (e: KeyboardEvent) => { if (e.code === 'Space') setSpaceDown(false); };
-    window.addEventListener('keydown', down);
-    window.addEventListener('keyup', up);
-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
-  }, []);
-
-  const startPan = (clientX: number, clientY: number) => {
-    setPanning(true);
-    const start = { x: clientX, y: clientY };
-    const sp = { ...pan };
-    const move = (ev: MouseEvent) => setPan({ x: sp.x + (ev.clientX - start.x), y: sp.y + (ev.clientY - start.y) });
-    const up = () => {
-      setPanning(false);
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-  };
-
-  const handleViewportMouseDown = (e: React.MouseEvent) => {
-    if (spaceDown || e.button === 1) { e.preventDefault(); startPan(e.clientX, e.clientY); }
-  };
 
   // Entrer en édition de texte (double-clic)
   const startEditing = (el: CompositionElement) => {
@@ -296,40 +231,53 @@ export const Canvas: React.FC<CanvasProps> = ({
     setDragOffset({ x: pos.x - el.x, y: pos.y - el.y });
   };
 
-  const handleResizeMouseDown = (e: React.MouseEvent, el: CompositionElement, handle: ResizeHandle) => {
+  const [initialElements, setInitialElements] = useState<CompositionElement[]>([]);
+
+  const handleResizeMouseDown = (e: React.MouseEvent, handle: ResizeHandle, targetId?: string) => {
     e.stopPropagation();
-    onSelect(el.id);
     onBeginHistory();
-    setActiveId(el.id);
     setDragMode(handle);
     const pos = getMousePosition(e);
     setDragOffset({ x: pos.x, y: pos.y });
 
-    const bbox = bboxes[el.id];
-    const w = bbox ? bbox.width : ('width' in el ? el.width : 100);
-    const h = bbox ? bbox.height : ('height' in el ? el.height : 100);
-    setInitialSize({ width: w, height: h, scaleX: el.scaleX, scaleY: el.scaleY });
+    if (singleSelected || targetId) {
+      const id = targetId || selectedIds[0];
+      setActiveId(id);
+      const el = elements.find(item => item.id === id);
+      if (el) {
+        const bbox = bboxes[el.id] || FALLBACK_BBOX;
+        setInitialSize({ width: bbox.width, height: bbox.height, scaleX: el.scaleX, scaleY: el.scaleY });
+      }
+    } else {
+      // Multi-sélection : on mémorise l'état de tous les éléments sélectionnés
+      const selected = elements.filter(el => selectedIds.includes(el.id));
+      setInitialElements(selected);
+      const g = getGroupAABB();
+      if (g) setInitialSize({ width: g.width, height: g.height, scaleX: 1, scaleY: 1 });
+      setActiveId('group');
+    }
   };
 
-  const handleRotateMouseDown = (e: React.MouseEvent, el: CompositionElement) => {
+  const handleRotateMouseDown = (e: React.MouseEvent, targetId?: string) => {
     e.stopPropagation();
-    onSelect(el.id);
     onBeginHistory();
-    setActiveId(el.id);
     setDragMode('rotate');
+    setActiveId(targetId || selectedIds[0]);
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragMode || !activeId) return;
-      const el = elements.find((item) => item.id === activeId);
-      if (!el) return;
+      const el = activeId === 'group' ? null : elements.find((item) => item.id === activeId);
+      if (!el && singleSelected) return;
 
       const pos = getMousePosition(e);
       const SNAP_DISTANCE = 8;
 
       if (dragMode === 'rotate') {
-        const angleRad = Math.atan2(pos.y - el.y, pos.x - el.x);
+        const target = el || elements.find(item => item.id === activeId);
+        if (!target) return;
+        const angleRad = Math.atan2(pos.y - target.y, pos.x - target.x);
         let deg = Math.round(angleRad * (180 / Math.PI) + 90);
         if (e.shiftKey) deg = Math.round(deg / 15) * 15; // aimantation 15°
         deg = ((deg % 360) + 360) % 360;
@@ -338,6 +286,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
 
       if (dragMode === 'move') {
+        if (!el) return;
         const mouseX = pos.x - dragOffset.x;
         const mouseY = pos.y - dragOffset.y;
 
@@ -516,25 +465,27 @@ export const Canvas: React.FC<CanvasProps> = ({
         setMeasurements(m);
         onNudge(Math.round(newX) - el.x, Math.round(newY) - el.y, selectedIds);
       } else {
-        // Redimensionnement (uniquement en sélection unique)
+        // Redimensionnement
         let mouseX = pos.x;
         let mouseY = pos.y;
         const snapX: number[] = [];
         const snapY: number[] = [];
-        const targetsX = new Set<number>([0, width / 2, width]);
-        const targetsY = new Set<number>([0, height / 2, height]);
 
-        elements.forEach((other) => {
-          if (other.id === activeId) return;
-          const otherBbox = bboxes[other.id] || FALLBACK_BBOX;
-          const oHalfW = (otherBbox.width / 2) * other.scaleX;
-          const oHalfH = (otherBbox.height / 2) * other.scaleY;
-          targetsX.add(other.x); targetsX.add(other.x - oHalfW); targetsX.add(other.x + oHalfW);
-          targetsY.add(other.y); targetsY.add(other.y - oHalfH); targetsY.add(other.y + oHalfH);
-        });
-
-        targetsX.forEach((tx) => { if (Math.abs(mouseX - tx) < SNAP_DISTANCE) { mouseX = tx; snapX.push(tx); } });
-        targetsY.forEach((ty) => { if (Math.abs(mouseY - ty) < SNAP_DISTANCE) { mouseY = ty; snapY.push(ty); } });
+        // Aimantation uniquement en sélection unique (plus lisible)
+        if (singleSelected) {
+          const targetsX = new Set<number>([0, width / 2, width]);
+          const targetsY = new Set<number>([0, height / 2, height]);
+          elements.forEach((other) => {
+            if (other.id === activeId) return;
+            const otherBbox = bboxes[other.id] || FALLBACK_BBOX;
+            const oHalfW = (otherBbox.width / 2) * other.scaleX;
+            const oHalfH = (otherBbox.height / 2) * other.scaleY;
+            targetsX.add(other.x); targetsX.add(other.x - oHalfW); targetsX.add(other.x + oHalfW);
+            targetsY.add(other.y); targetsY.add(other.y - oHalfH); targetsY.add(other.y + oHalfH);
+          });
+          targetsX.forEach((tx) => { if (Math.abs(mouseX - tx) < SNAP_DISTANCE) { mouseX = tx; snapX.push(tx); } });
+          targetsY.forEach((ty) => { if (Math.abs(mouseY - ty) < SNAP_DISTANCE) { mouseY = ty; snapY.push(ty); } });
+        }
 
         const dx = mouseX - dragOffset.x;
         const dy = mouseY - dragOffset.y;
@@ -542,31 +493,53 @@ export const Canvas: React.FC<CanvasProps> = ({
         setActiveGuides({ x: snapX, y: snapY });
         setMeasurements([]);
 
-        let multX = 0;
-        let multY = 0;
+        let multX = 0; let multY = 0;
         if (dragMode.includes('e')) multX = 1;
         if (dragMode.includes('w')) multX = -1;
         if (dragMode.includes('s')) multY = 1;
         if (dragMode.includes('n')) multY = -1;
 
-        if (el.type === 'text') {
-          const ratioX = 1 + (dx * multX * 2) / Math.max(1, initialSize.width);
-          const ratioY = 1 + (dy * multY * 2) / Math.max(1, initialSize.height);
-          const updates: Partial<CompositionElement> = {};
-          if (multX !== 0) updates.scaleX = Math.max(0.1, initialSize.scaleX * ratioX);
-          if (multY !== 0) updates.scaleY = Math.max(0.1, initialSize.scaleY * ratioY);
-          onUpdateLive(activeId, updates);
-        } else if (el.type === 'circle') {
-          const delta = Math.max(dx * multX, dy * multY);
-          if (multX !== 0 || multY !== 0) {
-            const size = Math.max(10, initialSize.width + delta * 2);
-            onUpdateLive(activeId, { width: size, height: size });
+        if (singleSelected) {
+          if (!el) return;
+          if (el.type === 'text') {
+            const ratioX = 1 + (dx * multX * 2) / Math.max(1, initialSize.width);
+            const ratioY = 1 + (dy * multY * 2) / Math.max(1, initialSize.height);
+            const updates: Partial<CompositionElement> = {};
+            if (multX !== 0) updates.scaleX = Math.max(0.1, initialSize.scaleX * ratioX);
+            if (multY !== 0) updates.scaleY = Math.max(0.1, initialSize.scaleY * ratioY);
+            onUpdateLive(activeId, updates);
+          } else if (el.type === 'circle') {
+            const delta = Math.max(dx * multX, dy * multY);
+            if (multX !== 0 || multY !== 0) {
+              const size = Math.max(10, initialSize.width + delta * 2);
+              onUpdateLive(activeId, { width: size, height: size });
+            }
+          } else {
+            const updates: { width?: number; height?: number } = {};
+            if (multX !== 0) updates.width = Math.max(10, initialSize.width + dx * multX * 2);
+            if (multY !== 0) updates.height = Math.max(10, initialSize.height + dy * multY * 2);
+            onUpdateLive(activeId, updates);
           }
         } else {
-          const updates: { width?: number; height?: number } = {};
-          if (multX !== 0) updates.width = Math.max(10, initialSize.width + dx * multX * 2);
-          if (multY !== 0) updates.height = Math.max(10, initialSize.height + dy * multY * 2);
-          onUpdateLive(activeId, updates);
+          // Redimensionnement de groupe
+          const g = initialSize;
+          const ratioX = multX !== 0 ? Math.max(0.01, 1 + (dx * multX * 2) / Math.max(1, g.width)) : 1;
+          const ratioY = multY !== 0 ? Math.max(0.01, 1 + (dy * multY * 2) / Math.max(1, g.height)) : 1;
+
+          // Centre du groupe au début du drag
+          const gcx = dragOffset.x - (multX * g.width) / 2;
+          const gcy = dragOffset.y - (multY * g.height) / 2;
+
+          const bulkUpdates: Record<string, Partial<CompositionElement>> = {};
+          initialElements.forEach((initEl) => {
+            bulkUpdates[initEl.id] = {
+              x: gcx + (initEl.x - gcx) * ratioX,
+              y: gcy + (initEl.y - gcy) * ratioY,
+              scaleX: initEl.scaleX * ratioX,
+              scaleY: initEl.scaleY * ratioY,
+            };
+          });
+          onUpdateElementsLive(bulkUpdates);
         }
       }
     };
@@ -587,7 +560,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragMode, activeId, dragOffset, onUpdateLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected]);
+  }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements]);
 
   return (
     <div className="flex items-center justify-center bg-gray-200 p-8 w-full h-full overflow-auto">
@@ -626,13 +599,26 @@ export const Canvas: React.FC<CanvasProps> = ({
             >
               <g transform={innerTransform}>
                 {el.type === 'text' && editingId !== el.id && (
-                  <text x="0" y="0" fontSize={el.fontSize} fontFamily={el.fontFamily} fontWeight={el.fontWeight} fill={el.color} textAnchor="middle" dominantBaseline="middle" className="select-none">
+                  <text
+                    x="0"
+                    y="0"
+                    fontSize={el.fontSize}
+                    fontFamily={el.fontFamily}
+                    fontWeight={el.fontWeight}
+                    fontStyle={el.italic ? 'italic' : 'normal'}
+                    letterSpacing={el.letterSpacing ?? 0}
+                    fill={el.color}
+                    textAnchor={el.textAlign ?? 'middle'}
+                    dominantBaseline="middle"
+                    className="select-none"
+                    style={{ textTransform: el.textTransform ?? 'none' }}
+                  >
                     {el.text}
                   </text>
                 )}
                 {el.type === 'text' && editingId === el.id && (() => {
                   const w = Math.max((bboxes[el.id]?.width ?? 200) + 40, 60);
-                  const h = el.fontSize * 1.4;
+                  const h = el.fontSize * (el.lineHeight ?? 1.4);
                   return (
                     <foreignObject x={-w / 2} y={-h / 2} width={w} height={h} style={{ overflow: 'visible' }}>
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -647,11 +633,18 @@ export const Canvas: React.FC<CanvasProps> = ({
                             if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); setEditingId(null); }
                           }}
                           style={{
-                            width: '100%', textAlign: 'center', padding: 0, margin: 0,
+                            width: '100%', textAlign: (el.textAlign === 'start' ? 'left' : el.textAlign === 'end' ? 'right' : 'center') as React.CSSProperties['textAlign'],
+                            padding: 0, margin: 0,
                             border: 'none', outline: '1px dashed #3b82f6',
                             background: 'rgba(255,255,255,0.5)',
-                            fontSize: el.fontSize, fontFamily: el.fontFamily, fontWeight: el.fontWeight as React.CSSProperties['fontWeight'],
-                            color: el.color, lineHeight: 1.2,
+                            fontSize: el.fontSize,
+                            fontFamily: el.fontFamily,
+                            fontWeight: el.fontWeight as React.CSSProperties['fontWeight'],
+                            fontStyle: el.italic ? 'italic' : 'normal',
+                            letterSpacing: el.letterSpacing ?? 0,
+                            textTransform: el.textTransform ?? 'none',
+                            color: el.color,
+                            lineHeight: el.lineHeight ?? 1.2,
                           }}
                         />
                       </div>
@@ -676,24 +669,51 @@ export const Canvas: React.FC<CanvasProps> = ({
                 <g className="export-ignore">
                   {/* Poignée de rotation */}
                   <line x1={sx + sw / 2} y1={sy - 5} x2={sx + sw / 2} y2={sy - 28} stroke="#3b82f6" strokeWidth="1.5" className="pointer-events-none" />
-                  <circle cx={sx + sw / 2} cy={sy - 32} r="6" fill="white" stroke="#3b82f6" strokeWidth="1.5" style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e, el)} />
+                  <circle cx={sx + sw / 2} cy={sy - 32} r="6" fill="white" stroke="#3b82f6" strokeWidth="1.5" style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e, el.id)} />
 
                   {/* Coins */}
-                  <rect x={sx - 10} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'nw')} />
-                  <rect x={sx + sw} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'ne')} />
-                  <rect x={sx - 10} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'sw')} />
-                  <rect x={sx + sw} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'se')} />
+                  <rect x={sx - 10} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'nw', el.id)} />
+                  <rect x={sx + sw} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'ne', el.id)} />
+                  <rect x={sx - 10} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'sw', el.id)} />
+                  <rect x={sx + sw} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'se', el.id)} />
 
                   {/* Milieux */}
-                  <rect x={sx + sw / 2 - 5} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'n')} />
-                  <rect x={sx + sw / 2 - 5} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 's')} />
-                  <rect x={sx - 10} y={sy + sh / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'w')} />
-                  <rect x={sx + sw} y={sy + sh / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, el, 'e')} />
+                  <rect x={sx + sw / 2 - 5} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'n', el.id)} />
+                  <rect x={sx + sw / 2 - 5} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 's', el.id)} />
+                  <rect x={sx - 10} y={sy + sh / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'w', el.id)} />
+                  <rect x={sx + sw} y={sy + sh / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'e', el.id)} />
                 </g>
               )}
             </g>
           );
         })}
+
+        {/* Poignées de groupe (multi-sélection) */}
+        {!singleSelected && groupAABB && (
+          <g className="export-ignore">
+            <rect
+              x={groupAABB.x - 5}
+              y={groupAABB.y - 5}
+              width={groupAABB.width + 10}
+              height={groupAABB.height + 10}
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth="1.5"
+              strokeDasharray="4"
+              className="pointer-events-none"
+            />
+            {/* Coins */}
+            <rect x={groupAABB.x - 10} y={groupAABB.y - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'nw')} />
+            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'ne')} />
+            <rect x={groupAABB.x - 10} y={groupAABB.y + groupAABB.height} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'sw')} />
+            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y + groupAABB.height} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'se')} />
+            {/* Milieux */}
+            <rect x={groupAABB.x + groupAABB.width / 2 - 5} y={groupAABB.y - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'n')} />
+            <rect x={groupAABB.x + groupAABB.width / 2 - 5} y={groupAABB.y + groupAABB.height} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 's')} />
+            <rect x={groupAABB.x - 10} y={groupAABB.y + groupAABB.height / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'w')} />
+            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y + groupAABB.height / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'e')} />
+          </g>
+        )}
 
         {/* Overlay : guides & mesures */}
         <g className="pointer-events-none export-ignore">

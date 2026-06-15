@@ -91,11 +91,17 @@ export const useComposition = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>(initial.selectedIds);
   const [past, setPast] = useState<DocState[]>([]);
   const [future, setFuture] = useState<DocState[]>([]);
-  const clipboardRef = useRef<CompositionElement[]>([]);
 
-  // Persistance
+  // Persistance avec debounce
+  const saveTimeoutRef = useRef<number | null>(null);
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...doc, selectedIds }));
+    if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = window.setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...doc, selectedIds }));
+    }, 500);
+    return () => {
+      if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
+    };
   }, [doc, selectedIds]);
 
   // Ré-enregistre les polices importées au chargement (les données sont persistées)
@@ -229,6 +235,15 @@ export const useComposition = () => {
     }));
   }, [live]);
 
+  /** Maj de plusieurs éléments SANS historique. */
+  const updateElementsLive = useCallback((updates: Record<string, Partial<CompositionElement>>) => {
+    live((prev) => ({
+      ...prev,
+      elements: prev.elements.map((el) =>
+        updates[el.id] ? ({ ...el, ...updates[el.id] } as CompositionElement) : el),
+    }));
+  }, [live]);
+
   /** Déplace tous les éléments sélectionnés d'un delta (live, sans historique). */
   const nudgeSelection = useCallback((dx: number, dy: number, ids: string[]) => {
     if (ids.length === 0) return;
@@ -307,33 +322,41 @@ export const useComposition = () => {
   // --- Copier / Coller ---
   const copySelection = useCallback((ids: string[]) => {
     const set = new Set(ids);
-    clipboardRef.current = doc.elements.filter((el) => set.has(el.id));
+    const toCopy = doc.elements.filter((el) => set.has(el.id));
+    localStorage.setItem('bauhaus-clipboard', JSON.stringify(toCopy));
   }, [doc.elements]);
 
   const pasteClipboard = useCallback(() => {
-    if (clipboardRef.current.length === 0) return;
-    const newIds: string[] = [];
-    const groupMap = new Map<string, string>();
-    commit((prev) => {
-      const clones = clipboardRef.current.map((el) => {
-        const id = uuidv4();
-        newIds.push(id);
-        let groupId = el.groupId;
-        if (groupId) {
-          if (!groupMap.has(groupId)) groupMap.set(groupId, uuidv4());
-          groupId = groupMap.get(groupId);
-        }
-        return { ...el, id, groupId, x: el.x + 24, y: el.y + 24 } as CompositionElement;
+    const saved = localStorage.getItem('bauhaus-clipboard');
+    if (!saved) return;
+    try {
+      const clipboard = JSON.parse(saved) as CompositionElement[];
+      if (clipboard.length === 0) return;
+      const newIds: string[] = [];
+      const groupMap = new Map<string, string>();
+      commit((prev) => {
+        const clones = clipboard.map((el) => {
+          const id = uuidv4();
+          newIds.push(id);
+          let groupId = el.groupId;
+          if (groupId) {
+            if (!groupMap.has(groupId)) groupMap.set(groupId, uuidv4());
+            groupId = groupMap.get(groupId);
+          }
+          return { ...el, id, groupId, x: el.x + 24, y: el.y + 24 } as CompositionElement;
+        });
+        return { ...prev, elements: [...prev.elements, ...clones] };
       });
-      return { ...prev, elements: [...prev.elements, ...clones] };
-    });
-    if (newIds.length) setSelectedIds(newIds);
+      if (newIds.length) setSelectedIds(newIds);
+    } catch {
+      // Ignorer si invalide
+    }
   }, [commit]);
 
   // --- Canvas & templates ---
   const setCanvasSize = useCallback((w: number, h: number) => {
-    commit((prev) => ({ ...prev, canvasWidth: w, canvasHeight: h }));
-  }, [commit]);
+    live((prev) => ({ ...prev, canvasWidth: w, canvasHeight: h }));
+  }, [live]);
 
   const loadTemplate = useCallback((tpl: Pick<DocState, 'elements' | 'backgroundColor' | 'canvasWidth' | 'canvasHeight'>) => {
     commit((prev) => ({
@@ -541,6 +564,7 @@ export const useComposition = () => {
     addElement,
     updateElement,
     updateElementLive,
+    updateElementsLive,
     nudgeSelection,
     removeSelection,
     duplicateSelection,

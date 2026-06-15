@@ -13,6 +13,8 @@ import {
   RotateCcw,
   Layers,
   AlignCenter,
+  AlignLeft,
+  AlignRight,
   AlignJustify,
   ArrowUp,
   ArrowDown,
@@ -20,6 +22,8 @@ import {
   Copy,
   Undo2,
   Redo2,
+  Italic,
+  CaseSensitive,
   AlignStartVertical,
   AlignCenterVertical,
   AlignEndVertical,
@@ -59,6 +63,8 @@ interface SidebarProps {
   onUndo: () => void;
   onRedo: () => void;
   onApplyColor: (color: string) => void;
+  onGroup: () => void;
+  onUngroup: () => void;
   onSetCanvasSize: (w: number, h: number) => void;
   onLoadTemplate: (tpl: Template) => void;
 }
@@ -145,6 +151,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onUndo,
   onRedo,
   onApplyColor,
+  onGroup,
+  onUngroup,
   onSetCanvasSize,
   onLoadTemplate,
 }) => {
@@ -418,12 +426,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
             {selectedElement ? `Propriétés : ${selectedElement.type}` : selectionCount > 1 ? `${selectionCount} éléments sélectionnés` : 'Aucune sélection'}
           </h2>
-          {selectedElement && (
-            <div className="flex gap-1">
-              <button onClick={onDuplicate} title="Dupliquer (Ctrl+D)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded"><Copy size={16} /></button>
-              <button onClick={() => onRemoveElement(selectedElement.id)} title="Supprimer (Suppr)" className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
-            </div>
-          )}
+          <div className="flex gap-1">
+            {selectionCount >= 2 && (
+              <button onClick={onGroup} title="Grouper (Ctrl+G)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded flex items-center gap-1 text-[10px] font-bold">
+                <Copy size={16} /> G
+              </button>
+            )}
+            {selectedElement?.groupId && (
+              <button onClick={onUngroup} title="Dégrouper (Ctrl+Maj+G)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded flex items-center gap-1 text-[10px] font-bold">
+                <LayoutTemplate size={16} className="opacity-50" /> U
+              </button>
+            )}
+            {selectedElement && (
+              <>
+                <button onClick={onDuplicate} title="Dupliquer (Ctrl+D)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded"><Copy size={16} /></button>
+                <button onClick={() => onRemoveElement(selectedElement.id)} title="Supprimer (Suppr)" className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+              </>
+            )}
+          </div>
         </div>
 
         {selectedElement ? (
@@ -436,8 +456,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1">X POSITION</label><input type="number" value={Math.round(selectedElement.x)} onChange={(e) => onUpdateElement(selectedElement.id, { x: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Y POSITION</label><input type="number" value={Math.round(selectedElement.y)} onChange={(e) => onUpdateElement(selectedElement.id, { y: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+              <div><label className="text-[10px] font-bold text-gray-400 block mb-1">X POSITION</label><input type="number" value={Math.round(selectedElement.x)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { x: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+              <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Y POSITION</label><input type="number" value={Math.round(selectedElement.y)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { y: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
             </div>
 
             <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><RotateCcw size={10} /> ROTATION</label><input type="range" min="0" max="360" value={selectedElement.rotation} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.rotation)}°</div></div>
@@ -445,8 +465,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div><label className="text-[10px] font-bold text-gray-400 block mb-1">OPACITÉ</label><input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.opacity * 100)}%</div></div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveHorizontal size={10} /> ÉCHELLE X</label><input type="number" step="0.1" value={selectedElement.scaleX} onChange={(e) => onUpdateElement(selectedElement.id, { scaleX: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveVertical size={10} /> ÉCHELLE Y</label><input type="number" step="0.1" value={selectedElement.scaleY} onChange={(e) => onUpdateElement(selectedElement.id, { scaleY: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveHorizontal size={10} /> ÉCHELLE X</label><input type="number" step="0.1" value={selectedElement.scaleX} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleX: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveVertical size={10} /> ÉCHELLE Y</label><input type="number" step="0.1" value={selectedElement.scaleY} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleY: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
             </div>
 
             <div>
@@ -486,16 +506,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {selectedElement.type === 'text' && (
               <div className="space-y-4 pt-4 border-t border-gray-100">
-                <div><label className="text-[10px] font-bold text-gray-400 block mb-1">CONTENU DU TEXTE</label><textarea value={selectedElement.text} onChange={(e) => onUpdateElement(selectedElement.id, { text: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded min-h-[60px]" /></div>
+                <div><label className="text-[10px] font-bold text-gray-400 block mb-1">CONTENU DU TEXTE</label><textarea value={selectedElement.text} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { text: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded min-h-[60px]" /></div>
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 block mb-1">POLICE DE CARACTÈRE</label>
                   <select value={selectedElement.fontFamily} onChange={(e) => onUpdateElement(selectedElement.id, { fontFamily: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded font-medium">
                     <optgroup label="Système & Google">
                       <option value="sans-serif">Sans Serif</option>
+                      <option value="'Inter', sans-serif">Inter</option>
                       <option value="'Montserrat', sans-serif">Montserrat</option>
                       <option value="'Outfit', sans-serif">Outfit</option>
                       <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
                       <option value="'Syne', sans-serif">Syne</option>
+                      <option value="'Archivo Black', sans-serif">Archivo Black</option>
+                      <option value="'Playfair Display', serif">Playfair Display</option>
+                      <option value="'Libre Baskerville', serif">Libre Baskerville</option>
                     </optgroup>
                     {customFonts.length > 0 && (
                       <optgroup label="Mes Polices">
@@ -505,7 +529,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">TAILLE</label><input type="number" value={selectedElement.fontSize} onChange={(e) => onUpdateElement(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">TAILLE</label><input type="number" value={selectedElement.fontSize} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
                   <div>
                     <label className="text-[10px] font-bold text-gray-400 block mb-1">GRAISSE</label>
                     <select value={selectedElement.fontWeight} onChange={(e) => onUpdateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded">
@@ -519,14 +543,87 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </select>
                   </div>
                 </div>
+
+                <div className="flex gap-1 p-1 bg-gray-50 rounded border border-gray-200">
+                  <button
+                    onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'start' })}
+                    className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textAlign === 'start' ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
+                    title="Aligner à gauche"
+                  >
+                    <AlignLeft size={14} />
+                  </button>
+                  <button
+                    onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'middle' })}
+                    className={`flex-1 flex justify-center p-1.5 rounded ${(!selectedElement.textAlign || selectedElement.textAlign === 'middle') ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
+                    title="Centrer"
+                  >
+                    <AlignCenter size={14} />
+                  </button>
+                  <button
+                    onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'end' })}
+                    className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textAlign === 'end' ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
+                    title="Aligner à droite"
+                  >
+                    <AlignRight size={14} />
+                  </button>
+                  <div className="w-px h-4 bg-gray-200 self-center mx-1" />
+                  <button
+                    onClick={() => onUpdateElement(selectedElement.id, { italic: !selectedElement.italic })}
+                    className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.italic ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                    title="Italique"
+                  >
+                    <Italic size={14} />
+                  </button>
+                  <button
+                    onClick={() => onUpdateElement(selectedElement.id, { textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase' })}
+                    className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textTransform === 'uppercase' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                    title="Tout en majuscules"
+                  >
+                    <CaseSensitive size={14} />
+                  </button>
+                </div>
+
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <label className="text-[10px] font-bold text-gray-400 block uppercase">Interlettrage</label>
+                    <span className="text-[10px] font-mono text-gray-400">{selectedElement.letterSpacing ?? 0}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-10"
+                    max="50"
+                    step="0.5"
+                    value={selectedElement.letterSpacing ?? 0}
+                    onMouseDown={onBeginHistory}
+                    onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })}
+                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <label className="text-[10px] font-bold text-gray-400 block uppercase">Interligne</label>
+                    <span className="text-[10px] font-mono text-gray-400">{selectedElement.lineHeight ?? 1.2}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="3"
+                    step="0.1"
+                    value={selectedElement.lineHeight ?? 1.2}
+                    onMouseDown={onBeginHistory}
+                    onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })}
+                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                  />
+                </div>
               </div>
             )}
 
             {selectedElement.type !== 'text' && (
               <div className="space-y-4 pt-4 border-t border-gray-100">
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">WIDTH (PX)</label><input type="number" value={Math.round(selectedElement.width)} onChange={(e) => onUpdateElement(selectedElement.id, { width: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">HEIGHT (PX)</label><input type="number" value={Math.round(selectedElement.height)} onChange={(e) => onUpdateElement(selectedElement.id, { height: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">WIDTH (PX)</label><input type="number" value={Math.round(selectedElement.width)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { width: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">HEIGHT (PX)</label><input type="number" value={Math.round(selectedElement.height)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { height: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
                 </div>
               </div>
             )}

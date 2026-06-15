@@ -7,7 +7,7 @@ import type { ElementBounds, AlignDirection, DistributeAxis } from './types';
 
 // Polices Google utilisées dans l'éditeur (pour tentative d'embarquement à l'export)
 const GOOGLE_FONTS_CSS =
-  'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Outfit:wght@400;700;900&family=Space+Grotesk:wght@400;700&family=Syne:wght@400;700;800&display=swap';
+  'https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;700;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Outfit:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Space+Grotesk:wght@400;700&family=Syne:wght@400;700;800&display=swap';
 
 function App() {
   const {
@@ -23,12 +23,15 @@ function App() {
     addElement,
     updateElement,
     updateElementLive,
+    updateElementsLive,
     nudgeSelection,
     removeSelection,
     duplicateSelection,
     selectElement,
     selectAll,
     selectMany,
+    groupSelection,
+    ungroupSelection,
     toggleVisible,
     toggleLock,
     renameElement,
@@ -114,11 +117,17 @@ function App() {
           e.preventDefault();
           pasteClipboard();
           break;
+        case 'g':
+          if (typing) return;
+          e.preventDefault();
+          if (e.shiftKey) ungroupSelection(selectedIds);
+          else groupSelection(selectedIds);
+          break;
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [undo, redo, duplicateSelection, selectAll, selectElement, selectedIds, copySelection, removeSelection, pasteClipboard]);
+  }, [undo, redo, duplicateSelection, selectAll, selectElement, selectedIds, copySelection, removeSelection, pasteClipboard, groupSelection, ungroupSelection]);
 
   /** Construit une chaîne SVG exportable : UI de sélection retirée + polices embarquées. */
   const buildExportSvg = async (): Promise<string | null> => {
@@ -202,6 +211,23 @@ function App() {
     img.src = url;
   };
 
+  const mainRef = useRef<HTMLDivElement>(null);
+
+  // Mise à jour automatique de la taille du canvas pour remplir l'espace disponible
+  useEffect(() => {
+    if (!mainRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        // On laisse une petite marge pour ne pas coller aux bords
+        const padding = 64;
+        setCanvasSize(Math.floor(width - padding), Math.floor(height - padding));
+      }
+    });
+    observer.observe(mainRef.current);
+    return () => observer.disconnect();
+  }, [setCanvasSize]);
+
   return (
     <div className="flex h-screen w-screen bg-gray-100 overflow-hidden font-sans text-gray-900">
       <Sidebar
@@ -233,10 +259,12 @@ function App() {
         onUndo={undo}
         onRedo={redo}
         onApplyColor={(color) => applyColor(color, selectedIds)}
+        onGroup={() => groupSelection(selectedIds)}
+        onUngroup={() => ungroupSelection(selectedIds)}
         onSetCanvasSize={setCanvasSize}
         onLoadTemplate={loadTemplate}
       />
-      <main className="flex-1 h-full relative overflow-hidden flex items-center justify-center">
+      <main ref={mainRef} className="flex-1 h-full relative overflow-hidden flex items-center justify-center">
         <Canvas
           elements={elements}
           selectedIds={selectedIds}
@@ -246,6 +274,7 @@ function App() {
           onSelect={selectElement}
           onSelectMany={selectMany}
           onUpdateLive={updateElementLive}
+          onUpdateElementsLive={updateElementsLive}
           onNudge={nudgeSelection}
           onRemoveSelection={removeSelection}
           onBeginHistory={beginHistory}
