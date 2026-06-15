@@ -9,8 +9,8 @@ export interface BaseElement {
   rotation: number;
   scaleX: number;
   scaleY: number;
-  skewX: number;
-  skewY: number;
+  skewX?: number;
+  skewY?: number;
   color: string;
   opacity: number;
   blendMode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'color-dodge' | 'color-burn' | 'hard-light' | 'soft-light' | 'difference' | 'exclusion' | 'hue' | 'saturation' | 'color' | 'luminosity';

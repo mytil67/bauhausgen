@@ -19,7 +19,7 @@ const sh = (
   color: string, extra: Extra = {},
 ): ShapeElement => ({
   id: nid(), type, x, y, width, height, color,
-  rotation: 0, scaleX: 1, scaleY: 1, opacity: 1, visible: true, locked: false, name: type,
+  rotation: 0, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, opacity: 1, visible: true, locked: false, name: type,
   ...extra,
 });
 
@@ -33,13 +33,15 @@ const tx = (
     textAlign?: 'start' | 'middle' | 'end';
     textTransform?: 'none' | 'uppercase' | 'lowercase';
     italic?: boolean;
+    strokeColor?: string;
+    strokeWidth?: number;
   } = {},
 ): TextElement => ({
   id: nid(), type: 'text', x, y, text, fontSize,
   fontFamily: extra.fontFamily || "'Syne', sans-serif",
   fontWeight: extra.fontWeight || '800',
   color,
-  rotation: 0, scaleX: 1, scaleY: 1, opacity: 1, visible: true, locked: false, name: 'Texte',
+  rotation: 0, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, opacity: 1, visible: true, locked: false, name: 'Texte',
   ...extra,
 });
 
