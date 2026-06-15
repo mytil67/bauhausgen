@@ -634,19 +634,23 @@ export const Canvas: React.FC<CanvasProps> = ({
   }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements]);
 
   return (
-    <div className="flex items-center justify-center bg-gray-200 p-8 w-full h-full overflow-auto relative">
-      <svg
-        ref={svgRef}
-        id="bauhaus-svg"
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        style={{ backgroundColor }}
-        className="shadow-2xl shadow-gray-300/50 cursor-default ring-1 ring-gray-900/5"
-        onMouseDown={handleCanvasMouseDown}
-        onContextMenu={handleContextMenu}
-        onClick={closeContextMenu}
+    <div className="w-full h-full overflow-auto relative bg-transparent flex p-12">
+      <div 
+        className="m-auto flex-shrink-0 origin-center transition-transform duration-75 ease-out"
+        style={{ transform: `scale(${zoom})`, width, height }}
       >
+        <svg
+          ref={svgRef}
+          id="bauhaus-svg"
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ backgroundColor }}
+          className="shadow-2xl shadow-gray-300/50 cursor-default ring-1 ring-gray-900/5 block"
+          onMouseDown={handleCanvasMouseDown}
+          onContextMenu={handleContextMenu}
+          onClick={closeContextMenu}
+        >
         <defs>
           {elements.map((el) => {
             const defs: React.ReactNode[] = [];

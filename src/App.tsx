@@ -77,6 +77,21 @@ function App() {
 
   const [zoom, setZoom] = useState(1);
 
+  // Zoom avec la molette
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setZoom(z => {
+          const newZ = z - e.deltaY * 0.002;
+          return Math.max(0.1, Math.min(5, newZ));
+        });
+      }
+    };
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, []);
+
   // Raccourcis clavier globaux
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
