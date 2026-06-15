@@ -20,6 +20,11 @@ export interface BaseElement {
   locked?: boolean;
   /** Identifiant de groupe : les éléments partageant la même valeur se sélectionnent ensemble. */
   groupId?: string;
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowOpacity?: number;
 }
 
 export interface TextElement extends BaseElement {

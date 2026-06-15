@@ -522,6 +522,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 <div><label className="text-[10px] font-bold text-gray-400 block mb-1">OPACITÉ</label><input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.opacity * 100)}%</div></div>
 
+                <div className="pt-2 border-t border-gray-100">
+                  <label className="text-[10px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Ombre Portée</label>
+                  <div className="space-y-3">
+                    <div className="flex gap-2 items-center">
+                      <div className="relative w-8 h-8 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
+                        <input type="color" value={ensureFullHex(selectedElement.shadowColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-[9px] font-bold text-gray-400 block uppercase">Opacité ombre</label>
+                        <input type="range" min="0" max="1" step="0.01" value={selectedElement.shadowOpacity ?? 0.5} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-400 block uppercase">Flou</label>
+                        <input type="range" min="0" max="50" step="1" value={selectedElement.shadowBlur ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowBlur: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-400 block uppercase">Décalage X/Y</label>
+                        <div className="flex gap-1">
+                          <input type="number" value={selectedElement.shadowOffsetX ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOffsetX: Number(e.target.value) })} className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded" />
+                          <input type="number" value={selectedElement.shadowOffsetY ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOffsetY: Number(e.target.value) })} className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveHorizontal size={10} /> ÉCHELLE X</label><input type="number" step="0.1" value={selectedElement.scaleX} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleX: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
                   <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveVertical size={10} /> ÉCHELLE Y</label><input type="number" step="0.1" value={selectedElement.scaleY} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleY: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
@@ -635,6 +663,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })}
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
                       />
+                    </div>
+
+                    <div className="pt-2">
+                      <div className="flex justify-between mb-1">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase tracking-wide">Largeur Max (Wrapping)</label>
+                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.maxWidth ? selectedElement.maxWidth + 'px' : 'Auto'}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="2000"
+                        step="10"
+                        value={selectedElement.maxWidth ?? 0}
+                        onMouseDown={onBeginHistory}
+                        onChange={(e) => onUpdateElementLive(selectedElement.id, { maxWidth: Number(e.target.value) })}
+                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                      />
+                      <p className="text-[8px] text-gray-400 mt-1 italic">Mettre à 0 pour une ligne unique.</p>
                     </div>
 
                     <div className="pt-2">

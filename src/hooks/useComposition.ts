@@ -184,6 +184,11 @@ export const useComposition = () => {
       blendMode: 'normal' as const,
       visible: true,
       locked: false,
+      shadowColor: '#000000',
+      shadowBlur: 0,
+      shadowOffsetX: 0,
+      shadowOffsetY: 0,
+      shadowOpacity: 0.5,
     };
     if (type === 'text') {
       return {

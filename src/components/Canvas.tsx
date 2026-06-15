@@ -639,6 +639,24 @@ export const Canvas: React.FC<CanvasProps> = ({
         onContextMenu={handleContextMenu}
         onClick={closeContextMenu}
       >
+        <defs>
+          {elements.map((el) => {
+            if (el.shadowBlur === 0 && el.shadowOpacity === 0) return null;
+            return (
+              <filter key={`shadow-${el.id}`} id={`filter-shadow-${el.id}`} x="-100%" y="-100%" width="300%" height="300%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation={el.shadowBlur ?? 0} />
+                <feOffset dx={el.shadowOffsetX ?? 0} dy={el.shadowOffsetY ?? 0} result="offsetblur" />
+                <feFlood floodColor={el.shadowColor ?? '#000000'} floodOpacity={el.shadowOpacity ?? 0.5} />
+                <feComposite in2="offsetblur" operator="in" />
+                <feMerge>
+                  <feMergeNode />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            );
+          })}
+        </defs>
+
         {elements.map((el) => {
           if (el.visible === false) return null;
           const isSelected = selectedIds.includes(el.id);
@@ -652,6 +670,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           const sx = bbox.x * el.scaleX;
           const sy = bbox.y * el.scaleY;
 
+          const filterUrl = (el.shadowBlur && el.shadowBlur > 0) || (el.shadowOpacity && el.shadowOpacity > 0) 
+            ? `url(#filter-shadow-${el.id})` 
+            : undefined;
+
           return (
             <g
               key={el.id}
@@ -663,30 +685,58 @@ export const Canvas: React.FC<CanvasProps> = ({
               style={{ 
                 cursor: dragMode === 'move' && isSelected ? 'grabbing' : 'grab', 
                 opacity: el.opacity,
-                mixBlendMode: el.blendMode as React.CSSProperties['mixBlendMode'] ?? 'normal'
+                mixBlendMode: el.blendMode as React.CSSProperties['mixBlendMode'] ?? 'normal',
+                filter: filterUrl
               }}
             >
               <g transform={innerTransform}>
                 {el.type === 'text' && editingId !== el.id && (
-                  <text
-                    x="0"
-                    y="0"
-                    fontSize={el.fontSize}
-                    fontFamily={el.fontFamily}
-                    fontWeight={el.fontWeight}
-                    fontStyle={el.italic ? 'italic' : 'normal'}
-                    letterSpacing={el.letterSpacing ?? 0}
-                    fill={el.color}
-                    stroke={el.strokeWidth && el.strokeWidth > 0 ? el.strokeColor : 'none'}
-                    strokeWidth={el.strokeWidth ?? 0}
-                    strokeLinejoin="round"
-                    textAnchor={el.textAlign ?? 'middle'}
-                    dominantBaseline="middle"
-                    className="select-none"
-                    style={{ textTransform: el.textTransform ?? 'none' }}
-                  >
-                    {el.text}
-                  </text>
+                  el.maxWidth && el.maxWidth > 0 ? (
+                    <foreignObject 
+                      x={-el.maxWidth / 2} 
+                      y={-(el.fontSize * (el.lineHeight ?? 1.2) * 2) / 2} 
+                      width={el.maxWidth} 
+                      height={1000}
+                      className="select-none pointer-events-none"
+                    >
+                      <div style={{
+                        color: el.color,
+                        fontSize: el.fontSize,
+                        fontFamily: el.fontFamily,
+                        fontWeight: el.fontWeight as any,
+                        fontStyle: el.italic ? 'italic' : 'normal',
+                        lineHeight: el.lineHeight ?? 1.2,
+                        letterSpacing: (el.letterSpacing ?? 0) + 'px',
+                        textAlign: (el.textAlign === 'middle' ? 'center' : el.textAlign === 'end' ? 'right' : 'left') as any,
+                        textTransform: el.textTransform ?? 'none',
+                        WebkitTextStroke: el.strokeWidth && el.strokeWidth > 0 ? `${el.strokeWidth}px ${el.strokeColor}` : 'none',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {el.text}
+                      </div>
+                    </foreignObject>
+                  ) : (
+                    <text
+                      x="0"
+                      y="0"
+                      fontSize={el.fontSize}
+                      fontFamily={el.fontFamily}
+                      fontWeight={el.fontWeight}
+                      fontStyle={el.italic ? 'italic' : 'normal'}
+                      letterSpacing={el.letterSpacing ?? 0}
+                      fill={el.color}
+                      stroke={el.strokeWidth && el.strokeWidth > 0 ? el.strokeColor : 'none'}
+                      strokeWidth={el.strokeWidth ?? 0}
+                      strokeLinejoin="round"
+                      textAnchor={el.textAlign ?? 'middle'}
+                      dominantBaseline="middle"
+                      className="select-none"
+                      style={{ textTransform: el.textTransform ?? 'none' }}
+                    >
+                      {el.text}
+                    </text>
+                  )
                 )}
                 {el.type === 'text' && editingId === el.id && (() => {
                   const w = Math.max((bboxes[el.id]?.width ?? 200) + 40, 60);
