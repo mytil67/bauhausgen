@@ -132,6 +132,25 @@ const CANVAS_PRESETS: { name: string; w: number; h: number }[] = [
   { name: 'A4 ↔', w: 1754, h: 1240 },
 ];
 
+const GOOGLE_FONTS = [
+  { label: 'Inter', value: "'Inter', sans-serif" },
+  { label: 'Montserrat', value: "'Montserrat', sans-serif" },
+  { label: 'Outfit', value: "'Outfit', sans-serif" },
+  { label: 'Space Grotesk', value: "'Space Grotesk', sans-serif" },
+  { label: 'Syne', value: "'Syne', sans-serif" },
+  { label: 'Archivo Black', value: "'Archivo Black', sans-serif" },
+  { label: 'Playfair Display', value: "'Playfair Display', serif" },
+  { label: 'Libre Baskerville', value: "'Libre Baskerville', serif" },
+  { label: 'Roboto', value: "'Roboto', sans-serif" },
+  { label: 'Poppins', value: "'Poppins', sans-serif" },
+  { label: 'Oswald', value: "'Oswald', sans-serif" },
+  { label: 'Bebas Neue', value: "'Bebas Neue', sans-serif" },
+  { label: 'Righteous', value: "'Righteous', display" },
+  { label: 'Anton', value: "'Anton', sans-serif" },
+  { label: 'Work Sans', value: "'Work Sans', sans-serif" },
+  { label: 'Roboto Mono', value: "'Roboto Mono', monospace" },
+];
+
 export const Sidebar: React.FC<SidebarProps> = ({
   elements,
   selectedElement,
@@ -175,6 +194,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [alignToPage, setAlignToPage] = useState(false);
+  const [isFontPickerOpen, setIsFontPickerOpen] = useState(false);
 
   const canAlignSelection = selectionCount >= 2;
   const effectiveToPage = canAlignSelection ? alignToPage : true;
@@ -696,24 +716,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {selectedElement.type === 'text' && (
                   <div className="space-y-4 pt-4 border-t border-gray-100">
                     <div><label className="text-[10px] font-bold text-gray-400 block mb-1">TEXTE</label><textarea value={selectedElement.text} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { text: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded min-h-[60px]" /></div>
-                    <select value={selectedElement.fontFamily} onChange={(e) => onUpdateElement(selectedElement.id, { fontFamily: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded font-medium">
-                      <optgroup label="Système & Google">
-                        <option value="sans-serif">Sans Serif</option>
-                        <option value="'Inter', sans-serif">Inter</option>
-                        <option value="'Montserrat', sans-serif">Montserrat</option>
-                        <option value="'Outfit', sans-serif">Outfit</option>
-                        <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
-                        <option value="'Syne', sans-serif">Syne</option>
-                        <option value="'Archivo Black', sans-serif">Archivo Black</option>
-                        <option value="'Playfair Display', serif">Playfair Display</option>
-                        <option value="'Libre Baskerville', serif">Libre Baskerville</option>
-                      </optgroup>
-                      {customFonts.length > 0 && (
-                        <optgroup label="Mes Polices">
-                          {customFonts.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
-                        </optgroup>
+                    <div className="relative">
+                      <button
+                        onClick={() => setIsFontPickerOpen(!isFontPickerOpen)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded flex justify-between items-center bg-white hover:bg-gray-50 transition-colors"
+                      >
+                        <span style={{ fontFamily: selectedElement.fontFamily }} className="truncate text-base">
+                          {selectedElement.fontFamily.split(',')[0].replace(/['"]/g, '')}
+                        </span>
+                        <ChevronDown size={14} className="opacity-50 shrink-0" />
+                      </button>
+
+                      {isFontPickerOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIsFontPickerOpen(false)} />
+                          <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto py-1 custom-scrollbar">
+                            <div className="px-3 py-1.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/90 sticky top-0 backdrop-blur">Polices Google</div>
+                            {GOOGLE_FONTS.map(f => (
+                              <button
+                                key={f.value}
+                                onClick={() => {
+                                  onUpdateElement(selectedElement.id, { fontFamily: f.value });
+                                  setIsFontPickerOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-base hover:bg-blue-50 transition-colors truncate ${selectedElement.fontFamily === f.value ? 'bg-blue-50 text-blue-600' : 'text-gray-800'}`}
+                                style={{ fontFamily: f.value }}
+                              >
+                                {f.label}
+                              </button>
+                            ))}
+                            {customFonts.length > 0 && (
+                              <>
+                                <div className="px-3 py-1.5 mt-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/90 sticky top-0 backdrop-blur border-t border-gray-100">Mes Polices</div>
+                                {customFonts.map(f => (
+                                  <button
+                                    key={f.name}
+                                    onClick={() => {
+                                      onUpdateElement(selectedElement.id, { fontFamily: f.name });
+                                      setIsFontPickerOpen(false);
+                                    }}
+                                    className={`w-full text-left px-4 py-2 text-base hover:bg-blue-50 transition-colors truncate ${selectedElement.fontFamily === f.name ? 'bg-blue-50 text-blue-600' : 'text-gray-800'}`}
+                                    style={{ fontFamily: f.name }}
+                                  >
+                                    {f.name}
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                        </>
                       )}
-                    </select>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <input type="number" value={selectedElement.fontSize} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" title="Taille" />
                       <select value={selectedElement.fontWeight} onChange={(e) => onUpdateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded">
