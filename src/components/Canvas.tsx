@@ -852,27 +852,27 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               {/* Contour de sélection (toujours visible si sélectionné) */}
               {isSelected && (
-                <rect x={sx - 5} y={sy - 5} width={sw + 10} height={sh + 10} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray={showHandles ? '4' : '2'} className="pointer-events-none export-ignore" />
+                <rect x={sx - ho} y={sy - ho} width={sw + hz} height={sh + hz} fill="none" stroke="#3b82f6" strokeWidth={strokeZ} strokeDasharray={showHandles ? '4' : '2'} className="pointer-events-none export-ignore" />
               )}
 
               {/* Poignées (sélection unique uniquement) */}
               {showHandles && (
                 <g className="export-ignore">
                   {/* Poignée de rotation */}
-                  <line x1={sx + sw / 2} y1={sy - 5} x2={sx + sw / 2} y2={sy - 28} stroke="#3b82f6" strokeWidth="1.5" className="pointer-events-none" />
-                  <circle cx={sx + sw / 2} cy={sy - 32} r="6" fill="white" stroke="#3b82f6" strokeWidth="1.5" style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e, el.id)} />
+                  <line x1={sx + sw / 2} y1={sy - ho} x2={sx + sw / 2} y2={sy - 28 / zoom} stroke="#3b82f6" strokeWidth={strokeZ} className="pointer-events-none" />
+                  <circle cx={sx + sw / 2} cy={sy - 32 / zoom} r={6 / zoom} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e, el.id)} />
 
                   {/* Coins */}
-                  <rect x={sx - 10} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'nw', el.id)} />
-                  <rect x={sx + sw} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'ne', el.id)} />
-                  <rect x={sx - 10} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'sw', el.id)} />
-                  <rect x={sx + sw} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'se', el.id)} />
+                  <rect x={sx - hz} y={sy - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'nw', el.id)} />
+                  <rect x={sx + sw} y={sy - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'ne', el.id)} />
+                  <rect x={sx - hz} y={sy + sh} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'sw', el.id)} />
+                  <rect x={sx + sw} y={sy + sh} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'se', el.id)} />
 
                   {/* Milieux */}
-                  <rect x={sx + sw / 2 - 5} y={sy - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'n', el.id)} />
-                  <rect x={sx + sw / 2 - 5} y={sy + sh} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 's', el.id)} />
-                  <rect x={sx - 10} y={sy + sh / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'w', el.id)} />
-                  <rect x={sx + sw} y={sy + sh / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'e', el.id)} />
+                  <rect x={sx + sw / 2 - ho} y={sy - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'n', el.id)} />
+                  <rect x={sx + sw / 2 - ho} y={sy + sh} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 's', el.id)} />
+                  <rect x={sx - hz} y={sy + sh / 2 - ho} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'w', el.id)} />
+                  <rect x={sx + sw} y={sy + sh / 2 - ho} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'e', el.id)} />
                 </g>
               )}
             </g>
@@ -883,78 +883,78 @@ export const Canvas: React.FC<CanvasProps> = ({
         {!singleSelected && groupAABB && (
           <g className="export-ignore">
             <rect
-              x={groupAABB.x - 5}
-              y={groupAABB.y - 5}
-              width={groupAABB.width + 10}
-              height={groupAABB.height + 10}
+              x={groupAABB.x - ho}
+              y={groupAABB.y - ho}
+              width={groupAABB.width + hz}
+              height={groupAABB.height + hz}
               fill="none"
               stroke="#3b82f6"
-              strokeWidth="1.5"
+              strokeWidth={strokeZ}
               strokeDasharray="4"
               className="pointer-events-none"
             />
             {/* Coins */}
-            <rect x={groupAABB.x - 10} y={groupAABB.y - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'nw')} />
-            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'ne')} />
-            <rect x={groupAABB.x - 10} y={groupAABB.y + groupAABB.height} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'sw')} />
-            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y + groupAABB.height} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'se')} />
+            <rect x={groupAABB.x - hz} y={groupAABB.y - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'nw')} />
+            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'ne')} />
+            <rect x={groupAABB.x - hz} y={groupAABB.y + groupAABB.height} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'sw')} />
+            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y + groupAABB.height} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'se')} />
             {/* Milieux */}
-            <rect x={groupAABB.x + groupAABB.width / 2 - 5} y={groupAABB.y - 10} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'n')} />
-            <rect x={groupAABB.x + groupAABB.width / 2 - 5} y={groupAABB.y + groupAABB.height} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 's')} />
-            <rect x={groupAABB.x - 10} y={groupAABB.y + groupAABB.height / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'w')} />
-            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y + groupAABB.height / 2 - 5} width="10" height="10" fill="white" stroke="#3b82f6" strokeWidth="1.5" className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'e')} />
+            <rect x={groupAABB.x + groupAABB.width / 2 - ho} y={groupAABB.y - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'n')} />
+            <rect x={groupAABB.x + groupAABB.width / 2 - ho} y={groupAABB.y + groupAABB.height} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 's')} />
+            <rect x={groupAABB.x - hz} y={groupAABB.y + groupAABB.height / 2 - ho} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'w')} />
+            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y + groupAABB.height / 2 - ho} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'e')} />
 
             {/* Rotation de groupe */}
-            <line x1={groupAABB.x + groupAABB.width / 2} y1={groupAABB.y - 5} x2={groupAABB.x + groupAABB.width / 2} y2={groupAABB.y - 28} stroke="#3b82f6" strokeWidth="1.5" className="pointer-events-none" />
-            <circle cx={groupAABB.x + groupAABB.width / 2} cy={groupAABB.y - 32} r="6" fill="white" stroke="#3b82f6" strokeWidth="1.5" style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e)} />
+            <line x1={groupAABB.x + groupAABB.width / 2} y1={groupAABB.y - ho} x2={groupAABB.x + groupAABB.width / 2} y2={groupAABB.y - 28 / zoom} stroke="#3b82f6" strokeWidth={strokeZ} className="pointer-events-none" />
+            <circle cx={groupAABB.x + groupAABB.width / 2} cy={groupAABB.y - 32 / zoom} r={6 / zoom} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e)} />
           </g>
         )}
 
         {/* Overlay : guides & mesures */}
         <g className="pointer-events-none export-ignore">
           {/* Lignes d'alignement (rouge, nettes) */}
-          {activeGuides.x.map((x, i) => <line key={`gx-${i}`} x1={x} y1="0" x2={x} y2={height} stroke="#f43f5e" strokeWidth="1" />)}
-          {activeGuides.y.map((y, i) => <line key={`gy-${i}`} x1="0" y1={y} x2={width} y2={y} stroke="#f43f5e" strokeWidth="1" />)}
+          {activeGuides.x.map((x, i) => <line key={`gx-${i}`} x1={x} y1="0" x2={x} y2={height} stroke="#f43f5e" strokeWidth={strokeGuide} />)}
+          {activeGuides.y.map((y, i) => <line key={`gy-${i}`} x1="0" y1={y} x2={width} y2={y} stroke="#f43f5e" strokeWidth={strokeGuide} />)}
 
           {/* Badges d'espacement (bleu) / espacement égal (rose) */}
           {measurements.map((m, i) => {
             const isVertical = m.x1 === m.x2;
             const color = m.kind === 'equal' ? '#ec4899' : '#2563eb';
-            const labelW = Math.max(18, String(m.value).length * 7 + 8);
+            const labelW = Math.max(18, String(m.value).length * 7 + 8) / zoom;
             const mx = (m.x1 + m.x2) / 2;
             const my = (m.y1 + m.y2) / 2;
-            const a = 3; // taille des têtes de flèche
+            const a = 3 / zoom; // taille des têtes de flèche compensée
             // Pastille décalée pour ne pas masquer la ligne de mesure
-            const labelCx = isVertical ? mx + labelW / 2 + 5 : mx;
-            const labelCy = isVertical ? my : my - 11;
+            const labelCx = isVertical ? mx + labelW / 2 + 5 / zoom : mx;
+            const labelCy = isVertical ? my : my - 11 / zoom;
 
             return (
               <g key={`m-${i}`}>
                 {m.kind === 'equal' && (
                   <rect
-                    x={isVertical ? m.x1 - 10 : Math.min(m.x1, m.x2)}
-                    y={isVertical ? Math.min(m.y1, m.y2) : m.y1 - 10}
-                    width={isVertical ? 20 : Math.abs(m.x2 - m.x1)}
-                    height={isVertical ? Math.abs(m.y2 - m.y1) : 20}
+                    x={isVertical ? m.x1 - 10 / zoom : Math.min(m.x1, m.x2)}
+                    y={isVertical ? Math.min(m.y1, m.y2) : m.y1 - 10 / zoom}
+                    width={isVertical ? 20 / zoom : Math.abs(m.x2 - m.x1)}
+                    height={isVertical ? Math.abs(m.y2 - m.y1) : 20 / zoom}
                     fill={color}
                     opacity="0.1"
                   />
                 )}
-                <line x1={m.x1} y1={m.y1} x2={m.x2} y2={m.y2} stroke={color} strokeWidth="1" />
+                <line x1={m.x1} y1={m.y1} x2={m.x2} y2={m.y2} stroke={color} strokeWidth={strokeGuide} />
                 {/* Doubles flèches aux extrémités */}
                 {isVertical ? (
                   <>
-                    <path d={`M${m.x1 - a},${m.y1 + a} L${m.x1},${m.y1} L${m.x1 + a},${m.y1 + a}`} fill="none" stroke={color} strokeWidth="1" />
-                    <path d={`M${m.x2 - a},${m.y2 - a} L${m.x2},${m.y2} L${m.x2 + a},${m.y2 - a}`} fill="none" stroke={color} strokeWidth="1" />
+                    <path d={`M${m.x1 - a},${m.y1 + a} L${m.x1},${m.y1} L${m.x1 + a},${m.y1 + a}`} fill="none" stroke={color} strokeWidth={strokeGuide} />
+                    <path d={`M${m.x2 - a},${m.y2 - a} L${m.x2},${m.y2} L${m.x2 + a},${m.y2 - a}`} fill="none" stroke={color} strokeWidth={strokeGuide} />
                   </>
                 ) : (
                   <>
-                    <path d={`M${m.x1 + a},${m.y1 - a} L${m.x1},${m.y1} L${m.x1 + a},${m.y1 + a}`} fill="none" stroke={color} strokeWidth="1" />
-                    <path d={`M${m.x2 - a},${m.y2 - a} L${m.x2},${m.y2} L${m.x2 - a},${m.y2 + a}`} fill="none" stroke={color} strokeWidth="1" />
+                    <path d={`M${m.x1 + a},${m.y1 - a} L${m.x1},${m.y1} L${m.x1 + a},${m.y1 + a}`} fill="none" stroke={color} strokeWidth={strokeGuide} />
+                    <path d={`M${m.x2 - a},${m.y2 - a} L${m.x2},${m.y2} L${m.x2 - a},${m.y2 + a}`} fill="none" stroke={color} strokeWidth={strokeGuide} />
                   </>
                 )}
-                <rect x={labelCx - labelW / 2} y={labelCy - 7} width={labelW} height="14" fill={color} rx="3" />
-                <text x={labelCx} y={labelCy} fontSize="9" fontWeight="bold" fill="white" textAnchor="middle" dominantBaseline="central" className="select-none font-mono">
+                <rect x={labelCx - labelW / 2} y={labelCy - 7 / zoom} width={labelW} height={14 / zoom} fill={color} rx={3 / zoom} />
+                <text x={labelCx} y={labelCy} fontSize={9 / zoom} fontWeight="bold" fill="white" textAnchor="middle" dominantBaseline="central" className="select-none font-mono">
                   {m.value}
                 </text>
               </g>
@@ -971,7 +971,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             height={Math.abs(marquee.y2 - marquee.y1)}
             fill="rgba(59, 130, 246, 0.06)"
             stroke="#3b82f6"
-            strokeWidth="0.5"
+            strokeWidth={0.5 / zoom}
             strokeDasharray="3 3"
             className="pointer-events-none export-ignore"
           />
