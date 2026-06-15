@@ -1,20 +1,35 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { CompositionElement, CompositionState, ElementType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 const DEFAULT_WIDTH = 800;
 const DEFAULT_HEIGHT = 800;
+const STORAGE_KEY = 'bauhaus-composition-state';
 
 export const useComposition = () => {
-  const [state, setState] = useState<CompositionState>({
-    elements: [],
-    selectedId: null,
-    backgroundColor: '#ffffff',
-    canvasWidth: DEFAULT_WIDTH,
-    canvasHeight: DEFAULT_HEIGHT,
-    customColors: [],
-    customFonts: [],
+  const [state, setState] = useState<CompositionState>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to load state from localStorage', e);
+      }
+    }
+    return {
+      elements: [],
+      selectedId: null,
+      backgroundColor: '#ffffff',
+      canvasWidth: DEFAULT_WIDTH,
+      canvasHeight: DEFAULT_HEIGHT,
+      customColors: [],
+      customFonts: [],
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
 
   const addElement = useCallback((type: ElementType) => {
     const id = uuidv4();
@@ -118,6 +133,65 @@ export const useComposition = () => {
     });
   }, []);
 
+  const alignElements = useCallback((direction: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
+    setState(prev => {
+      if (prev.elements.length < 2) return prev;
+      
+      const selected = prev.elements.filter(el => prev.selectedId ? el.id === prev.selectedId : true);
+      if (selected.length < 1) return prev;
+
+      let targetVal = 0;
+      if (direction === 'left') targetVal = Math.min(...selected.map(el => el.x));
+      if (direction === 'right') targetVal = Math.max(...selected.map(el => el.x));
+      if (direction === 'center') targetVal = selected.reduce((sum, el) => sum + el.x, 0) / selected.length;
+      if (direction === 'top') targetVal = Math.min(...selected.map(el => el.y));
+      if (direction === 'bottom') targetVal = Math.max(...selected.map(el => el.y));
+      if (direction === 'middle') targetVal = selected.reduce((sum, el) => sum + el.y, 0) / selected.length;
+
+      return {
+        ...prev,
+        elements: prev.elements.map(el => {
+          if (prev.selectedId && el.id !== prev.selectedId) return el;
+          if (['left', 'center', 'right'].includes(direction)) return { ...el, x: targetVal };
+          return { ...el, y: targetVal };
+        })
+      };
+    });
+  }, []);
+
+  const distributeElements = useCallback((axis: 'horizontal' | 'vertical') => {
+    setState(prev => {
+      const targets = prev.elements;
+      if (targets.length < 3) return prev;
+
+      const sorted = [...targets].sort((a, b) => axis === 'horizontal' ? a.x - b.x : a.y - b.y);
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
+      const totalDist = axis === 'horizontal' ? (last.x - first.x) : (last.y - first.y);
+      const step = totalDist / (sorted.length - 1);
+
+      return {
+        ...prev,
+        elements: prev.elements.map(el => {
+          const index = sorted.findIndex(s => s.id === el.id);
+          if (axis === 'horizontal') return { ...el, x: first.x + (index * step) };
+          return { ...el, y: first.y + (index * step) };
+        })
+      };
+    });
+  }, []);
+
+  const clearCanvas = useCallback(() => {
+    if (window.confirm('Voulez-vous vraiment vider le canvas ?')) {
+      setState((prev) => ({
+        ...prev,
+        elements: [],
+        selectedId: null,
+        backgroundColor: '#ffffff',
+      }));
+    }
+  }, []);
+
   return {
     ...state,
     addElement,
@@ -129,5 +203,8 @@ export const useComposition = () => {
     addCustomFont,
     bringToFront,
     sendToBack,
+    clearCanvas,
+    alignElements,
+    distributeElements,
   };
 };

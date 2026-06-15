@@ -20,6 +20,9 @@ function App() {
     addCustomFont,
     bringToFront,
     sendToBack,
+    clearCanvas,
+    alignElements,
+    distributeElements,
   } = useComposition();
 
   const selectedElement = elements.find((el) => el.id === selectedId) || null;
@@ -86,6 +89,9 @@ function App() {
         onBringToFront={bringToFront}
         onSendToBack={sendToBack}
         onExport={handleExport}
+        onClearCanvas={clearCanvas}
+        onAlign={alignElements}
+        onDistribute={distributeElements}
       />
       <main className="flex-1 h-full relative overflow-hidden flex items-center justify-center">
         <Canvas
@@ -96,6 +102,7 @@ function App() {
           height={canvasHeight}
           onSelect={selectElement}
           onUpdate={updateElement}
+          onRemove={removeElement}
         />
         
         {/* Status Bar */}

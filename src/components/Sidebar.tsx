@@ -31,10 +31,20 @@ interface SidebarProps {
   onUpdateBackground: (color: string) => void;
   onSaveColor: (color: string) => void;
   onAddCustomFont: (fontName: string) => void;
-  onBringToFront: (id: string) => void;
-  onSendToBack: (id: string) => void;
   onExport: (format: 'svg' | 'png' | 'jpg') => void;
+  onClearCanvas: () => void;
+  onAlign: (direction: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
+  onDistribute: (axis: 'horizontal' | 'vertical') => void;
 }
+
+const ensureFullHex = (color: string): string => {
+  if (!color.startsWith('#')) color = '#' + color;
+  if (/^#[0-9A-Fa-f]{3}$/.test(color)) {
+    return '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3];
+  }
+  if (/^#[0-9A-Fa-f]{6}$/.test(color)) return color;
+  return '#000000';
+};
 
 export const Sidebar: React.FC<SidebarProps> = ({
   selectedElement,
@@ -52,8 +62,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onBringToFront,
   onSendToBack,
   onExport,
+  onClearCanvas,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleColorInput = (val: string, callback: (color: string) => void) => {
+    let normalized = val;
+    if (!val.startsWith('#') && val.length > 0) normalized = '#' + val;
+    if (/^#[0-9A-Fa-f]{0,6}$/.test(normalized) || normalized === '') {
+      callback(normalized);
+    }
+  };
 
   const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,6 +118,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </section>
 
+      {/* Tidy Up / Layout Section */}
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
+          <AlignJustify size={14} /> Alignement Auto
+        </h2>
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-3 gap-1 p-1 bg-gray-50 rounded border border-gray-200">
+            <button onClick={() => onAlign('left')} className="py-1 hover:bg-white rounded transition-all text-[10px] font-bold text-gray-600" title="Aligner à gauche">Gauche</button>
+            <button onClick={() => onAlign('center')} className="py-1 hover:bg-white rounded transition-all text-[10px] font-bold text-gray-600" title="Aligner au centre (H)">Centre</button>
+            <button onClick={() => onAlign('right')} className="py-1 hover:bg-white rounded transition-all text-[10px] font-bold text-gray-600" title="Aligner à droite">Droite</button>
+          </div>
+          <div className="grid grid-cols-3 gap-1 p-1 bg-gray-50 rounded border border-gray-200">
+            <button onClick={() => onAlign('top')} className="py-1 hover:bg-white rounded transition-all text-[10px] font-bold text-gray-600" title="Aligner en haut">Haut</button>
+            <button onClick={() => onAlign('middle')} className="py-1 hover:bg-white rounded transition-all text-[10px] font-bold text-gray-600" title="Aligner au milieu (V)">Milieu</button>
+            <button onClick={() => onAlign('bottom')} className="py-1 hover:bg-white rounded transition-all text-[10px] font-bold text-gray-600" title="Aligner en bas">Bas</button>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <button onClick={() => onDistribute('horizontal')} className="py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200 text-[10px] font-bold uppercase transition-all" title="Égaliser l'espace horizontal">Distribuer H</button>
+            <button onClick={() => onDistribute('vertical')} className="py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200 text-[10px] font-bold uppercase transition-all" title="Égaliser l'espace vertical">Distribuer V</button>
+          </div>
+        </div>
+      </section>
+
       {/* Font Upload Section */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
@@ -117,8 +159,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Fond</h2>
         <div className="flex items-center gap-2 mb-2">
-          <input type="color" value={backgroundColor} onChange={(e) => onUpdateBackground(e.target.value)} className="w-8 h-8 p-0 border-0 rounded cursor-pointer shrink-0" />
-          <input type="text" value={backgroundColor} onChange={(e) => { const val = e.target.value; if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) onUpdateBackground(val); }} placeholder="#FFFFFF" className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded uppercase font-mono focus:outline-none" />
+          <div className="relative w-8 h-8 shrink-0 overflow-hidden rounded border border-gray-300">
+            <input 
+              type="color" 
+              value={ensureFullHex(backgroundColor)} 
+              onChange={(e) => onUpdateBackground(e.target.value)} 
+              className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" 
+            />
+          </div>
+          <input 
+            type="text" 
+            value={backgroundColor} 
+            onChange={(e) => handleColorInput(e.target.value, onUpdateBackground)} 
+            placeholder="#FFFFFF" 
+            className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded uppercase font-mono focus:outline-none" 
+          />
           <button onClick={() => onSaveColor(backgroundColor)} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-[10px] font-bold uppercase whitespace-nowrap">Mémoriser</button>
         </div>
         {customColors.length > 0 && (
@@ -156,15 +211,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div><label className="text-[10px] font-bold text-gray-400 block mb-1">OPACITÉ</label><input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onChange={(e) => onUpdateElement(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.opacity * 100)}%</div></div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveHorizontal size={10} /> LARGEUR</label><input type="number" step="0.1" value={selectedElement.scaleX} onChange={(e) => onUpdateElement(selectedElement.id, { scaleX: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveVertical size={10} /> HAUTEUR</label><input type="number" step="0.1" value={selectedElement.scaleY} onChange={(e) => onUpdateElement(selectedElement.id, { scaleY: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveHorizontal size={10} /> ÉCHELLE X</label><input type="number" step="0.1" value={selectedElement.scaleX} onChange={(e) => onUpdateElement(selectedElement.id, { scaleX: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveVertical size={10} /> ÉCHELLE Y</label><input type="number" step="0.1" value={selectedElement.scaleY} onChange={(e) => onUpdateElement(selectedElement.id, { scaleY: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
             </div>
 
             <div>
               <label className="text-[10px] font-bold text-gray-400 block mb-1">COULEUR</label>
               <div className="flex gap-2 mb-2">
-                <input type="color" value={selectedElement.color} onChange={(e) => onUpdateElement(selectedElement.id, { color: e.target.value })} className="w-10 h-10 rounded border border-gray-200 p-0.5 cursor-pointer bg-white" />
-                <input type="text" value={selectedElement.color} onChange={(e) => { const val = e.target.value; if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) onUpdateElement(selectedElement.id, { color: val }); }} placeholder="#000000" className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded uppercase font-mono" />
+                <div className="relative w-10 h-10 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
+                  <input 
+                    type="color" 
+                    value={ensureFullHex(selectedElement.color)} 
+                    onChange={(e) => onUpdateElement(selectedElement.id, { color: e.target.value })} 
+                    className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" 
+                  />
+                </div>
+                <input 
+                  type="text" 
+                  value={selectedElement.color} 
+                  onChange={(e) => handleColorInput(e.target.value, (color) => onUpdateElement(selectedElement.id, { color }))} 
+                  placeholder="#000000" 
+                  className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded uppercase font-mono" 
+                />
                 <button onClick={() => onSaveColor(selectedElement.color)} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-[10px] font-bold uppercase whitespace-nowrap">Mémoriser</button>
               </div>
               {customColors.length > 0 && (
@@ -201,7 +269,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                   </select>
                 </div>
-                <div><label className="text-[10px] font-bold text-gray-400 block mb-1">TAILLE DE POLICE</label><input type="number" value={selectedElement.fontSize} onChange={(e) => onUpdateElement(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">TAILLE</label><input type="number" value={selectedElement.fontSize} onChange={(e) => onUpdateElement(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 block mb-1">GRAISSE</label>
+                    <select value={selectedElement.fontWeight} onChange={(e) => onUpdateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded">
+                      <option value="normal">Normal</option>
+                      <option value="bold">Gras</option>
+                      <option value="100">Thin</option>
+                      <option value="300">Light</option>
+                      <option value="500">Medium</option>
+                      <option value="700">Bold</option>
+                      <option value="900">Black</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -230,6 +312,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button onClick={() => onExport('jpg')} className="w-full bg-gray-100 text-gray-900 text-xs font-bold py-2 rounded hover:bg-gray-200 uppercase tracking-widest transition-colors">JPG</button>
           </div>
         </div>
+        <button 
+          onClick={onClearCanvas}
+          className="w-full mt-4 py-2 text-red-500 text-[10px] font-bold uppercase hover:bg-red-50 rounded transition-colors"
+        >
+          Vider le canvas
+        </button>
       </section>
     </div>
   );
