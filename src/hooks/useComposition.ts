@@ -178,7 +178,10 @@ export const useComposition = () => {
       rotation: 0,
       scaleX: 1,
       scaleY: 1,
+      skewX: 0,
+      skewY: 0,
       opacity: 1,
+      blendMode: 'normal' as const,
       visible: true,
       locked: false,
     };
@@ -192,6 +195,10 @@ export const useComposition = () => {
         fontSize: 60,
         fontFamily: 'sans-serif',
         fontWeight: 'bold',
+        strokeWidth: 0,
+        strokeColor: '#000000',
+        letterSpacing: 0,
+        lineHeight: 1.2,
       };
     }
     const names: Record<string, string> = {
@@ -440,38 +447,53 @@ export const useComposition = () => {
     });
   }, [commit]);
 
-  const bringToFront = useCallback((id: string) => {
+  const bringToFront = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
     commit((prev) => {
-      const element = prev.elements.find((el) => el.id === id);
-      if (!element) return prev;
-      return { ...prev, elements: [...prev.elements.filter((el) => el.id !== id), element] };
+      const selected = prev.elements.filter((el) => set.has(el.id));
+      const remaining = prev.elements.filter((el) => !set.has(el.id));
+      return { ...prev, elements: [...remaining, ...selected] };
     });
   }, [commit]);
 
-  const sendToBack = useCallback((id: string) => {
+  const sendToBack = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
     commit((prev) => {
-      const element = prev.elements.find((el) => el.id === id);
-      if (!element) return prev;
-      return { ...prev, elements: [element, ...prev.elements.filter((el) => el.id !== id)] };
+      const selected = prev.elements.filter((el) => set.has(el.id));
+      const remaining = prev.elements.filter((el) => !set.has(el.id));
+      return { ...prev, elements: [...selected, ...remaining] };
     });
   }, [commit]);
 
-  const bringForward = useCallback((id: string) => {
+  const bringForward = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
     commit((prev) => {
-      const idx = prev.elements.findIndex((el) => el.id === id);
-      if (idx === -1 || idx === prev.elements.length - 1) return prev;
       const next = [...prev.elements];
-      [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      // On parcourt de la fin vers le début pour ne pas déplacer un élément 
+      // qu'on vient juste d'avancer.
+      for (let i = next.length - 2; i >= 0; i--) {
+        if (set.has(next[i].id) && !set.has(next[i + 1].id)) {
+          [next[i], next[i + 1]] = [next[i + 1], next[i]];
+        }
+      }
       return { ...prev, elements: next };
     });
   }, [commit]);
 
-  const sendBackward = useCallback((id: string) => {
+  const sendBackward = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
     commit((prev) => {
-      const idx = prev.elements.findIndex((el) => el.id === id);
-      if (idx === -1 || idx === 0) return prev;
       const next = [...prev.elements];
-      [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
+      // On parcourt du début vers la fin.
+      for (let i = 1; i < next.length; i++) {
+        if (set.has(next[i].id) && !set.has(next[i - 1].id)) {
+          [next[i], next[i - 1]] = [next[i - 1], next[i]];
+        }
+      }
       return { ...prev, elements: next };
     });
   }, [commit]);

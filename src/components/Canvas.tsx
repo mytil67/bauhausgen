@@ -24,10 +24,10 @@ interface CanvasProps {
   onPaste: () => void;
   onGroup: () => void;
   onUngroup: () => void;
-  onBringToFront: (id: string) => void;
-  onSendToBack: (id: string) => void;
-  onBringForward: (id: string) => void;
-  onSendBackward: (id: string) => void;
+  onBringToFront: () => void;
+  onSendToBack: () => void;
+  onBringForward: () => void;
+  onSendBackward: () => void;
 }
 
 interface Marquee { x1: number; y1: number; x2: number; y2: number; additive: boolean; }
@@ -297,52 +297,60 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.stopPropagation();
     onBeginHistory();
     setDragMode('rotate');
-    if (selectionCount > 1 && !targetId) {
-      setActiveId('group');
-    } else {
-      setActiveId(targetId || selectedIds[0]);
-    }
+    const pos = getMousePosition(e);
+    
+    const isGroup = selectionCount > 1 && !targetId;
+    const target = !isGroup ? elements.find(el => el.id === (targetId || selectedIds[0])) : null;
+    const center = target ? { x: target.x, y: target.y } : (groupAABB ? { x: groupAABB.cx, y: groupAABB.cy } : { x: 0, y: 0 });
+    
+    // On stocke l'angle initial de la souris et le centre de rotation
+    const mouseAngle = Math.atan2(pos.y - center.y, pos.x - center.x) * (180 / Math.PI);
+    setDragOffset({ x: mouseAngle, y: 0 });
+    setInitialSize({ width: center.x, height: center.y, scaleX: 0, scaleY: 0 });
+    
+    const selected = elements.filter(el => selectedIds.includes(el.id));
+    setInitialElements(isGroup ? selected : (target ? [target] : []));
+    setActiveId(isGroup ? 'group' : (target?.id || null));
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragMode || !activeId) return;
       const el = activeId === 'group' ? null : elements.find((item) => item.id === activeId);
-      if (!el && singleSelected) return;
+      if (!el && singleSelected && activeId !== 'group') return;
 
       const pos = getMousePosition(e);
       const SNAP_DISTANCE = 8;
 
       if (dragMode === 'rotate') {
-        const target = el || elements.find(item => item.id === activeId);
+        const cx = initialSize.width;
+        const cy = initialSize.height;
+        const startMouseAngle = dragOffset.x;
+        const currentMouseAngle = Math.atan2(pos.y - cy, pos.x - cx) * (180 / Math.PI);
+        let deltaAngle = currentMouseAngle - startMouseAngle;
         
-        // Rotation de groupe (>1 sélectionné)
-        if (activeId === 'group') {
-          const g = groupAABB;
-          if (!g) return;
-          const angleRad = Math.atan2(pos.y - g.cy, pos.x - g.cx);
-          let deg = angleRad * (180 / Math.PI) + 90;
-          if (e.shiftKey) deg = Math.round(deg / 15) * 15;
-          deg = ((deg % 360) + 360) % 360;
-          
-          // On mémorise l'angle initial au début du drag pour calculer un delta
-          // Ou plus simplement : on applique la rotation absolue par rapport au centre du groupe
-          // Pour que ce soit propre, il faudrait que les éléments pivotent AUTOUR du centre du groupe.
-          // Pour l'instant, on applique la rotation à chaque élément (plus simple).
-          const bulkUpdates: Record<string, Partial<CompositionElement>> = {};
-          selectedIds.forEach((id) => {
-            bulkUpdates[id] = { rotation: deg };
-          });
-          onUpdateElementsLive(bulkUpdates);
-          return;
-        }
-
-        if (!target) return;
-        const angleRad = Math.atan2(pos.y - target.y, pos.x - target.x);
-        let deg = Math.round(angleRad * (180 / Math.PI) + 90);
-        if (e.shiftKey) deg = Math.round(deg / 15) * 15; // aimantation 15°
-        deg = ((deg % 360) + 360) % 360;
-        onUpdateLive(activeId, { rotation: deg });
+        if (e.shiftKey) deltaAngle = Math.round(deltaAngle / 15) * 15;
+        
+        const bulkUpdates: Record<string, Partial<CompositionElement>> = {};
+        initialElements.forEach((initEl) => {
+          if (activeId === 'group') {
+            // Rotation orbitale autour du centre du groupe
+            const rad = (deltaAngle * Math.PI) / 180;
+            const dx = initEl.x - cx;
+            const dy = initEl.y - cy;
+            bulkUpdates[initEl.id] = {
+              x: cx + dx * Math.cos(rad) - dy * Math.sin(rad),
+              y: cy + dx * Math.sin(rad) + dy * Math.cos(rad),
+              rotation: (initEl.rotation + deltaAngle + 360) % 360
+            };
+          } else {
+            // Rotation simple sur le centre de l'élément
+            bulkUpdates[initEl.id] = {
+              rotation: (initEl.rotation + deltaAngle + 360) % 360
+            };
+          }
+        });
+        onUpdateElementsLive(bulkUpdates);
         return;
       }
 
@@ -580,12 +588,19 @@ export const Canvas: React.FC<CanvasProps> = ({
 
           const bulkUpdates: Record<string, Partial<CompositionElement>> = {};
           initialElements.forEach((initEl) => {
-            bulkUpdates[initEl.id] = {
+            const updates: Partial<CompositionElement> = {
               x: gcx + (initEl.x - gcx) * ratioX,
               y: gcy + (initEl.y - gcy) * ratioY,
-              scaleX: initEl.scaleX * ratioX,
-              scaleY: initEl.scaleY * ratioY,
             };
+
+            if (initEl.type === 'text') {
+              updates.scaleX = initEl.scaleX * ratioX;
+              updates.scaleY = initEl.scaleY * ratioY;
+            } else {
+              updates.width = initEl.width * ratioX;
+              updates.height = initEl.height * ratioY;
+            }
+            bulkUpdates[initEl.id] = updates;
           });
           onUpdateElementsLive(bulkUpdates);
         }
@@ -628,7 +643,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           if (el.visible === false) return null;
           const isSelected = selectedIds.includes(el.id);
           const showHandles = singleSelected && isSelected && editingId !== el.id;
-          const outerTransform = `translate(${el.x}, ${el.y}) rotate(${el.rotation})`;
+          const outerTransform = `translate(${el.x}, ${el.y}) rotate(${el.rotation}) skewX(${el.skewX ?? 0}) skewY(${el.skewY ?? 0})`;
           const innerTransform = `scale(${el.scaleX}, ${el.scaleY})`;
           const bbox = bboxes[el.id] || FALLBACK_BBOX;
 
@@ -645,7 +660,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               onMouseDown={(e) => handleMouseDown(e, el)}
               onClick={(e) => e.stopPropagation()}
               onDoubleClick={(e) => { e.stopPropagation(); startEditing(el); }}
-              style={{ cursor: dragMode === 'move' && isSelected ? 'grabbing' : 'grab', opacity: el.opacity }}
+              style={{ 
+                cursor: dragMode === 'move' && isSelected ? 'grabbing' : 'grab', 
+                opacity: el.opacity,
+                mixBlendMode: el.blendMode as React.CSSProperties['mixBlendMode'] ?? 'normal'
+              }}
             >
               <g transform={innerTransform}>
                 {el.type === 'text' && editingId !== el.id && (
@@ -658,6 +677,9 @@ export const Canvas: React.FC<CanvasProps> = ({
                     fontStyle={el.italic ? 'italic' : 'normal'}
                     letterSpacing={el.letterSpacing ?? 0}
                     fill={el.color}
+                    stroke={el.strokeWidth && el.strokeWidth > 0 ? el.strokeColor : 'none'}
+                    strokeWidth={el.strokeWidth ?? 0}
+                    strokeLinejoin="round"
                     textAnchor={el.textAlign ?? 'middle'}
                     dominantBaseline="middle"
                     className="select-none"
@@ -865,16 +887,16 @@ export const Canvas: React.FC<CanvasProps> = ({
                 <Copy size={14} className="opacity-60" /> Copier <span className="ml-auto text-[10px] opacity-40">Ctrl+C</span>
               </button>
               <div className="h-px bg-gray-100 my-1 mx-2" />
-              <button onClick={() => { selectedIds.forEach(id => onBringToFront(id)); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+              <button onClick={() => { onBringToFront(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
                 <ArrowUp size={14} className="opacity-60" /> Tout devant
               </button>
-              <button onClick={() => { selectedIds.forEach(id => onBringForward(id)); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+              <button onClick={() => { onBringForward(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
                 <ChevronUp size={14} className="opacity-60" /> Avancer
               </button>
-              <button onClick={() => { selectedIds.forEach(id => onSendBackward(id)); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+              <button onClick={() => { onSendBackward(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
                 <ChevronDown size={14} className="opacity-60" /> Reculer
               </button>
-              <button onClick={() => { selectedIds.forEach(id => onSendToBack(id)); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+              <button onClick={() => { onSendToBack(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
                 <ArrowDown size={14} className="opacity-60" /> Tout derrière
               </button>
               <div className="h-px bg-gray-100 my-1 mx-2" />

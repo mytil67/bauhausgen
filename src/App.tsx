@@ -215,10 +215,11 @@ function App() {
   };
 
   const mainRef = useRef<HTMLDivElement>(null);
+  const [autoCanvasSize, setAutoCanvasSize] = useState(true);
 
   // Mise à jour automatique de la taille du canvas pour remplir l'espace disponible
   useEffect(() => {
-    if (!mainRef.current) return;
+    if (!mainRef.current || !autoCanvasSize) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
@@ -229,6 +230,11 @@ function App() {
     });
     observer.observe(mainRef.current);
     return () => observer.disconnect();
+  }, [setCanvasSize, autoCanvasSize]);
+
+  const handleSetCanvasSize = useCallback((w: number, h: number) => {
+    setAutoCanvasSize(false);
+    setCanvasSize(w, h);
   }, [setCanvasSize]);
 
   return (
@@ -246,6 +252,8 @@ function App() {
         canvasHeight={canvasHeight}
         canUndo={canUndo}
         canRedo={canRedo}
+        autoCanvasSize={autoCanvasSize}
+        onToggleAutoCanvasSize={() => setAutoCanvasSize(!autoCanvasSize)}
         onAddElement={addElement}
         onUpdateElement={updateElement}
         onUpdateElementLive={updateElementLive}
@@ -255,10 +263,10 @@ function App() {
         onUpdateBackground={setBackgroundColor}
         onSaveColor={saveColor}
         onAddCustomFont={addCustomFont}
-        onBringToFront={bringToFront}
-        onSendToBack={sendToBack}
-        onBringForward={bringForward}
-        onSendBackward={sendBackward}
+        onBringToFront={() => bringToFront(selectedIds)}
+        onSendToBack={() => sendToBack(selectedIds)}
+        onBringForward={() => bringForward(selectedIds)}
+        onSendBackward={() => sendBackward(selectedIds)}
         onFlip={flipSelection}
         onExport={handleExport}
         onClearCanvas={clearCanvas}
@@ -269,8 +277,8 @@ function App() {
         onApplyColor={(color) => applyColor(color, selectedIds)}
         onGroup={() => groupSelection(selectedIds)}
         onUngroup={() => ungroupSelection(selectedIds)}
-        onSetCanvasSize={setCanvasSize}
-        onLoadTemplate={loadTemplate}
+        onSetCanvasSize={handleSetCanvasSize}
+        onLoadTemplate={(tpl) => { setAutoCanvasSize(false); loadTemplate(tpl); }}
       />
       <main ref={mainRef} className="flex-1 h-full relative overflow-hidden flex items-center justify-center">
         <Canvas

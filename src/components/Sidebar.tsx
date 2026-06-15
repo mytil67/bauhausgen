@@ -50,6 +50,8 @@ interface SidebarProps {
   canvasHeight: number;
   canUndo: boolean;
   canRedo: boolean;
+  autoCanvasSize: boolean;
+  onToggleAutoCanvasSize: () => void;
   onAddElement: (type: ElementType) => void;
   onUpdateElement: (id: string, updates: Partial<CompositionElement>) => void;
   onUpdateElementLive: (id: string, updates: Partial<CompositionElement>) => void;
@@ -59,10 +61,10 @@ interface SidebarProps {
   onUpdateBackground: (color: string) => void;
   onSaveColor: (color: string) => void;
   onAddCustomFont: (name: string, data: string) => void;
-  onBringToFront: (id: string) => void;
-  onSendToBack: (id: string) => void;
-  onBringForward: (id: string) => void;
-  onSendBackward: (id: string) => void;
+  onBringToFront: () => void;
+  onSendToBack: () => void;
+  onBringForward: () => void;
+  onSendBackward: () => void;
   onFlip: (axis: 'horizontal' | 'vertical', ids: string[]) => void;
   onExport: (format: 'svg' | 'png' | 'jpg') => void;
   onClearCanvas: () => void;
@@ -143,6 +145,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   canvasHeight,
   canUndo,
   canRedo,
+  autoCanvasSize,
+  onToggleAutoCanvasSize,
   onAddElement,
   onUpdateElement,
   onUpdateElementLive,
@@ -275,8 +279,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Frame size={14} /> Format
         </h2>
         <div className="grid grid-cols-3 gap-1.5">
+          <button
+            onClick={onToggleAutoCanvasSize}
+            className={`py-1.5 rounded border text-[10px] font-bold uppercase transition-colors ${autoCanvasSize ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+            title="S'adapte à l'écran"
+          >
+            Auto Fit
+          </button>
           {CANVAS_PRESETS.map((p) => {
-            const active = canvasWidth === p.w && canvasHeight === p.h;
+            const active = !autoCanvasSize && canvasWidth === p.w && canvasHeight === p.h;
             return (
               <button
                 key={p.name}
@@ -451,10 +462,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="space-y-4">
             {/* Z-Order */}
             <div className="grid grid-cols-4 gap-1 p-1 bg-gray-50 rounded border border-gray-200">
-              <button onClick={() => selectedIds.forEach(id => onBringToFront(id))} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Tout devant"><ArrowUp size={14} /></button>
-              <button onClick={() => selectedIds.forEach(id => onBringForward(id))} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Avancer"><ChevronUp size={14} /></button>
-              <button onClick={() => selectedIds.forEach(id => onSendBackward(id))} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Reculer"><ChevronDown size={14} /></button>
-              <button onClick={() => selectedIds.forEach(id => onSendToBack(id))} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Tout derrière"><ArrowDown size={14} /></button>
+              <button onClick={onBringToFront} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Tout devant"><ArrowUp size={14} /></button>
+              <button onClick={onBringForward} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Avancer"><ChevronUp size={14} /></button>
+              <button onClick={onSendBackward} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Reculer"><ChevronDown size={14} /></button>
+              <button onClick={onSendToBack} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Tout derrière"><ArrowDown size={14} /></button>
             </div>
 
             {/* Flip controls */}
@@ -472,6 +483,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="text-[10px] font-bold text-gray-400 block mb-1">X POSITION</label><input type="number" value={Math.round(selectedElement.x)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { x: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
                   <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Y POSITION</label><input type="number" value={Math.round(selectedElement.y)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { y: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Inclinaison X</label>
+                    <input type="range" min="-45" max="45" step="1" value={selectedElement.skewX ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewX: Number(e.target.value) })} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Inclinaison Y</label>
+                    <input type="range" min="-45" max="45" step="1" value={selectedElement.skewY ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewY: Number(e.target.value) })} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Mode de fusion</label>
+                  <select
+                    value={selectedElement.blendMode ?? 'normal'}
+                    onChange={(e) => onUpdateElement(selectedElement.id, { blendMode: e.target.value as any })}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded font-medium"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="multiply">Produit (Multiply)</option>
+                    <option value="screen">Superposition (Screen)</option>
+                    <option value="overlay">Incrustation (Overlay)</option>
+                    <option value="darken">Obscurcir</option>
+                    <option value="lighten">Éclaircir</option>
+                    <option value="difference">Différence</option>
+                    <option value="exclusion">Exclusion</option>
+                  </select>
                 </div>
 
                 <div>
@@ -595,6 +635,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })}
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
                       />
+                    </div>
+
+                    <div className="pt-2">
+                      <label className="text-[10px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Contour (Stroke)</label>
+                      <div className="flex gap-2 items-center">
+                        <div className="relative w-8 h-8 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
+                          <input type="color" value={ensureFullHex(selectedElement.strokeColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
+                          step="0.5"
+                          value={selectedElement.strokeWidth ?? 0}
+                          onMouseDown={onBeginHistory}
+                          onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeWidth: Number(e.target.value) })}
+                          className="flex-1 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                        />
+                        <span className="text-[10px] font-mono text-gray-400 w-8 text-right">{selectedElement.strokeWidth ?? 0}</span>
+                      </div>
                     </div>
                   </div>
                 )}

@@ -9,8 +9,11 @@ export interface BaseElement {
   rotation: number;
   scaleX: number;
   scaleY: number;
+  skewX: number;
+  skewY: number;
   color: string;
   opacity: number;
+  blendMode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'color-dodge' | 'color-burn' | 'hard-light' | 'soft-light' | 'difference' | 'exclusion' | 'hue' | 'saturation' | 'color' | 'luminosity';
   /** Métadonnées de calque (optionnelles, défauts appliqués au rendu). */
   name?: string;
   visible?: boolean;
@@ -30,6 +33,9 @@ export interface TextElement extends BaseElement {
   textAlign?: 'start' | 'middle' | 'end';
   textTransform?: 'none' | 'uppercase' | 'lowercase';
   italic?: boolean;
+  strokeColor?: string;
+  strokeWidth?: number;
+  maxWidth?: number; // Pour le wrapping
 }
 
 export interface ShapeElement extends BaseElement {
