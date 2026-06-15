@@ -15,7 +15,6 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
-  AlignJustify,
   ArrowUp,
   ArrowDown,
   Upload,
@@ -32,10 +31,16 @@ import {
   AlignEndHorizontal,
   AlignHorizontalDistributeCenter,
   AlignVerticalDistributeCenter,
+  FlipHorizontal,
+  FlipVertical,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 
 interface SidebarProps {
+  elements: CompositionElement[];
   selectedElement: CompositionElement | null;
+  selectedIds: string[];
   selectionCount: number;
   elementCount: number;
   backgroundColor: string;
@@ -56,6 +61,9 @@ interface SidebarProps {
   onAddCustomFont: (name: string, data: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
+  onBringForward: (id: string) => void;
+  onSendBackward: (id: string) => void;
+  onFlip: (axis: 'horizontal' | 'vertical', ids: string[]) => void;
   onExport: (format: 'svg' | 'png' | 'jpg') => void;
   onClearCanvas: () => void;
   onAlign: (direction: AlignDirection, toPage: boolean) => void;
@@ -123,7 +131,9 @@ const CANVAS_PRESETS: { name: string; w: number; h: number }[] = [
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
+  elements,
   selectedElement,
+  selectedIds,
   selectionCount,
   elementCount,
   backgroundColor,
@@ -144,6 +154,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onAddCustomFont,
   onBringToFront,
   onSendToBack,
+  onBringForward,
+  onSendBackward,
+  onFlip,
   onExport,
   onClearCanvas,
   onAlign,
@@ -159,7 +172,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [alignToPage, setAlignToPage] = useState(false);
 
-  // Alignement entre éléments possible à partir de 2 sélectionnés ; sinon on force "Page".
   const canAlignSelection = selectionCount >= 2;
   const effectiveToPage = canAlignSelection ? alignToPage : true;
   const canAlign = effectiveToPage ? elementCount >= 1 : canAlignSelection;
@@ -205,7 +217,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
     };
 
-    // Lecture en data URL → persistable dans localStorage et survit au rechargement
     reader.readAsDataURL(file);
     e.target.value = '';
   };
@@ -314,7 +325,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <AlignCenterVertical size={14} /> Alignement
         </h2>
 
-        {/* Cible : sélection ou page */}
         <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded mb-3 text-[10px] font-bold uppercase tracking-wide">
           <button
             onClick={() => canAlignSelection && setAlignToPage(false)}
@@ -333,7 +343,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Boutons d'alignement (bords réels) */}
         <div className="grid grid-cols-6 gap-1">
           {alignButtons.map(({ dir, Icon, label }) => (
             <button
@@ -348,7 +357,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </div>
 
-        {/* Distribution (espacement égal) */}
         <div className="grid grid-cols-2 gap-1 mt-2">
           <button
             onClick={() => onDistribute('horizontal')}
@@ -367,13 +375,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <AlignVerticalDistributeCenter size={14} /> Espacer V
           </button>
         </div>
-
-        <p className="text-[10px] text-gray-400 mt-2 leading-snug">
-          {effectiveToPage
-            ? 'Aligne sur la page entière.'
-            : `Aligne les ${selectionCount} éléments sélectionnés entre eux.`}
-          {' '}La distribution requiert 3 éléments min.
-        </p>
       </section>
 
       {/* Font Upload Section */}
@@ -420,11 +421,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </section>
 
-      {/* Selected Element Controls */}
+      {/* Selected Element Controls / Arrangement */}
       <section className="flex-1">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-            {selectedElement ? `Propriétés : ${selectedElement.type}` : selectionCount > 1 ? `${selectionCount} éléments sélectionnés` : 'Aucune sélection'}
+            {selectionCount > 0 ? 'Agencement' : 'Aucune sélection'}
           </h2>
           <div className="flex gap-1">
             {selectionCount >= 2 && (
@@ -432,209 +433,184 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Copy size={16} /> G
               </button>
             )}
-            {selectedElement?.groupId && (
+            {(selectedElement?.groupId || selectedIds.some(id => elements?.find(e => e.id === id)?.groupId)) && (
               <button onClick={onUngroup} title="Dégrouper (Ctrl+Maj+G)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded flex items-center gap-1 text-[10px] font-bold">
                 <LayoutTemplate size={16} className="opacity-50" /> U
               </button>
             )}
-            {selectedElement && (
-              <>
-                <button onClick={onDuplicate} title="Dupliquer (Ctrl+D)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded"><Copy size={16} /></button>
-                <button onClick={() => onRemoveElement(selectedElement.id)} title="Supprimer (Suppr)" className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
-              </>
+            {selectionCount > 0 && (
+              <button onClick={onDuplicate} title="Dupliquer (Ctrl+D)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded"><Copy size={16} /></button>
+            )}
+            {selectionCount > 0 && (
+              <button onClick={() => selectedIds.forEach(id => onRemoveElement(id))} title="Supprimer (Suppr)" className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
             )}
           </div>
         </div>
 
-        {selectedElement ? (
+        {selectionCount > 0 ? (
           <div className="space-y-4">
+            {/* Z-Order */}
             <div className="grid grid-cols-4 gap-1 p-1 bg-gray-50 rounded border border-gray-200">
-              <button onClick={() => onUpdateElement(selectedElement.id, { x: canvasWidth / 2 })} className="p-2 hover:bg-white rounded transition-all flex justify-center" title="Centrer H"><AlignCenter size={14} /></button>
-              <button onClick={() => onUpdateElement(selectedElement.id, { y: canvasHeight / 2 })} className="p-2 hover:bg-white rounded transition-all flex justify-center" title="Centrer V"><AlignJustify size={14} className="rotate-90" /></button>
-              <button onClick={() => onBringToFront(selectedElement.id)} className="p-2 hover:bg-white rounded transition-all flex justify-center" title="Premier plan"><ArrowUp size={14} /></button>
-              <button onClick={() => onSendToBack(selectedElement.id)} className="p-2 hover:bg-white rounded transition-all flex justify-center" title="Arrière-plan"><ArrowDown size={14} /></button>
+              <button onClick={() => selectedIds.forEach(id => onBringToFront(id))} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Tout devant"><ArrowUp size={14} /></button>
+              <button onClick={() => selectedIds.forEach(id => onBringForward(id))} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Avancer"><ChevronUp size={14} /></button>
+              <button onClick={() => selectedIds.forEach(id => onSendBackward(id))} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Reculer"><ChevronDown size={14} /></button>
+              <button onClick={() => selectedIds.forEach(id => onSendToBack(id))} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Tout derrière"><ArrowDown size={14} /></button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1">X POSITION</label><input type="number" value={Math.round(selectedElement.x)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { x: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Y POSITION</label><input type="number" value={Math.round(selectedElement.y)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { y: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-            </div>
-
-            <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><RotateCcw size={10} /> ROTATION</label><input type="range" min="0" max="360" value={selectedElement.rotation} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.rotation)}°</div></div>
-
-            <div><label className="text-[10px] font-bold text-gray-400 block mb-1">OPACITÉ</label><input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.opacity * 100)}%</div></div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveHorizontal size={10} /> ÉCHELLE X</label><input type="number" step="0.1" value={selectedElement.scaleX} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleX: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-              <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveVertical size={10} /> ÉCHELLE Y</label><input type="number" step="0.1" value={selectedElement.scaleY} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleY: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-bold text-gray-400 block mb-1">COULEUR</label>
-              <div className="flex gap-2 mb-2">
-                <div className="relative w-10 h-10 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
-                  <input
-                    type="color"
-                    value={ensureFullHex(selectedElement.color)}
-                    onMouseDown={onBeginHistory}
-                    onChange={(e) => onUpdateElementLive(selectedElement.id, { color: e.target.value })}
-                    className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer"
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={selectedElement.color}
-                  onChange={(e) => handleColorInput(e.target.value, (color) => onUpdateElement(selectedElement.id, { color }))}
-                  placeholder="#000000"
-                  className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded uppercase font-mono"
-                />
-                <button onClick={() => onSaveColor(selectedElement.color)} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-[10px] font-bold uppercase whitespace-nowrap">Mémoriser</button>
-              </div>
-              {customColors.length > 0 && (
-                <div className="grid grid-cols-8 gap-1 mb-2">
-                  {customColors.map((c, i) => (
-                    <button key={`${c}-el-${i}`} onClick={() => onUpdateElement(selectedElement.id, { color: c })} className={`w-full aspect-square rounded-sm border ${selectedElement.color.toLowerCase() === c.toLowerCase() ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`} style={{ backgroundColor: c }} />
-                  ))}
-                </div>
-              )}
-              <div className="grid grid-cols-8 gap-1 border-t border-gray-100 pt-2">
-                {['#000000', '#ffffff', '#e63946', '#f1faee', '#a8dadc', '#457b9d', '#1d3557', '#f4a261'].map((c) => (
-                  <button key={c} onClick={() => onUpdateElement(selectedElement.id, { color: c })} className={`w-full aspect-square rounded-sm border ${selectedElement.color.toLowerCase() === c.toLowerCase() ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`} style={{ backgroundColor: c }} />
-                ))}
+            {/* Flip controls */}
+            <div className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
+              <span className="text-[10px] font-bold text-gray-400 uppercase">Retourner</span>
+              <div className="flex gap-2">
+                <button onClick={() => onFlip('horizontal', selectedIds)} className="p-1.5 hover:bg-white rounded border border-transparent hover:border-gray-200 text-gray-600 flex items-center gap-1 text-[10px] font-bold" title="H-Flip"><FlipHorizontal size={14} /> H</button>
+                <button onClick={() => onFlip('vertical', selectedIds)} className="p-1.5 hover:bg-white rounded border border-transparent hover:border-gray-200 text-gray-600 flex items-center gap-1 text-[10px] font-bold" title="V-Flip"><FlipVertical size={14} /> V</button>
               </div>
             </div>
 
-            {selectedElement.type === 'text' && (
+            {selectedElement && selectionCount === 1 ? (
               <div className="space-y-4 pt-4 border-t border-gray-100">
-                <div><label className="text-[10px] font-bold text-gray-400 block mb-1">CONTENU DU TEXTE</label><textarea value={selectedElement.text} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { text: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded min-h-[60px]" /></div>
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-2">Propriétés</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">X POSITION</label><input type="number" value={Math.round(selectedElement.x)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { x: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Y POSITION</label><input type="number" value={Math.round(selectedElement.y)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { y: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                </div>
+
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 block mb-1">POLICE DE CARACTÈRE</label>
-                  <select value={selectedElement.fontFamily} onChange={(e) => onUpdateElement(selectedElement.id, { fontFamily: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded font-medium">
-                    <optgroup label="Système & Google">
-                      <option value="sans-serif">Sans Serif</option>
-                      <option value="'Inter', sans-serif">Inter</option>
-                      <option value="'Montserrat', sans-serif">Montserrat</option>
-                      <option value="'Outfit', sans-serif">Outfit</option>
-                      <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
-                      <option value="'Syne', sans-serif">Syne</option>
-                      <option value="'Archivo Black', sans-serif">Archivo Black</option>
-                      <option value="'Playfair Display', serif">Playfair Display</option>
-                      <option value="'Libre Baskerville', serif">Libre Baskerville</option>
-                    </optgroup>
-                    {customFonts.length > 0 && (
-                      <optgroup label="Mes Polices">
-                        {customFonts.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
+                  <label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><RotateCcw size={10} /> ROTATION</label>
+                  <input type="range" min="0" max="360" value={selectedElement.rotation} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                  <div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.rotation)}°</div>
+                </div>
+
+                <div><label className="text-[10px] font-bold text-gray-400 block mb-1">OPACITÉ</label><input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.opacity * 100)}%</div></div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveHorizontal size={10} /> ÉCHELLE X</label><input type="number" step="0.1" value={selectedElement.scaleX} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleX: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveVertical size={10} /> ÉCHELLE Y</label><input type="number" step="0.1" value={selectedElement.scaleY} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleY: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 block mb-1">COULEUR</label>
+                  <div className="flex gap-2 mb-2">
+                    <div className="relative w-10 h-10 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
+                      <input type="color" value={ensureFullHex(selectedElement.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { color: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
+                    </div>
+                    <input type="text" value={selectedElement.color} onChange={(e) => handleColorInput(e.target.value, (color) => onUpdateElement(selectedElement.id, { color }))} placeholder="#000000" className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded uppercase font-mono" />
+                    <button onClick={() => onSaveColor(selectedElement.color)} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-[10px] font-bold uppercase whitespace-nowrap">Mémoriser</button>
+                  </div>
+                  {customColors.length > 0 && (
+                    <div className="grid grid-cols-8 gap-1 mb-2">
+                      {customColors.map((c, i) => (
+                        <button key={`${c}-el-${i}`} onClick={() => onUpdateElement(selectedElement.id, { color: c })} className={`w-full aspect-square rounded-sm border ${selectedElement.color.toLowerCase() === c.toLowerCase() ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`} style={{ backgroundColor: c }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selectedElement.type === 'text' && (
+                  <div className="space-y-4 pt-4 border-t border-gray-100">
+                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">TEXTE</label><textarea value={selectedElement.text} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { text: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded min-h-[60px]" /></div>
+                    <select value={selectedElement.fontFamily} onChange={(e) => onUpdateElement(selectedElement.id, { fontFamily: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded font-medium">
+                      <optgroup label="Système & Google">
+                        <option value="sans-serif">Sans Serif</option>
+                        <option value="'Inter', sans-serif">Inter</option>
+                        <option value="'Montserrat', sans-serif">Montserrat</option>
+                        <option value="'Outfit', sans-serif">Outfit</option>
+                        <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
+                        <option value="'Syne', sans-serif">Syne</option>
+                        <option value="'Archivo Black', sans-serif">Archivo Black</option>
+                        <option value="'Playfair Display', serif">Playfair Display</option>
+                        <option value="'Libre Baskerville', serif">Libre Baskerville</option>
                       </optgroup>
-                    )}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">TAILLE</label><input type="number" value={selectedElement.fontSize} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 block mb-1">GRAISSE</label>
-                    <select value={selectedElement.fontWeight} onChange={(e) => onUpdateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded">
-                      <option value="normal">Normal</option>
-                      <option value="bold">Gras</option>
-                      <option value="100">Thin</option>
-                      <option value="300">Light</option>
-                      <option value="500">Medium</option>
-                      <option value="700">Bold</option>
-                      <option value="900">Black</option>
+                      {customFonts.length > 0 && (
+                        <optgroup label="Mes Polices">
+                          {customFonts.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
+                        </optgroup>
+                      )}
                     </select>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <input type="number" value={selectedElement.fontSize} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" title="Taille" />
+                      <select value={selectedElement.fontWeight} onChange={(e) => onUpdateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded">
+                        <option value="normal">Normal</option><option value="bold">Gras</option><option value="100">Thin</option><option value="300">Light</option><option value="500">Medium</option><option value="700">Bold</option><option value="900">Black</option>
+                      </select>
+                    </div>
 
-                <div className="flex gap-1 p-1 bg-gray-50 rounded border border-gray-200">
-                  <button
-                    onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'start' })}
-                    className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textAlign === 'start' ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
-                    title="Aligner à gauche"
-                  >
-                    <AlignLeft size={14} />
-                  </button>
-                  <button
-                    onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'middle' })}
-                    className={`flex-1 flex justify-center p-1.5 rounded ${(!selectedElement.textAlign || selectedElement.textAlign === 'middle') ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
-                    title="Centrer"
-                  >
-                    <AlignCenter size={14} />
-                  </button>
-                  <button
-                    onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'end' })}
-                    className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textAlign === 'end' ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
-                    title="Aligner à droite"
-                  >
-                    <AlignRight size={14} />
-                  </button>
-                  <div className="w-px h-4 bg-gray-200 self-center mx-1" />
-                  <button
-                    onClick={() => onUpdateElement(selectedElement.id, { italic: !selectedElement.italic })}
-                    className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.italic ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                    title="Italique"
-                  >
-                    <Italic size={14} />
-                  </button>
-                  <button
-                    onClick={() => onUpdateElement(selectedElement.id, { textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase' })}
-                    className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textTransform === 'uppercase' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                    title="Tout en majuscules"
-                  >
-                    <CaseSensitive size={14} />
-                  </button>
-                </div>
+                    {/* Alignement et Style de texte */}
+                    <div className="flex gap-1 p-1 bg-gray-50 rounded border border-gray-200">
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'start' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textAlign === 'start' ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Gauche"
+                      ><AlignLeft size={14} /></button>
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'middle' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded ${(!selectedElement.textAlign || selectedElement.textAlign === 'middle') ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Centre"
+                      ><AlignCenter size={14} /></button>
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'end' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textAlign === 'end' ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Droite"
+                      ><AlignRight size={14} /></button>
+                      <div className="w-px h-4 bg-gray-200 self-center mx-1" />
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { italic: !selectedElement.italic })}
+                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.italic ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Italique"
+                      ><Italic size={14} /></button>
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textTransform === 'uppercase' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Majuscules"
+                      ><CaseSensitive size={14} /></button>
+                    </div>
 
-                <div>
-                  <div className="flex justify-between mb-1">
-                    <label className="text-[10px] font-bold text-gray-400 block uppercase">Interlettrage</label>
-                    <span className="text-[10px] font-mono text-gray-400">{selectedElement.letterSpacing ?? 0}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="-10"
-                    max="50"
-                    step="0.5"
-                    value={selectedElement.letterSpacing ?? 0}
-                    onMouseDown={onBeginHistory}
-                    onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })}
-                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-                  />
-                </div>
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Interlettrage</label>
+                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.letterSpacing ?? 0}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-10"
+                        max="50"
+                        step="0.5"
+                        value={selectedElement.letterSpacing ?? 0}
+                        onMouseDown={onBeginHistory}
+                        onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })}
+                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                      />
+                    </div>
 
-                <div>
-                  <div className="flex justify-between mb-1">
-                    <label className="text-[10px] font-bold text-gray-400 block uppercase">Interligne</label>
-                    <span className="text-[10px] font-mono text-gray-400">{selectedElement.lineHeight ?? 1.2}</span>
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Interligne</label>
+                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.lineHeight ?? 1.2}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="3"
+                        step="0.1"
+                        value={selectedElement.lineHeight ?? 1.2}
+                        onMouseDown={onBeginHistory}
+                        onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })}
+                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                      />
+                    </div>
                   </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="3"
-                    step="0.1"
-                    value={selectedElement.lineHeight ?? 1.2}
-                    onMouseDown={onBeginHistory}
-                    onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })}
-                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-                  />
-                </div>
+                )}
+
+                {selectedElement.type !== 'text' && (
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">LARGEUR</label><input type="number" value={Math.round(selectedElement.width)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { width: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">HAUTEUR</label><input type="number" value={Math.round(selectedElement.height)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { height: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
+                  </div>
+                )}
               </div>
-            )}
-
-            {selectedElement.type !== 'text' && (
-              <div className="space-y-4 pt-4 border-t border-gray-100">
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">WIDTH (PX)</label><input type="number" value={Math.round(selectedElement.width)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { width: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">HEIGHT (PX)</label><input type="number" value={Math.round(selectedElement.height)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { height: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                </div>
-              </div>
-            )}
+            ) : null}
           </div>
         ) : (
           <div className="h-40 flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg">
-            <p className="text-gray-300 text-xs text-center px-4 italic">
-              {selectionCount > 1
-                ? 'Plusieurs éléments sélectionnés. Utilisez l\'alignement, ou déplacez-les ensemble.'
-                : 'Sélectionnez un élément sur le canvas.'}
-            </p>
+            <p className="text-gray-300 text-xs text-center px-4 italic">Sélectionnez un ou plusieurs éléments sur le canvas pour les agencer.</p>
           </div>
         )}
       </section>
@@ -648,12 +624,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button onClick={() => onExport('jpg')} className="w-full bg-gray-100 text-gray-900 text-xs font-bold py-2 rounded hover:bg-gray-200 uppercase tracking-widest transition-colors">JPG</button>
           </div>
         </div>
-        <button
-          onClick={onClearCanvas}
-          className="w-full mt-4 py-2 text-red-500 text-[10px] font-bold uppercase hover:bg-red-50 rounded transition-colors"
-        >
-          Vider le canvas
-        </button>
+        <button onClick={onClearCanvas} className="w-full mt-4 py-2 text-red-500 text-[10px] font-bold uppercase hover:bg-red-50 rounded transition-colors">Vider le canvas</button>
       </section>
     </div>
   );

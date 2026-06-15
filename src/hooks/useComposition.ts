@@ -456,6 +456,40 @@ export const useComposition = () => {
     });
   }, [commit]);
 
+  const bringForward = useCallback((id: string) => {
+    commit((prev) => {
+      const idx = prev.elements.findIndex((el) => el.id === id);
+      if (idx === -1 || idx === prev.elements.length - 1) return prev;
+      const next = [...prev.elements];
+      [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      return { ...prev, elements: next };
+    });
+  }, [commit]);
+
+  const sendBackward = useCallback((id: string) => {
+    commit((prev) => {
+      const idx = prev.elements.findIndex((el) => el.id === id);
+      if (idx === -1 || idx === 0) return prev;
+      const next = [...prev.elements];
+      [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
+      return { ...prev, elements: next };
+    });
+  }, [commit]);
+
+  const flipSelection = useCallback((axis: 'horizontal' | 'vertical', ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
+    commit((prev) => ({
+      ...prev,
+      elements: prev.elements.map((el) => {
+        if (!set.has(el.id)) return el;
+        return axis === 'horizontal'
+          ? { ...el, scaleX: el.scaleX * -1 }
+          : { ...el, scaleY: el.scaleY * -1 };
+      }),
+    }));
+  }, [commit]);
+
   const alignElements = useCallback(
     (direction: AlignDirection, ids: string[], bounds: ElementBounds, toPage = false) => {
       commit((prev) => {
@@ -587,6 +621,9 @@ export const useComposition = () => {
     addCustomFont,
     bringToFront,
     sendToBack,
+    bringForward,
+    sendBackward,
+    flipSelection,
     clearCanvas,
     alignElements,
     distributeElements,

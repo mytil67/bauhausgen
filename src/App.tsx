@@ -46,6 +46,9 @@ function App() {
     addCustomFont,
     bringToFront,
     sendToBack,
+    bringForward,
+    sendBackward,
+    flipSelection,
     clearCanvas,
     alignElements,
     distributeElements,
@@ -231,7 +234,9 @@ function App() {
   return (
     <div className="flex h-screen w-screen bg-gray-100 overflow-hidden font-sans text-gray-900">
       <Sidebar
+        elements={elements}
         selectedElement={selectedElement}
+        selectedIds={selectedIds}
         selectionCount={selectedIds.length}
         elementCount={elements.length}
         backgroundColor={backgroundColor}
@@ -252,6 +257,9 @@ function App() {
         onAddCustomFont={addCustomFont}
         onBringToFront={bringToFront}
         onSendToBack={sendToBack}
+        onBringForward={bringForward}
+        onSendBackward={sendBackward}
+        onFlip={flipSelection}
         onExport={handleExport}
         onClearCanvas={clearCanvas}
         onAlign={handleAlign}
