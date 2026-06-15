@@ -487,11 +487,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Inclinaison X</label>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-[10px] font-bold text-gray-400 block uppercase">Inclinaison X</label>
+                      <input type="number" value={Math.round(selectedElement.skewX ?? 0)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewX: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
+                    </div>
                     <input type="range" min="-45" max="45" step="1" value={selectedElement.skewX ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewX: Number(e.target.value) })} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Inclinaison Y</label>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-[10px] font-bold text-gray-400 block uppercase">Inclinaison Y</label>
+                      <input type="number" value={Math.round(selectedElement.skewY ?? 0)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewY: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
+                    </div>
                     <input type="range" min="-45" max="45" step="1" value={selectedElement.skewY ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewY: Number(e.target.value) })} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
                   </div>
                 </div>
@@ -515,12 +521,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><RotateCcw size={10} /> ROTATION</label>
+                  <div className="flex justify-between mb-1">
+                    <label className="text-[10px] font-bold text-gray-400 block flex items-center gap-2 uppercase"><RotateCcw size={10} /> Rotation</label>
+                    <div className="flex items-center gap-1">
+                      <input type="number" value={Math.round(selectedElement.rotation)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
+                      <span className="text-[10px] text-gray-400 font-mono">°</span>
+                    </div>
+                  </div>
                   <input type="range" min="0" max="360" value={selectedElement.rotation} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
-                  <div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.rotation)}°</div>
                 </div>
 
-                <div><label className="text-[10px] font-bold text-gray-400 block mb-1">OPACITÉ</label><input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.opacity * 100)}%</div></div>
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <label className="text-[10px] font-bold text-gray-400 block uppercase">Opacité</label>
+                    <div className="flex items-center gap-1">
+                      <input type="number" value={Math.round(selectedElement.opacity * 100)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) / 100 })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
+                      <span className="text-[10px] text-gray-400 font-mono">%</span>
+                    </div>
+                  </div>
+                  <input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                </div>
 
                 <div className="pt-2 border-t border-gray-100">
                   <label className="text-[10px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Dégradé</label>
@@ -624,20 +644,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <input type="color" value={ensureFullHex(selectedElement.shadowColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
                       </div>
                       <div className="flex-1">
-                        <label className="text-[9px] font-bold text-gray-400 block uppercase">Opacité ombre</label>
+                        <div className="flex justify-between mb-1">
+                          <label className="text-[9px] font-bold text-gray-400 block uppercase">Opacité</label>
+                          <input type="number" value={Math.round((selectedElement.shadowOpacity ?? 0.5) * 100)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) / 100 })} className="w-8 text-[9px] font-mono text-right bg-transparent outline-none" />
+                        </div>
                         <input type="range" min="0" max="1" step="0.01" value={selectedElement.shadowOpacity ?? 0.5} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[9px] font-bold text-gray-400 block uppercase">Flou</label>
+                        <div className="flex justify-between mb-1">
+                          <label className="text-[9px] font-bold text-gray-400 block uppercase">Flou</label>
+                          <input type="number" value={Math.round(selectedElement.shadowBlur ?? 0)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowBlur: Number(e.target.value) })} className="w-8 text-[9px] font-mono text-right bg-transparent outline-none" />
+                        </div>
                         <input type="range" min="0" max="50" step="1" value={selectedElement.shadowBlur ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowBlur: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
                       </div>
                       <div>
-                        <label className="text-[9px] font-bold text-gray-400 block uppercase">Décalage X/Y</label>
+                        <label className="text-[9px] font-bold text-gray-400 block uppercase mb-1">Décalage X/Y</label>
                         <div className="flex gap-1">
-                          <input type="number" value={selectedElement.shadowOffsetX ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOffsetX: Number(e.target.value) })} className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded" />
-                          <input type="number" value={selectedElement.shadowOffsetY ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOffsetY: Number(e.target.value) })} className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded" />
+                          <input type="number" value={selectedElement.shadowOffsetX ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOffsetX: Number(e.target.value) })} className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded font-mono" />
+                          <input type="number" value={selectedElement.shadowOffsetY ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOffsetY: Number(e.target.value) })} className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded font-mono" />
                         </div>
                       </div>
                     </div>
@@ -728,7 +754,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div>
                       <div className="flex justify-between mb-1">
                         <label className="text-[10px] font-bold text-gray-400 block uppercase">Interlettrage</label>
-                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.letterSpacing ?? 0}px</span>
+                        <div className="flex items-center gap-1">
+                          <input type="number" step="0.5" value={selectedElement.letterSpacing ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
+                          <span className="text-[10px] text-gray-400 font-mono">px</span>
+                        </div>
                       </div>
                       <input
                         type="range"
@@ -745,7 +774,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div>
                       <div className="flex justify-between mb-1">
                         <label className="text-[10px] font-bold text-gray-400 block uppercase">Interligne</label>
-                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.lineHeight ?? 1.2}</span>
+                        <input type="number" step="0.1" value={selectedElement.lineHeight ?? 1.2} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
                       </div>
                       <input
                         type="range"
@@ -762,7 +791,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div>
                       <div className="flex justify-between mb-1">
                         <label className="text-[10px] font-bold text-gray-400 block uppercase">Étirement (Width)</label>
-                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.fontWidth ?? 100}%</span>
+                        <div className="flex items-center gap-1">
+                          <input type="number" value={selectedElement.fontWidth ?? 100} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontWidth: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
+                          <span className="text-[10px] text-gray-400 font-mono">%</span>
+                        </div>
                       </div>
                       <input
                         type="range"
@@ -779,7 +811,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div>
                       <div className="flex justify-between mb-1">
                         <label className="text-[10px] font-bold text-gray-400 block uppercase">Courbure (Curve)</label>
-                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.curve ?? 0}</span>
+                        <input type="number" value={selectedElement.curve ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { curve: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
                       </div>
                       <input
                         type="range"
@@ -796,7 +828,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="pt-2">
                       <div className="flex justify-between mb-1">
                         <label className="text-[10px] font-bold text-gray-400 block uppercase tracking-wide">Largeur Max (Wrapping)</label>
-                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.maxWidth ? selectedElement.maxWidth + 'px' : 'Auto'}</span>
+                        <input type="number" value={selectedElement.maxWidth ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { maxWidth: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
                       </div>
                       <input
                         type="range"
@@ -812,7 +844,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
 
                     <div className="pt-2">
-                      <label className="text-[10px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Contour (Stroke)</label>
+                      <div className="flex justify-between mb-2">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase tracking-wide">Contour (Stroke)</label>
+                        <input type="number" step="0.5" value={selectedElement.strokeWidth ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
+                      </div>
                       <div className="flex gap-2 items-center">
                         <div className="relative w-8 h-8 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
                           <input type="color" value={ensureFullHex(selectedElement.strokeColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
@@ -827,7 +862,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeWidth: Number(e.target.value) })}
                           className="flex-1 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
                         />
-                        <span className="text-[10px] font-mono text-gray-400 w-8 text-right">{selectedElement.strokeWidth ?? 0}</span>
                       </div>
                     </div>
                   </div>
