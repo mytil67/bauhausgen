@@ -42,6 +42,7 @@ const tx = (
   fontWeight: extra.fontWeight || '800',
   color,
   rotation: 0, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, opacity: 1, visible: true, locked: false, name: 'Texte',
+  fontWidth: 100, curve: 0,
   ...extra,
 });
 

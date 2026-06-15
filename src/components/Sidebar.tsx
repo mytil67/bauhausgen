@@ -523,6 +523,100 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div><label className="text-[10px] font-bold text-gray-400 block mb-1">OPACITÉ</label><input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><div className="text-[10px] text-right mt-1 font-mono">{Math.round(selectedElement.opacity * 100)}%</div></div>
 
                 <div className="pt-2 border-t border-gray-100">
+                  <label className="text-[10px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Dégradé</label>
+                  {!selectedElement.gradient ? (
+                    <button 
+                      onClick={() => onUpdateElement(selectedElement.id, { 
+                        gradient: { type: 'linear', rotation: 0, colors: [{ offset: 0, color: selectedElement.color, opacity: 1 }, { offset: 1, color: '#ffffff', opacity: 1 }] } 
+                      })}
+                      className="w-full py-1.5 border border-dashed border-gray-300 rounded text-[10px] font-bold uppercase text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors"
+                    >
+                      Ajouter un dégradé
+                    </button>
+                  ) : (
+                    <div className="space-y-3 p-2 bg-gray-50 rounded border border-gray-200">
+                      <div className="flex justify-between items-center mb-1">
+                        <select 
+                          value={selectedElement.gradient.type} 
+                          onChange={(e) => onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, type: e.target.value as any } })}
+                          className="text-[10px] font-bold bg-transparent outline-none"
+                        >
+                          <option value="linear">Linéaire</option>
+                          <option value="radial">Radial</option>
+                        </select>
+                        <button 
+                          onClick={() => onUpdateElement(selectedElement.id, { gradient: undefined })}
+                          className="text-[10px] text-red-500 font-bold uppercase"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                      
+                      {selectedElement.gradient.type === 'linear' && (
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 block uppercase">Angle</label>
+                          <input 
+                            type="range" min="0" max="360" value={selectedElement.gradient.rotation} 
+                            onMouseDown={onBeginHistory}
+                            onChange={(e) => onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, rotation: Number(e.target.value) } })} 
+                            className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" 
+                          />
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        {selectedElement.gradient.colors.map((c, i) => (
+                          <div key={i} className="flex gap-2 items-center">
+                            <div className="relative w-5 h-5 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
+                              <input 
+                                type="color" value={ensureFullHex(c.color)} 
+                                onMouseDown={onBeginHistory}
+                                onChange={(e) => {
+                                  const newColors = [...selectedElement.gradient!.colors];
+                                  newColors[i] = { ...newColors[i], color: e.target.value };
+                                  onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } });
+                                }} 
+                                className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] cursor-pointer" 
+                              />
+                            </div>
+                            <input 
+                              type="range" min="0" max="1" step="0.01" value={c.offset} 
+                              onMouseDown={onBeginHistory}
+                              onChange={(e) => {
+                                const newColors = [...selectedElement.gradient!.colors];
+                                newColors[i] = { ...newColors[i], offset: Number(e.target.value) };
+                                onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } });
+                              }} 
+                              className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" 
+                            />
+                            {selectedElement.gradient!.colors.length > 2 && (
+                              <button 
+                                onClick={() => {
+                                  const newColors = selectedElement.gradient!.colors.filter((_, idx) => idx !== i);
+                                  onUpdateElement(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } });
+                                }}
+                                className="text-red-400 hover:text-red-600"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button 
+                          onClick={() => {
+                            const newColors = [...selectedElement.gradient!.colors, { offset: 1, color: '#ffffff', opacity: 1 }].sort((a,b) => a.offset - b.offset);
+                            onUpdateElement(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } });
+                          }}
+                          className="w-full py-1 text-[9px] font-bold uppercase text-blue-500"
+                        >
+                          + Ajouter un point
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-gray-100">
                   <label className="text-[10px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Ombre Portée</label>
                   <div className="space-y-3">
                     <div className="flex gap-2 items-center">
@@ -661,6 +755,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         value={selectedElement.lineHeight ?? 1.2}
                         onMouseDown={onBeginHistory}
                         onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })}
+                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Étirement (Width)</label>
+                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.fontWidth ?? 100}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="50"
+                        max="200"
+                        step="1"
+                        value={selectedElement.fontWidth ?? 100}
+                        onMouseDown={onBeginHistory}
+                        onChange={(e) => onUpdateElementLive(selectedElement.id, { fontWidth: Number(e.target.value) })}
+                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Courbure (Curve)</label>
+                        <span className="text-[10px] font-mono text-gray-400">{selectedElement.curve ?? 0}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        step="1"
+                        value={selectedElement.curve ?? 0}
+                        onMouseDown={onBeginHistory}
+                        onChange={(e) => onUpdateElementLive(selectedElement.id, { curve: Number(e.target.value) })}
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
                       />
                     </div>

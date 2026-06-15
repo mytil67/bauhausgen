@@ -641,19 +641,60 @@ export const Canvas: React.FC<CanvasProps> = ({
       >
         <defs>
           {elements.map((el) => {
-            if (el.shadowBlur === 0 && el.shadowOpacity === 0) return null;
-            return (
-              <filter key={`shadow-${el.id}`} id={`filter-shadow-${el.id}`} x="-100%" y="-100%" width="300%" height="300%">
-                <feGaussianBlur in="SourceAlpha" stdDeviation={el.shadowBlur ?? 0} />
-                <feOffset dx={el.shadowOffsetX ?? 0} dy={el.shadowOffsetY ?? 0} result="offsetblur" />
-                <feFlood floodColor={el.shadowColor ?? '#000000'} floodOpacity={el.shadowOpacity ?? 0.5} />
-                <feComposite in2="offsetblur" operator="in" />
-                <feMerge>
-                  <feMergeNode />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            );
+            const defs: React.ReactNode[] = [];
+            
+            // Filtre d'ombre
+            if (el.shadowBlur !== 0 || el.shadowOpacity !== 0) {
+              defs.push(
+                <filter key={`shadow-${el.id}`} id={`filter-shadow-${el.id}`} x="-100%" y="-100%" width="300%" height="300%">
+                  <feGaussianBlur in="SourceAlpha" stdDeviation={el.shadowBlur ?? 0} />
+                  <feOffset dx={el.shadowOffsetX ?? 0} dy={el.shadowOffsetY ?? 0} result="offsetblur" />
+                  <feFlood floodColor={el.shadowColor ?? '#000000'} floodOpacity={el.shadowOpacity ?? 0.5} />
+                  <feComposite in2="offsetblur" operator="in" />
+                  <feMerge>
+                    <feMergeNode />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              );
+            }
+
+            // Dégradé
+            if (el.gradient) {
+              const { type, colors, rotation } = el.gradient;
+              const id = `gradient-${el.id}`;
+              if (type === 'linear') {
+                const rad = (rotation * Math.PI) / 180;
+                const x1 = 50 - Math.cos(rad) * 50;
+                const y1 = 50 - Math.sin(rad) * 50;
+                const x2 = 50 + Math.cos(rad) * 50;
+                const y2 = 50 + Math.sin(rad) * 50;
+                defs.push(
+                  <linearGradient key={id} id={id} x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}>
+                    {colors.map((c, i) => <stop key={i} offset={`${c.offset * 100}%`} stopColor={c.color} stopOpacity={c.opacity} />)}
+                  </linearGradient>
+                );
+              } else {
+                defs.push(
+                  <radialGradient key={id} id={id}>
+                    {colors.map((c, i) => <stop key={i} offset={`${c.offset * 100}%`} stopColor={c.color} stopOpacity={c.opacity} />)}
+                  </radialGradient>
+                );
+              }
+            }
+
+            // Path pour texte courbé
+            if (el.type === 'text' && el.curve && el.curve !== 0) {
+              const w = bboxes[el.id]?.width || 200;
+              const curve = el.curve;
+              const r = Math.abs(10000 / curve);
+              const sweep = curve > 0 ? 1 : 0;
+              // On crée un arc de cercle centré
+              const pathData = `M ${-w / 2},0 A ${r},${r} 0 0,${sweep} ${w / 2},0`;
+              defs.push(<path key={`path-${el.id}`} id={`path-${el.id}`} d={pathData} />);
+            }
+
+            return defs;
           })}
         </defs>
 
@@ -673,6 +714,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           const filterUrl = (el.shadowBlur && el.shadowBlur > 0) || (el.shadowOpacity && el.shadowOpacity > 0) 
             ? `url(#filter-shadow-${el.id})` 
             : undefined;
+          
+          const fill = el.gradient ? `url(#gradient-${el.id})` : el.color;
 
           return (
             <g
@@ -701,6 +744,13 @@ export const Canvas: React.FC<CanvasProps> = ({
                     >
                       <div style={{
                         color: el.color,
+                        background: el.gradient ? (
+                          el.gradient.type === 'linear' 
+                            ? `linear-gradient(${el.gradient.rotation}deg, ${el.gradient.colors.map(c => `${c.color} ${c.offset * 100}%`).join(', ')})`
+                            : `radial-gradient(circle, ${el.gradient.colors.map(c => `${c.color} ${c.offset * 100}%`).join(', ')})`
+                        ) : 'none',
+                        WebkitBackgroundClip: el.gradient ? 'text' : 'none',
+                        WebkitTextFillColor: el.gradient ? 'transparent' : 'initial',
                         fontSize: el.fontSize,
                         fontFamily: el.fontFamily,
                         fontWeight: el.fontWeight as any,
@@ -711,7 +761,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                         textTransform: el.textTransform ?? 'none',
                         WebkitTextStroke: el.strokeWidth && el.strokeWidth > 0 ? `${el.strokeWidth}px ${el.strokeColor}` : 'none',
                         wordBreak: 'break-word',
-                        whiteSpace: 'pre-wrap'
+                        whiteSpace: 'pre-wrap',
+                        fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
                       }}>
                         {el.text}
                       </div>
@@ -725,16 +776,23 @@ export const Canvas: React.FC<CanvasProps> = ({
                       fontWeight={el.fontWeight}
                       fontStyle={el.italic ? 'italic' : 'normal'}
                       letterSpacing={el.letterSpacing ?? 0}
-                      fill={el.color}
+                      fill={fill}
                       stroke={el.strokeWidth && el.strokeWidth > 0 ? el.strokeColor : 'none'}
                       strokeWidth={el.strokeWidth ?? 0}
                       strokeLinejoin="round"
                       textAnchor={el.textAlign ?? 'middle'}
                       dominantBaseline="middle"
                       className="select-none"
-                      style={{ textTransform: el.textTransform ?? 'none' }}
+                      style={{ 
+                        textTransform: el.textTransform ?? 'none',
+                        fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
+                      }}
                     >
-                      {el.text}
+                      {el.curve && el.curve !== 0 ? (
+                        <textPath xlinkHref={`#path-${el.id}`} startOffset="50%" textAnchor="middle">
+                          {el.text}
+                        </textPath>
+                      ) : el.text}
                     </text>
                   )
                 )}

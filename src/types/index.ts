@@ -25,6 +25,11 @@ export interface BaseElement {
   shadowOffsetX?: number;
   shadowOffsetY?: number;
   shadowOpacity?: number;
+  gradient?: {
+    type: 'linear' | 'radial';
+    colors: { offset: number; color: string; opacity: number }[];
+    rotation: number; // Pour le linéaire
+  };
 }
 
 export interface TextElement extends BaseElement {
@@ -33,6 +38,7 @@ export interface TextElement extends BaseElement {
   fontSize: number;
   fontFamily: string;
   fontWeight: string;
+  fontWidth?: number; // Pour les polices variables (stretch)
   letterSpacing?: number;
   lineHeight?: number;
   textAlign?: 'start' | 'middle' | 'end';
@@ -41,6 +47,7 @@ export interface TextElement extends BaseElement {
   strokeColor?: string;
   strokeWidth?: number;
   maxWidth?: number; // Pour le wrapping
+  curve?: number; // Courbure du texte (-100 à 100)
 }
 
 export interface ShapeElement extends BaseElement {

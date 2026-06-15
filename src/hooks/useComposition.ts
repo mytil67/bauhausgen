@@ -204,6 +204,8 @@ export const useComposition = () => {
         strokeColor: '#000000',
         letterSpacing: 0,
         lineHeight: 1.2,
+        fontWidth: 100,
+        curve: 0,
       };
     }
     const names: Record<string, string> = {
