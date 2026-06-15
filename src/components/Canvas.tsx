@@ -597,8 +597,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               updates.scaleX = initEl.scaleX * ratioX;
               updates.scaleY = initEl.scaleY * ratioY;
             } else {
-              updates.width = initEl.width * ratioX;
-              updates.height = initEl.height * ratioY;
+              (updates as any).width = (initEl as any).width * ratioX;
+              (updates as any).height = (initEl as any).height * ratioY;
             }
             bulkUpdates[initEl.id] = updates;
           });
