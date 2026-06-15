@@ -350,13 +350,13 @@ export const Canvas: React.FC<CanvasProps> = ({
             onUpdate(selectedId, { 
               width: Math.max(10, initialSize.width + delta * 2),
               height: Math.max(10, initialSize.width + delta * 2)
-            });
+            } as any);
           }
         } else {
-          const updates: Partial<CompositionElement> = {};
+          const updates: any = {};
           if (multX !== 0) updates.width = Math.max(10, initialSize.width + dx * multX * 2);
           if (multY !== 0) updates.height = Math.max(10, initialSize.height + dy * multY * 2);
-          onUpdate(selectedId, updates);
+          onUpdate(selectedId, updates as Partial<CompositionElement>);
         }
       }
     };

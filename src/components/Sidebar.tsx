@@ -31,6 +31,8 @@ interface SidebarProps {
   onUpdateBackground: (color: string) => void;
   onSaveColor: (color: string) => void;
   onAddCustomFont: (fontName: string) => void;
+  onBringToFront: (id: string) => void;
+  onSendToBack: (id: string) => void;
   onExport: (format: 'svg' | 'png' | 'jpg') => void;
   onClearCanvas: () => void;
   onAlign: (direction: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
@@ -63,6 +65,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSendToBack,
   onExport,
   onClearCanvas,
+  onAlign,
+  onDistribute,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
