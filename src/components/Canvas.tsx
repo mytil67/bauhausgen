@@ -759,17 +759,19 @@ export const Canvas: React.FC<CanvasProps> = ({
               const estimatedWidth = el.text.length * el.fontSize * 0.55 * ((el.fontWidth ?? 100) / 100);
               const w = Math.max(estimatedWidth, 10);
               const curve = el.curve;
-              const r = Math.abs(10000 / curve);
+              const r = Math.max(Math.abs(10000 / curve), 10); // Empêcher un rayon trop petit
               // L'inversion inverse le sens de tracé (sweep)
               const sweep = (curve > 0) !== !!el.curveInvert ? 1 : 0;
               
               let pathData = '';
               if (el.curveType === 'circle') {
-                // Cercle complet composé de 2 arcs. 
-                // On ajuste le point de départ pour que startOffset="50%" place le texte au bon endroit.
+                // Pour un cercle complet, SVG textPath a besoin d'un tracé continu propre.
+                // On part du bas (si normal) ou du haut (si inversé) pour que startOffset="50%" soit en haut/bas
                 if (sweep) {
+                  // Sens horaire : départ en bas, passe par en haut, revient en bas
                   pathData = `M 0,${r} A ${r},${r} 0 1,1 0,${-r} A ${r},${r} 0 1,1 0,${r}`;
                 } else {
+                  // Sens anti-horaire : départ en haut, passe par en bas, revient en haut
                   pathData = `M 0,${-r} A ${r},${r} 0 1,0 0,${r} A ${r},${r} 0 1,0 0,${-r}`;
                 }
               } else {
