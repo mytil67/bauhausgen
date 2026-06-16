@@ -471,12 +471,12 @@ function App() {
         )}
 
         {/* Drawer Sidebar (gauche) */}
-        <div className={`fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] transform transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className={`fixed inset-y-0 left-0 z-50 w-[360px] max-w-[90vw] transform transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="h-full relative">
             <Sidebar {...sidebarProps} />
             <button
               onClick={() => setSidebarOpen(false)}
-              className="absolute top-3 right-3 p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 z-10"
+              className="absolute top-3 right-3 p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 z-10 shadow-sm"
             >
               <X size={16} />
             </button>

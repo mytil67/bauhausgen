@@ -249,7 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="w-[360px] h-full bg-white border-r border-gray-100 flex shadow-2xl z-10 overflow-hidden shrink-0">
+    <div className="w-full md:w-[360px] h-full bg-white border-r border-gray-100 flex shadow-2xl z-10 overflow-hidden shrink-0">
       {/* 1. TOOL STRIP (Fixe à gauche) */}
       <aside className="w-14 h-full bg-gray-50 border-r border-gray-100 flex flex-col items-center py-4 gap-4 shrink-0">
         <div className="w-8 h-8 bg-gray-900 rounded flex items-center justify-center text-[10px] font-black text-white mb-2">B</div>
