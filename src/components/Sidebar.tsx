@@ -253,6 +253,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className="w-full md:w-[360px] h-full bg-white border-r border-gray-100 flex shadow-2xl z-10 overflow-hidden shrink-0">
+      {/* Input fichier (toujours monté, partagé par tous les boutons d'import) */}
+      <input type="file" ref={fileInputRef} onChange={handleFontUpload} accept=".ttf,.otf,.woff,.woff2" className="hidden" />
       {/* 1. TOOL STRIP (Fixe à gauche) */}
       <aside className="w-14 h-full bg-gray-50 border-r border-gray-100 flex flex-col items-center py-4 gap-4 shrink-0">
         <div className="w-8 h-8 bg-gray-900 rounded flex items-center justify-center text-[10px] font-black text-white mb-2">B</div>
@@ -378,7 +380,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-3 flex items-center gap-2">
                   <Upload size={14} className="text-gray-400" /> Mes Polices
                 </div>
-                <input type="file" ref={fileInputRef} onChange={handleFontUpload} accept=".ttf,.otf,.woff,.woff2" className="hidden" />
                 <button onClick={() => fileInputRef.current?.click()} className="w-full py-2 bg-gray-50 hover:bg-white text-gray-600 border border-gray-200 rounded text-[10px] font-bold uppercase transition-all">Charger OTF/TTF</button>
               </section>
             </>
