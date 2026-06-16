@@ -511,24 +511,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {openSections.text && (
                         <div className="space-y-4">
                           <textarea value={selectedElement.text} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { text: e.target.value })} className="w-full p-2 bg-gray-50 border border-gray-100 rounded text-sm focus:bg-white outline-none min-h-[60px] resize-none" />
-                          <button onClick={() => setIsFontPickerOpen(!isFontPickerOpen)} className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded text-left text-sm flex justify-between items-center hover:bg-white hover:border-blue-200 transition-all">
-                            <span style={{ fontFamily: selectedElement.fontFamily }} className="truncate">{selectedElement.fontFamily.split(',')[0].replace(/['"]/g, '')}</span>
-                            <ChevronDown size={14} className="text-gray-400" />
-                          </button>
-                          {isFontPickerOpen && (
-                            <div className="absolute left-14 right-4 bg-white border border-gray-200 rounded shadow-xl z-50 max-h-60 overflow-y-auto py-1">
-                              <div className="px-3 py-1 text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 sticky top-0">Google Fonts</div>
-                              {GOOGLE_FONTS.map(f => (<button key={f.value} onClick={() => { onUpdateElement(selectedElement.id, { fontFamily: f.value }); setIsFontPickerOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 ${selectedElement.fontFamily === f.value ? 'bg-blue-50 text-blue-600 font-bold' : ''}`} style={{ fontFamily: f.value }}>{f.label}</button>))}
-                              {customFonts.length > 0 && (
+                          <div className="relative">
+                            <button onClick={() => setIsFontPickerOpen(!isFontPickerOpen)} className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded text-left text-sm flex justify-between items-center hover:bg-white hover:border-blue-200 transition-all">
+                              <span style={{ fontFamily: selectedElement.fontFamily }} className="truncate">{selectedElement.fontFamily.split(',')[0].replace(/['"]/g, '')}</span>
+                              <ChevronDown size={14} className="text-gray-400" />
+                            </button>
+                            {isFontPickerOpen && (
+                              <div className="absolute left-14 right-4 bg-white border border-gray-200 rounded shadow-xl z-50 max-h-60 overflow-y-auto py-1">
+                                <div className="px-3 py-1 text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 sticky top-0">Google Fonts</div>
+                                {GOOGLE_FONTS.map(f => (<button key={f.value} onClick={() => { onUpdateElement(selectedElement.id, { fontFamily: f.value }); setIsFontPickerOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 ${selectedElement.fontFamily === f.value ? 'bg-blue-50 text-blue-600 font-bold' : ''}`} style={{ fontFamily: f.value }}>{f.label}</button>))}
                                 <>
-                                  <div className="px-3 py-1 mt-1 text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 sticky top-0 border-t">Mes Polices</div>
-                                  {customFonts.map(f => (
+                                  <div className="px-3 py-1 mt-1 text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 sticky top-0 border-t flex justify-between items-center">
+                                    Mes Polices
+                                    <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="text-blue-500 hover:text-blue-700 p-1 rounded" title="Charger OTF/TTF"><Upload size={10} /></button>
+                                  </div>
+                                  {customFonts.length > 0 && customFonts.map(f => (
                                     <button key={f.name} onClick={() => { onUpdateElement(selectedElement.id, { fontFamily: f.name }); setIsFontPickerOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors ${selectedElement.fontFamily === f.name ? 'bg-blue-50 text-blue-600 font-bold' : ''}`} style={{ fontFamily: f.name }}>{f.name}</button>
                                   ))}
                                 </>
-                              )}
-                            </div>
-                          )}
+                              </div>
+                            )}
+                          </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="bg-gray-50 p-2 rounded border border-gray-100"><label className="text-[9px] font-bold text-gray-400 block uppercase">Taille</label><input type="number" value={selectedElement.fontSize} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full bg-transparent text-sm font-mono outline-none" /></div>
                             <div className="bg-gray-50 p-2 rounded border border-gray-100"><label className="text-[9px] font-bold text-gray-400 block uppercase">Graisse</label><select value={selectedElement.fontWeight} onChange={(e) => onUpdateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full bg-transparent text-xs font-bold outline-none cursor-pointer"><option value="normal">Normal</option><option value="bold">Gras</option><option value="100">Thin</option><option value="300">Light</option><option value="500">Medium</option><option value="700">Bold</option><option value="900">Black</option></select></div>
