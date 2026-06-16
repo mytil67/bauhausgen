@@ -28,6 +28,9 @@ interface CanvasProps {
   onSendToBack: () => void;
   onBringForward: () => void;
   onSendBackward: () => void;
+  onCopyStyle: (id: string) => void;
+  onPasteStyle: (ids: string[]) => void;
+  hasCopiedStyle: boolean;
   zoom: number;
 }
 
@@ -1010,6 +1013,16 @@ export const Canvas: React.FC<CanvasProps> = ({
               <button onClick={() => { onCopy(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
                 <Copy size={14} className="opacity-60" /> Copier <span className="ml-auto text-[10px] opacity-40">Ctrl+C</span>
               </button>
+              {selectionCount === 1 && (
+                <button onClick={() => { onCopyStyle(selectedIds[0]); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                  <Copy size={14} className="opacity-60" /> Copier le style <span className="ml-auto text-[10px] opacity-40">Ctrl+Alt+C</span>
+                </button>
+              )}
+              {hasCopiedStyle && (
+                <button onClick={() => { onPasteStyle(selectedIds); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
+                  <Download size={14} className="opacity-60" /> Coller le style <span className="ml-auto text-[10px] opacity-40">Ctrl+Alt+V</span>
+                </button>
+              )}
               <div className="h-px bg-gray-100 my-1 mx-2" />
               <button onClick={() => { onBringToFront(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
                 <ArrowUp size={14} className="opacity-60" /> Tout devant

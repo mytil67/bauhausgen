@@ -612,6 +612,47 @@ export const useComposition = () => {
     [commit],
   );
 
+  const [hasCopiedStyle, setHasCopiedStyle] = useState(false);
+  const copiedStyleRef = useRef<Partial<CompositionElement> | null>(null);
+
+  const copyStyle = useCallback((id: string) => {
+    setDoc((prev) => {
+      const el = prev.elements.find((e) => e.id === id);
+      if (el) {
+        const styleProps = [
+          'color', 'opacity', 'blendMode',
+          'shadowColor', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'shadowOpacity',
+          'gradient', 'strokeColor', 'strokeWidth',
+          'fontFamily', 'fontWeight', 'fontWidth', 'letterSpacing', 'lineHeight', 'textAlign', 'textTransform', 'italic', 'curve'
+        ] as const;
+        const style: Partial<CompositionElement> = {};
+        styleProps.forEach((prop) => {
+          if (prop in el) {
+            (style as any)[prop] = (el as any)[prop];
+          }
+        });
+        copiedStyleRef.current = style;
+        setHasCopiedStyle(true);
+      }
+      return prev;
+    });
+  }, []);
+
+  const pasteStyle = useCallback((ids: string[]) => {
+    const style = copiedStyleRef.current;
+    if (!style || ids.length === 0) return;
+    commit((prev) => {
+      const set = new Set(ids);
+      return {
+        ...prev,
+        elements: prev.elements.map((el) => {
+          if (!set.has(el.id)) return el;
+          return { ...el, ...style };
+        }),
+      };
+    });
+  }, [commit]);
+
   const clearCanvas = useCallback(() => {
     if (window.confirm('Voulez-vous vraiment vider le canvas ?')) {
       commit((prev) => ({ ...prev, elements: [], backgroundColor: '#ffffff' }));
@@ -624,6 +665,7 @@ export const useComposition = () => {
     selectedIds,
     canUndo: past.length > 0,
     canRedo: future.length > 0,
+    hasCopiedStyle,
     addElement,
     updateElement,
     updateElementLive,
@@ -642,6 +684,8 @@ export const useComposition = () => {
     reorderElements,
     copySelection,
     pasteClipboard,
+    copyStyle,
+    pasteStyle,
     setCanvasSize,
     loadTemplate,
     setBackgroundColor,

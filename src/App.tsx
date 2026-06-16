@@ -39,6 +39,9 @@ function App() {
     reorderElements,
     copySelection,
     pasteClipboard,
+    hasCopiedStyle,
+    copyStyle,
+    pasteStyle,
     setCanvasSize,
     loadTemplate,
     setBackgroundColor,
@@ -100,6 +103,8 @@ function App() {
       const mod = e.ctrlKey || e.metaKey;
 
       if (mod) {
+        if (e.altKey && e.key.toLowerCase() === 'c' && selectedIds.length === 1) { e.preventDefault(); copyStyle(selectedIds[0]); return; }
+        if (e.altKey && e.key.toLowerCase() === 'v' && selectedIds.length > 0) { e.preventDefault(); pasteStyle(selectedIds); return; }
         if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom(z => Math.min(5, z + 0.25)); return; }
         if (e.key === '-') { e.preventDefault(); setZoom(z => Math.max(0.1, z - 0.25)); return; }
         if (e.key === '0') { e.preventDefault(); setZoom(1); return; }
@@ -329,6 +334,9 @@ function App() {
           onSendToBack={() => sendToBack(selectedIds)}
           onBringForward={() => bringForward(selectedIds)}
           onSendBackward={() => sendBackward(selectedIds)}
+          onCopyStyle={copyStyle}
+          onPasteStyle={pasteStyle}
+          hasCopiedStyle={hasCopiedStyle}
           zoom={zoom}
           />
         {/* Zoom Controls */}
