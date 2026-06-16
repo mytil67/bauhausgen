@@ -28,6 +28,8 @@ import {
   FlipVertical,
   ChevronUp,
   ChevronDown,
+  Underline,
+  Strikethrough,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -453,7 +455,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                         <div className="grid grid-cols-2 gap-4 pt-1">
                           <div>
-                            <div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Rotation</label><span className="text-[9px] font-mono text-gray-400">{Math.round(selectedElement.rotation)}°</span></div>
+                            <div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Rotation</label><div className="flex items-center gap-0.5"><input type="number" value={Math.round(selectedElement.rotation)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-10 text-[9px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /><span className="text-[9px] font-mono text-gray-400">°</span></div></div>
                             <input type="range" min="0" max="360" value={selectedElement.rotation} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
                           </div>
                           <div>
@@ -517,19 +519,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <ChevronDown size={14} className="text-gray-400" />
                             </button>
                             {isFontPickerOpen && (
-                              <div className="absolute left-14 right-4 bg-white border border-gray-200 rounded shadow-xl z-50 max-h-60 overflow-y-auto py-1">
-                                <div className="px-3 py-1 text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 sticky top-0">Google Fonts</div>
-                                {GOOGLE_FONTS.map(f => (<button key={f.value} onClick={() => { onUpdateElement(selectedElement.id, { fontFamily: f.value }); setIsFontPickerOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 ${selectedElement.fontFamily === f.value ? 'bg-blue-50 text-blue-600 font-bold' : ''}`} style={{ fontFamily: f.value }}>{f.label}</button>))}
-                                <>
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsFontPickerOpen(false)} />
+                                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded shadow-xl z-50 max-h-60 overflow-y-auto py-1">
+                                  <div className="px-3 py-1 text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 sticky top-0">Google Fonts</div>
+                                  {GOOGLE_FONTS.map(f => (<button key={f.value} onClick={() => { onUpdateElement(selectedElement.id, { fontFamily: f.value }); setIsFontPickerOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 ${selectedElement.fontFamily === f.value ? 'bg-blue-50 text-blue-600 font-bold' : ''}`} style={{ fontFamily: f.value }}>{f.label}</button>))}
                                   <div className="px-3 py-1 mt-1 text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 sticky top-0 border-t flex justify-between items-center">
                                     Mes Polices
-                                    <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="text-blue-500 hover:text-blue-700 p-1 rounded" title="Charger OTF/TTF"><Upload size={10} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="text-blue-500 hover:text-blue-700 p-1 rounded flex items-center gap-1" title="Charger OTF/TTF"><Upload size={10} /> Charger</button>
                                   </div>
-                                  {customFonts.length > 0 && customFonts.map(f => (
+                                  {customFonts.length > 0 ? customFonts.map(f => (
                                     <button key={f.name} onClick={() => { onUpdateElement(selectedElement.id, { fontFamily: f.name }); setIsFontPickerOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors ${selectedElement.fontFamily === f.name ? 'bg-blue-50 text-blue-600 font-bold' : ''}`} style={{ fontFamily: f.name }}>{f.name}</button>
-                                  ))}
-                                </>
-                              </div>
+                                  )) : (
+                                    <p className="px-4 py-2 text-[10px] text-gray-300 italic">Aucune police importée.</p>
+                                  )}
+                                </div>
+                              </>
                             )}
                           </div>
                           <div className="grid grid-cols-2 gap-2">
@@ -542,11 +547,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <button onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'end' })} className={`flex-1 flex justify-center p-2 rounded ${selectedElement.textAlign === 'end' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}><AlignRight size={16} /></button>
                             <div className="w-px h-4 bg-gray-200 self-center mx-1" />
                             <button onClick={() => onUpdateElement(selectedElement.id, { italic: !selectedElement.italic })} className={`flex-1 flex justify-center p-2 rounded ${selectedElement.italic ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}><Italic size={16} /></button>
-                            <button onClick={() => onUpdateElement(selectedElement.id, { fontVariant: selectedElement.fontVariant === 'small-caps' ? 'normal' : 'small-caps' })} className={`flex-1 flex justify-center p-2 rounded text-[10px] font-bold ${selectedElement.fontVariant === 'small-caps' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}>SC</button>
+                            <button onClick={() => onUpdateElement(selectedElement.id, { fontVariant: selectedElement.fontVariant === 'small-caps' ? 'normal' : 'small-caps' })} className={`flex-1 flex justify-center p-2 rounded text-[10px] font-bold ${selectedElement.fontVariant === 'small-caps' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}>Sᴄ</button>
                           </div>
+
+                          {/* Casse, décoration & sens d'écriture */}
+                          <div className="flex gap-1 p-1 bg-gray-50 rounded border border-gray-100">
+                            <button onClick={() => onUpdateElement(selectedElement.id, { textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase' })} className={`flex-1 flex justify-center p-2 rounded text-[10px] font-bold ${selectedElement.textTransform === 'uppercase' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`} title="Majuscules">AA</button>
+                            <button onClick={() => onUpdateElement(selectedElement.id, { textTransform: selectedElement.textTransform === 'lowercase' ? 'none' : 'lowercase' })} className={`flex-1 flex justify-center p-2 rounded text-[10px] font-bold ${selectedElement.textTransform === 'lowercase' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`} title="Minuscules">aa</button>
+                            <div className="w-px h-4 bg-gray-200 self-center mx-1" />
+                            <button onClick={() => onUpdateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'underline' ? 'none' : 'underline' })} className={`flex-1 flex justify-center p-2 rounded ${selectedElement.textDecoration === 'underline' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`} title="Souligné"><Underline size={15} /></button>
+                            <button onClick={() => onUpdateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'line-through' ? 'none' : 'line-through' })} className={`flex-1 flex justify-center p-2 rounded ${selectedElement.textDecoration === 'line-through' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`} title="Barré"><Strikethrough size={15} /></button>
+                            <button onClick={() => onUpdateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'overline' ? 'none' : 'overline' })} className={`flex-1 flex justify-center p-2 rounded text-[11px] font-bold leading-none ${selectedElement.textDecoration === 'overline' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`} title="Surligné"><span style={{ textDecoration: 'overline' }}>O</span></button>
+                            <div className="w-px h-4 bg-gray-200 self-center mx-1" />
+                            <button onClick={() => onUpdateElement(selectedElement.id, { writingMode: selectedElement.writingMode === 'vertical' ? 'horizontal' : 'vertical' })} className={`flex-1 flex justify-center p-2 rounded text-[11px] font-bold ${selectedElement.writingMode === 'vertical' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`} title="Texte vertical"><span style={{ writingMode: 'vertical-rl' as React.CSSProperties['writingMode'], lineHeight: 1 }}>A</span></button>
+                          </div>
+
+                          {/* Style & couleur de la décoration (si active) */}
+                          {selectedElement.textDecoration && selectedElement.textDecoration !== 'none' && (
+                            <div className="flex gap-2 items-center">
+                              <select value={selectedElement.textDecorationStyle ?? 'solid'} onChange={(e) => onUpdateElement(selectedElement.id, { textDecorationStyle: e.target.value as 'solid' | 'dashed' | 'dotted' | 'wavy' })} className="flex-1 p-2 bg-gray-50 border border-gray-100 rounded text-xs focus:bg-white outline-none" title="Style du trait">
+                                <option value="solid">Plein</option>
+                                <option value="dashed">Tirets</option>
+                                <option value="dotted">Pointillés</option>
+                                <option value="wavy">Ondulé</option>
+                              </select>
+                              <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0 bg-white" title="Couleur du trait">
+                                <input type="color" value={ensureFullHex(selectedElement.textDecorationColor ?? selectedElement.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { textDecorationColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
+                              </div>
+                            </div>
+                          )}
                           <div className="space-y-4">
-                            <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Espacement</label><span className="text-[9px] font-mono text-gray-400">{selectedElement.letterSpacing ?? 0}px</span></div><input type="range" min="-10" max="50" step="0.5" value={selectedElement.letterSpacing ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
-                            
+                            <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Interlettrage</label><div className="flex items-center gap-0.5"><input type="number" step="0.5" value={selectedElement.letterSpacing ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })} className="w-10 text-[9px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /><span className="text-[9px] font-mono text-gray-400">px</span></div></div><input type="range" min="-10" max="50" step="0.5" value={selectedElement.letterSpacing ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
+
+                            <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Espacement des mots</label><div className="flex items-center gap-0.5"><input type="number" step="0.5" value={selectedElement.wordSpacing ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { wordSpacing: Number(e.target.value) })} className="w-10 text-[9px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /><span className="text-[9px] font-mono text-gray-400">px</span></div></div><input type="range" min="-10" max="50" step="0.5" value={selectedElement.wordSpacing ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { wordSpacing: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
+
+                            <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Interligne</label><div className="flex items-center gap-0.5"><input type="number" step="0.1" value={selectedElement.lineHeight ?? 1.2} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })} className="w-10 text-[9px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /></div></div><input type="range" min="0.5" max="3" step="0.1" value={selectedElement.lineHeight ?? 1.2} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
+
+                            <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Étirement (Width)</label><div className="flex items-center gap-0.5"><input type="number" value={selectedElement.fontWidth ?? 100} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontWidth: Number(e.target.value) })} className="w-10 text-[9px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /><span className="text-[9px] font-mono text-gray-400">%</span></div></div><input type="range" min="50" max="200" step="1" value={selectedElement.fontWidth ?? 100} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontWidth: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
+
+                            <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Largeur max (retour ligne)</label><div className="flex items-center gap-0.5"><input type="number" value={selectedElement.maxWidth ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { maxWidth: Number(e.target.value) })} className="w-10 text-[9px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /></div></div><input type="range" min="0" max="2000" step="10" value={selectedElement.maxWidth ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { maxWidth: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /><p className="text-[8px] text-gray-300 mt-1 italic">0 = ligne unique.</p></div>
+
                             <div className="p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
                               <div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Courbure</label><div className="flex items-center gap-0.5"><input type="number" value={selectedElement.curve ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { curve: Number(e.target.value) })} className="w-10 text-[9px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /></div></div>
                               <input type="range" min="-100" max="100" step="1" value={selectedElement.curve ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { curve: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900 mb-2" />
