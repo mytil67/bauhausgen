@@ -897,7 +897,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                         strokeLinejoin="round"
                         textAnchor={el.textAlign ?? 'middle'}
                         dominantBaseline="middle"
-                        className="select-none"
+                        className="select-none measure-target"
                         style={{
                           textTransform: el.textTransform ?? 'none',
                           fontVariant: el.fontVariant ?? 'normal',
