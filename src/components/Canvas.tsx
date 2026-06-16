@@ -270,7 +270,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     elements.forEach((el) => {
       const ref = elementRefs.current[el.id];
       if (ref) {
-        const content = ref.querySelector('text, rect, circle, polygon, path') as SVGGraphicsElement;
+        const content = (ref.querySelector('.measure-target') || ref.querySelector('text, rect, circle, polygon, path')) as SVGGraphicsElement;
         if (content) {
           newBboxes[el.id] = content.getBBox();
         }

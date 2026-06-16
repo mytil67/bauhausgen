@@ -473,7 +473,7 @@ function App() {
         )}
 
         {/* Drawer Sidebar (gauche) */}
-        <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-[360px] max-w-[90vw] transform transition-all duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isInteracting ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-[360px] max-w-[90vw] transform transition-all duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isInteracting ? 'opacity-20' : 'opacity-100'}`}>
           <div className="h-full relative">
             <Sidebar {...sidebarProps} />
             <button
