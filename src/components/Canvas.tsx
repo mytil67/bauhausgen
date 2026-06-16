@@ -909,7 +909,15 @@ export const Canvas: React.FC<CanvasProps> = ({
                         }}
                       >
                         {el.curve && el.curve !== 0 && el.writingMode !== 'vertical' ? (
-                          <textPath xlinkHref={`#path-${el.id}`} startOffset="50%" textAnchor="middle">
+                          <textPath 
+                            xlinkHref={`#path-${el.id}`} 
+                            startOffset="50%" 
+                            textAnchor="middle"
+                            {...(el.curveType === 'circle' ? { 
+                              textLength: Math.PI * 2 * Math.max(Math.abs(10000 / el.curve), 10), 
+                              lengthAdjust: "spacing" 
+                            } : {})}
+                          >
                             {el.text}
                           </textPath>
                         ) : el.text}
