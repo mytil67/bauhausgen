@@ -19,33 +19,34 @@
 
 ---
 
-## Lot 1 — Facile & fort impact
+## Lot 1 — Facile & fort impact — ✅ RÉALISÉ (2026-06-16)
 
-### 1. Texte vertical
+Items 1 à 4 implémentés. Propriétés ajoutées au `TextElement`, rendues dans les deux
+chemins de `Canvas` (`<text>` simple ET `foreignObject` wrapping), incluses dans le
+copier-coller de style, contrôlées depuis la Sidebar (section texte).
+
+### 1. Texte vertical — ✅
 - Propriété : `writingMode?: 'horizontal' | 'vertical'`
-- Implémentation : `writing-mode: vertical-rl` sur le foreignObject ou rotation du `<text>`
-- UI : toggle dans la sidebar (icône flèche verticale)
-- Intérêt Bauhaus : très caractéristique des compositions Bauhaus/constructivistes
+- Implémentation : `writing-mode: vertical-rl` (style sur `<text>` et sur le div du
+  foreignObject). Le texte courbé (`curve`) est ignoré quand le mode est vertical.
+- UI : toggle « A » vertical dans la barre de style du texte.
 
-### 2. Petites capitales (small-caps)
+### 2. Petites capitales (small-caps) — ✅
 - Propriété : `fontVariant?: 'normal' | 'small-caps'`
-- Implémentation : `font-variant: small-caps` ou OpenType `font-feature-settings: "smcp"`
-- UI : toggle bouton « Sc » dans la section typographie
-- Intérêt : sous-titres, légendes, style éditorial
+- Implémentation : `font-variant: small-caps`
+- UI : toggle « Sᴄ » dans la barre de style.
 
-### 3. Soulignement / barré / surlignement
+### 3. Soulignement / barré / surlignement — ✅
 - Propriété : `textDecoration?: 'none' | 'underline' | 'line-through' | 'overline'`
-- Propriétés optionnelles : `textDecorationColor?`, `textDecorationStyle?: 'solid' | 'dashed' | 'dotted' | 'wavy'`
-- UI : 3 toggles (U, S, O) avec sélecteur de style et couleur
-- Note : `text-decoration-thickness` pour contrôler l'épaisseur
+- Optionnelles : `textDecorationColor?`, `textDecorationStyle?: 'solid' | 'dashed' | 'dotted' | 'wavy'`
+- UI : 3 toggles (U / S / O) ; quand actif → select de style + sélecteur de couleur.
 
-### 4. Espacement des mots (word-spacing)
+### 4. Espacement des mots (word-spacing) — ✅
 - Propriété : `wordSpacing?: number` (range -10 → 50px)
-- Implémentation : `word-spacing` CSS
-- UI : slider + input, à côté du letterSpacing existant
-- Intérêt : compositions aérées, titres espacés
+- Implémentation : `word-spacing` CSS (`<text>` via attribut + style, foreignObject via style)
+- UI : slider + input sous l'interlettrage.
 
-### 5. Majuscules de titrage (OpenType titling)
+### 5. Majuscules de titrage (OpenType titling) — reporté au panel OpenType (Lot 2, item 10)
 - Propriété : inclus dans un futur panel OpenType features
 - Implémentation : `font-feature-settings: "titl"`
 - Pertinent surtout pour Playfair Display et les polices avec alternates

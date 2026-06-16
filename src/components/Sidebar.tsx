@@ -34,6 +34,8 @@ import {
   FlipVertical,
   ChevronUp,
   ChevronDown,
+  Underline,
+  Strikethrough,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -809,6 +811,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >aa</button>
                     </div>
 
+                    {/* Décoration, petites capitales & sens d'écriture */}
+                    <div className="flex gap-1 p-1 bg-gray-50 rounded border border-gray-200">
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'underline' ? 'none' : 'underline' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textDecoration === 'underline' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Souligné"
+                      ><Underline size={14} /></button>
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'line-through' ? 'none' : 'line-through' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textDecoration === 'line-through' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Barré"
+                      ><Strikethrough size={14} /></button>
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'overline' ? 'none' : 'overline' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[11px] leading-none flex items-center ${selectedElement.textDecoration === 'overline' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Surligné"
+                      ><span style={{ textDecoration: 'overline' }}>O</span></button>
+                      <div className="w-px h-4 bg-gray-200 self-center mx-1" />
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { fontVariant: selectedElement.fontVariant === 'small-caps' ? 'normal' : 'small-caps' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[10px] flex items-center ${selectedElement.fontVariant === 'small-caps' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Petites capitales"
+                      >Sᴄ</button>
+                      <div className="w-px h-4 bg-gray-200 self-center mx-1" />
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { writingMode: selectedElement.writingMode === 'vertical' ? 'horizontal' : 'vertical' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[11px] flex items-center ${selectedElement.writingMode === 'vertical' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Texte vertical"
+                      ><span style={{ writingMode: 'vertical-rl' as React.CSSProperties['writingMode'], lineHeight: 1 }}>A</span></button>
+                    </div>
+
+                    {/* Style & couleur de la décoration (si active) */}
+                    {selectedElement.textDecoration && selectedElement.textDecoration !== 'none' && (
+                      <div className="flex gap-2 items-center">
+                        <select
+                          value={selectedElement.textDecorationStyle ?? 'solid'}
+                          onChange={(e) => onUpdateElement(selectedElement.id, { textDecorationStyle: e.target.value as 'solid' | 'dashed' | 'dotted' | 'wavy' })}
+                          className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded font-medium"
+                          title="Style du trait"
+                        >
+                          <option value="solid">Plein</option>
+                          <option value="dashed">Tirets</option>
+                          <option value="dotted">Pointillés</option>
+                          <option value="wavy">Ondulé</option>
+                        </select>
+                        <div className="relative w-8 h-8 shrink-0 overflow-hidden rounded border border-gray-200 bg-white" title="Couleur du trait">
+                          <input type="color" value={ensureFullHex(selectedElement.textDecorationColor ?? selectedElement.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { textDecorationColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <div className="flex justify-between mb-1">
                         <label className="text-[10px] font-bold text-gray-400 block uppercase">Interlettrage</label>
@@ -825,6 +878,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         value={selectedElement.letterSpacing ?? 0}
                         onMouseDown={onBeginHistory}
                         onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })}
+                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Espacement des mots</label>
+                        <div className="flex items-center gap-1">
+                          <input type="number" step="0.5" value={selectedElement.wordSpacing ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { wordSpacing: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
+                          <span className="text-[10px] text-gray-400 font-mono">px</span>
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="-10"
+                        max="50"
+                        step="0.5"
+                        value={selectedElement.wordSpacing ?? 0}
+                        onMouseDown={onBeginHistory}
+                        onChange={(e) => onUpdateElementLive(selectedElement.id, { wordSpacing: Number(e.target.value) })}
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
                       />
                     </div>

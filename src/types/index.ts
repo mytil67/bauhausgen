@@ -48,6 +48,13 @@ export interface TextElement extends BaseElement {
   strokeWidth?: number;
   maxWidth?: number; // Pour le wrapping
   curve?: number; // Courbure du texte (-100 à 100)
+  // --- Lot 1 typographie ---
+  writingMode?: 'horizontal' | 'vertical'; // Sens d'écriture
+  fontVariant?: 'normal' | 'small-caps'; // Petites capitales
+  textDecoration?: 'none' | 'underline' | 'line-through' | 'overline'; // Décoration
+  textDecorationStyle?: 'solid' | 'dashed' | 'dotted' | 'wavy'; // Style de la décoration
+  textDecorationColor?: string; // Couleur de la décoration (défaut = couleur du texte)
+  wordSpacing?: number; // Espacement des mots (px)
 }
 
 export interface ShapeElement extends BaseElement {

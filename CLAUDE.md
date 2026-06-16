@@ -149,6 +149,14 @@ Layout responsive piloté par `useIsMobile` (breakpoint 768px).
 - Les poignées de resize/rotation ne sont pas adaptées aux doigts (taille inchangée).
 - Pas de double-tap pour édition inline de texte.
 
+## Typographie — Lot 1 (ajout 2026-06-16)
+Implémentation du « Lot 1 » de `TYPOGRAPHY_ROADMAP.md`. Nouvelles props sur `TextElement` :
+`writingMode` (horizontal/vertical), `fontVariant` (small-caps), `textDecoration`
+(underline/line-through/overline) + `textDecorationStyle` + `textDecorationColor`,
+`wordSpacing`. Rendues dans les **deux** chemins de `Canvas` (`<text>` et `foreignObject`),
+ajoutées à `copyStyle`, contrôlées dans la barre de style + sliders de la Sidebar. Le texte
+courbé (`curve`) est désactivé quand `writingMode === 'vertical'`. Prochain : Lot 2.
+
 ## Dette restante / idées
 - Coalescing d'historique sur les inputs number/text (1 entrée par caractère actuellement).
 - Export Google Fonts dépend d'un fetch réseau (CORS) — peut retomber sur système hors-ligne.
