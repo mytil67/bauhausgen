@@ -756,35 +756,20 @@ export const Canvas: React.FC<CanvasProps> = ({
 
             // Path pour texte courbé (arc de cercle ou cercle complet)
             if (el.type === 'text' && el.curve && el.curve !== 0) {
-              const estimatedWidth = el.text.length * el.fontSize * 0.55 * ((el.fontWidth ?? 100) / 100);
-              const w = Math.max(estimatedWidth, 10);
               const curve = el.curve;
-              let r = Math.abs(10000 / curve);
-              
-              if (el.curveType !== 'circle') {
-                // Pour un arc, le rayon r DOIT être au moins la moitié de la corde (w/2) sinon l'arc est impossible en SVG
-                r = Math.max(r, w / 2);
-              } else {
-                r = Math.max(r, 10);
-              }
-
-              // L'inversion inverse le sens de tracé (sweep)
+              const r = Math.max(Math.abs(10000 / curve), 10);
               const sweep = (curve > 0) !== !!el.curveInvert ? 1 : 0;
               
+              // On crée systématiquement un cercle complet dont l'apex (le sommet ou le creux) est exactement à (0,0).
+              // Cela évite de devoir calculer la largeur du texte (w) et empêche tout rognage (clipping) !
+              // startOffset="50%" de <textPath> placera toujours le centre du texte à (0,0).
               let pathData = '';
-              if (el.curveType === 'circle') {
-                // Cercle complet construit avec 2 arcs de cercle de 180° parfaits.
-                // startOffset="50%" de <textPath> placera le centre du texte à la jointure des deux arcs.
-                if (sweep) {
-                  // Départ en bas, passe par en haut, revient en bas (sens horaire)
-                  pathData = `M 0,${r} A ${r},${r} 0 0,1 0,${-r} A ${r},${r} 0 0,1 0,${r}`;
-                } else {
-                  // Départ en haut, passe par en bas, revient en haut (sens anti-horaire)
-                  pathData = `M 0,${-r} A ${r},${r} 0 0,0 0,${r} A ${r},${r} 0 0,0 0,${-r}`;
-                }
+              if (sweep) {
+                // Sourire (curve > 0) : Centre à (0, r). Apex haut à (0,0). Départ en bas à (0, 2r).
+                pathData = `M 0,${2 * r} A ${r},${r} 0 0,1 0,0 A ${r},${r} 0 0,1 0,${2 * r}`;
               } else {
-                // Arc de cercle classique centré
-                pathData = `M ${-w / 2},0 A ${r},${r} 0 0,${sweep} ${w / 2},0`;
+                // Triste (curve < 0) : Centre à (0, -r). Apex bas à (0,0). Départ en haut à (0, -2r).
+                pathData = `M 0,${-2 * r} A ${r},${r} 0 0,0 0,0 A ${r},${r} 0 0,0 0,${-2 * r}`;
               }
               defs.push(<path key={`path-${el.id}`} id={`path-${el.id}`} d={pathData} />);
             }
