@@ -22,7 +22,6 @@ import {
   Undo2,
   Redo2,
   Italic,
-  CaseSensitive,
   AlignStartVertical,
   AlignCenterVertical,
   AlignEndVertical,
