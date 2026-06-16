@@ -765,14 +765,15 @@ export const Canvas: React.FC<CanvasProps> = ({
               
               let pathData = '';
               if (el.curveType === 'circle') {
-                // Pour un cercle complet, SVG textPath a besoin d'un tracé continu propre.
-                // On part du bas (si normal) ou du haut (si inversé) pour que startOffset="50%" soit en haut/bas
+                // Pour un cercle complet, SVG textPath bug parfois si on fait un cercle parfait avec 2 arcs de 180°.
+                // On utilise une astuce : on dessine presque un cercle complet (ex: 359.9°)
+                // On part du centre haut (0, -r) ou centre bas (0, r) selon l'inversion
                 if (sweep) {
-                  // Sens horaire : départ en bas, passe par en haut, revient en bas
-                  pathData = `M 0,${r} A ${r},${r} 0 1,1 0,${-r} A ${r},${r} 0 1,1 0,${r}`;
+                  // Sens horaire : départ en haut, tourne vers la droite, finit presque en haut
+                  pathData = `M 0,${-r} A ${r},${r} 0 1,1 -0.01,${-r}`;
                 } else {
-                  // Sens anti-horaire : départ en haut, passe par en bas, revient en haut
-                  pathData = `M 0,${-r} A ${r},${r} 0 1,0 0,${r} A ${r},${r} 0 1,0 0,${-r}`;
+                  // Sens anti-horaire : départ en bas, tourne vers la droite, finit presque en bas
+                  pathData = `M 0,${r} A ${r},${r} 0 1,0 -0.01,${r}`;
                 }
               } else {
                 // Arc de cercle classique centré
