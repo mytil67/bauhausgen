@@ -981,6 +981,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           />
         )}
       </svg>
+      </div>
 
       {/* Menu Contextuel (Clic droit) */}
       {contextMenu.visible && (
