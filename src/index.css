@@ -37,3 +37,15 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Safe area pour les mobiles avec encoche/barre de navigation */
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+/* Empêche le zoom par double-tap sur mobile */
+@media (max-width: 767px) {
+  button, a, input, select {
+    touch-action: manipulation;
+  }
+}

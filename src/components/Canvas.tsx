@@ -180,14 +180,24 @@ export const Canvas: React.FC<CanvasProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedIds, onRemoveSelection, onNudge, onBeginHistory]);
 
-  const getMousePosition = (e: React.MouseEvent | MouseEvent) => {
+  const getPositionFromClient = (clientX: number, clientY: number) => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const CTM = svgRef.current.getScreenCTM();
     if (!CTM) return { x: 0, y: 0 };
     return {
-      x: (e.clientX - CTM.e) / CTM.a,
-      y: (e.clientY - CTM.f) / CTM.d,
+      x: (clientX - CTM.e) / CTM.a,
+      y: (clientY - CTM.f) / CTM.d,
     };
+  };
+
+  const getMousePosition = (e: React.MouseEvent | MouseEvent) => {
+    return getPositionFromClient(e.clientX, e.clientY);
+  };
+
+  const getTouchPosition = (e: React.TouchEvent | TouchEvent) => {
+    const touch = e.touches[0] || e.changedTouches[0];
+    if (!touch) return { x: 0, y: 0 };
+    return getPositionFromClient(touch.clientX, touch.clientY);
   };
 
   // Démarre un cadre de sélection sur le fond du canvas
@@ -196,6 +206,15 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (e.target !== svgRef.current) return;
     const pos = getMousePosition(e);
     setMarquee({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, additive: e.shiftKey });
+  };
+
+  // Touch : tap sur le fond = désélection
+  const handleCanvasTouchStart = (e: React.TouchEvent) => {
+    closeContextMenu();
+    if (e.target !== svgRef.current) return;
+    if (e.touches.length === 1) {
+      onSelect(null);
+    }
   };
 
   useEffect(() => {
@@ -263,13 +282,11 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent, el: CompositionElement) => {
     e.stopPropagation();
-    if (el.locked) return; // élément verrouillé : non manipulable au canvas
-    // Shift+clic : (dé)sélection additive, sans démarrer de déplacement
+    if (el.locked) return;
     if (e.shiftKey) {
       onSelect(el.id, true);
       return;
     }
-    // Clic simple sur un élément déjà dans la sélection multiple : on garde le groupe
     if (!selectedIds.includes(el.id)) {
       onSelect(el.id);
     }
@@ -277,6 +294,21 @@ export const Canvas: React.FC<CanvasProps> = ({
     setActiveId(el.id);
     setDragMode('move');
     const pos = getMousePosition(e);
+    setDragOffset({ x: pos.x - el.x, y: pos.y - el.y });
+  };
+
+  // Touch : sélection + déplacement d'un élément
+  const handleTouchStart = (e: React.TouchEvent, el: CompositionElement) => {
+    e.stopPropagation();
+    if (el.locked) return;
+    if (e.touches.length !== 1) return;
+    if (!selectedIds.includes(el.id)) {
+      onSelect(el.id);
+    }
+    onBeginHistory();
+    setActiveId(el.id);
+    setDragMode('move');
+    const pos = getTouchPosition(e);
     setDragOffset({ x: pos.x - el.x, y: pos.y - el.y });
   };
 
@@ -628,19 +660,39 @@ export const Canvas: React.FC<CanvasProps> = ({
       setMeasurements([]);
     };
 
+    // Touch move/end handlers — réutilise la logique mouse via clientX/clientY
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      // Crée un objet synthétique compatible avec getMousePosition
+      const synth = { clientX: touch.clientX, clientY: touch.clientY, shiftKey: false } as MouseEvent;
+      handleMouseMove(synth);
+    };
+
+    const handleTouchEnd = () => {
+      handleMouseUp();
+    };
+
     if (dragMode) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
+      window.addEventListener('touchcancel', handleTouchEnd);
     }
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
     };
   }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements]);
 
   return (
-    <div className="w-full h-full overflow-auto relative bg-transparent flex p-12">
+    <div className="w-full h-full overflow-auto relative bg-transparent flex p-4 md:p-12" style={{ touchAction: 'none' }}>
       <div 
         className="m-auto flex-shrink-0 origin-center transition-transform duration-75 ease-out"
         style={{ transform: `scale(${zoom})`, width, height }}
@@ -654,6 +706,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           style={{ backgroundColor }}
           className="shadow-2xl shadow-gray-300/50 cursor-default ring-1 ring-gray-900/5 block"
           onMouseDown={handleCanvasMouseDown}
+          onTouchStart={handleCanvasTouchStart}
           onContextMenu={handleContextMenu}
           onClick={closeContextMenu}
         >
@@ -744,6 +797,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               ref={(ref) => { elementRefs.current[el.id] = ref; }}
               transform={outerTransform}
               onMouseDown={(e) => handleMouseDown(e, el)}
+              onTouchStart={(e) => handleTouchStart(e, el)}
               onClick={(e) => e.stopPropagation()}
               onDoubleClick={(e) => { e.stopPropagation(); startEditing(el); }}
               style={{ 

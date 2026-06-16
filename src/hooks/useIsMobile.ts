@@ -1,0 +1,20 @@
+import { useSyncExternalStore } from 'react';
+
+const MOBILE_BREAKPOINT = 768;
+
+const mql = typeof window !== 'undefined'
+  ? window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+  : null;
+
+function subscribe(cb: () => void) {
+  mql?.addEventListener('change', cb);
+  return () => mql?.removeEventListener('change', cb);
+}
+
+function getSnapshot() {
+  return mql?.matches ?? false;
+}
+
+export function useIsMobile(): boolean {
+  return useSyncExternalStore(subscribe, getSnapshot, () => false);
+}

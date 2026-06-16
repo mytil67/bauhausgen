@@ -1,10 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useComposition } from './hooks/useComposition';
+import { useIsMobile } from './hooks/useIsMobile';
 import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
 import { LayersPanel } from './components/LayersPanel';
-import { Plus, Minus } from 'lucide-react';
-import type { ElementBounds, AlignDirection, DistributeAxis } from './types';
+import { Plus, Minus, Menu, Layers, X, Type, Square, Circle, Triangle, Undo2, Redo2, Trash2, Download } from 'lucide-react';
+import type { ElementBounds, AlignDirection, DistributeAxis, ElementType } from './types';
 
 // Polices Google utilisées dans l'éditeur (pour tentative d'embarquement à l'export)
 const GOOGLE_FONTS_CSS =
@@ -77,6 +78,11 @@ function App() {
     (axis: DistributeAxis) => distributeElements(axis, selectedIds, boundsRef.current),
     [distributeElements, selectedIds],
   );
+
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [mobileAddOpen, setMobileAddOpen] = useState(false);
 
   const [zoom, setZoom] = useState(1);
 
@@ -267,78 +273,231 @@ function App() {
     setCanvasSize(w, h);
   }, [setCanvasSize]);
 
+  const handleMobileAdd = (type: ElementType) => {
+    addElement(type);
+    setMobileAddOpen(false);
+  };
+
+  const sidebarProps = {
+    elements,
+    selectedElement,
+    selectedIds,
+    selectionCount: selectedIds.length,
+    elementCount: elements.length,
+    backgroundColor,
+    customColors,
+    customFonts,
+    canvasWidth,
+    canvasHeight,
+    canUndo,
+    canRedo,
+    autoCanvasSize,
+    onToggleAutoCanvasSize: () => setAutoCanvasSize(!autoCanvasSize),
+    onAddElement: addElement,
+    onUpdateElement: updateElement,
+    onUpdateElementLive: updateElementLive,
+    onBeginHistory: beginHistory,
+    onRemoveElement: (id: string) => removeSelection([id]),
+    onDuplicate: () => duplicateSelection(selectedIds),
+    onUpdateBackground: setBackgroundColor,
+    onSaveColor: saveColor,
+    onAddCustomFont: addCustomFont,
+    onBringToFront: () => bringToFront(selectedIds),
+    onSendToBack: () => sendToBack(selectedIds),
+    onBringForward: () => bringForward(selectedIds),
+    onSendBackward: () => sendBackward(selectedIds),
+    onFlip: flipSelection,
+    onExport: handleExport,
+    onClearCanvas: clearCanvas,
+    onAlign: handleAlign,
+    onDistribute: handleDistribute,
+    onUndo: undo,
+    onRedo: redo,
+    onApplyColor: (color: string) => applyColor(color, selectedIds),
+    onGroup: () => groupSelection(selectedIds),
+    onUngroup: () => ungroupSelection(selectedIds),
+    onSetCanvasSize: handleSetCanvasSize,
+    onLoadTemplate: (tpl: Parameters<typeof loadTemplate>[0]) => { setAutoCanvasSize(false); loadTemplate(tpl); },
+  };
+
+  const layersPanelProps = {
+    elements,
+    selectedIds,
+    onSelect: selectElement,
+    onReorder: reorderElements,
+    onToggleVisible: toggleVisible,
+    onToggleLock: toggleLock,
+    onRename: renameElement,
+    onRemove: (id: string) => removeSelection([id]),
+  };
+
+  const canvasJsx = (
+    <Canvas
+      elements={elements}
+      selectedIds={selectedIds}
+      backgroundColor={backgroundColor}
+      width={canvasWidth}
+      height={canvasHeight}
+      onSelect={selectElement}
+      onSelectMany={selectMany}
+      onUpdateLive={updateElementLive}
+      onUpdateElementsLive={updateElementsLive}
+      onNudge={nudgeSelection}
+      onRemoveSelection={removeSelection}
+      onBeginHistory={beginHistory}
+      onBoundsChange={handleBoundsChange}
+      onDuplicate={() => duplicateSelection(selectedIds)}
+      onCopy={() => copySelection(selectedIds)}
+      onPaste={pasteClipboard}
+      onGroup={() => groupSelection(selectedIds)}
+      onUngroup={() => ungroupSelection(selectedIds)}
+      onBringToFront={() => bringToFront(selectedIds)}
+      onSendToBack={() => sendToBack(selectedIds)}
+      onBringForward={() => bringForward(selectedIds)}
+      onSendBackward={() => sendBackward(selectedIds)}
+      onCopyStyle={copyStyle}
+      onPasteStyle={pasteStyle}
+      hasCopiedStyle={hasCopiedStyle}
+      zoom={zoom}
+    />
+  );
+
+  /* ── MOBILE LAYOUT ── */
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-screen w-screen bg-[#eef0f2] overflow-hidden font-sans text-gray-900 selection:bg-blue-200">
+        {/* Barre du haut mobile */}
+        <header className="flex items-center justify-between px-3 py-2 bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-sm z-30 shrink-0">
+          <button
+            onClick={() => { setSidebarOpen(true); setLayersOpen(false); }}
+            className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 text-gray-700"
+            title="Outils"
+          >
+            <Menu size={22} />
+          </button>
+          <h1 className="text-sm font-black tracking-tight text-gray-900">BAUHAUS GEN</h1>
+          <button
+            onClick={() => { setLayersOpen(true); setSidebarOpen(false); }}
+            className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 text-gray-700"
+            title="Calques"
+          >
+            <Layers size={22} />
+          </button>
+        </header>
+
+        {/* Zone canvas */}
+        <main ref={mainRef} className="flex-1 relative overflow-hidden flex items-center justify-center">
+          {canvasJsx}
+
+          {/* Zoom mobile */}
+          <div className="absolute top-3 right-3 bg-white/80 backdrop-blur px-2 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-1 text-xs font-mono text-gray-600 z-20">
+            <button onClick={() => setZoom(z => Math.max(0.1, z - 0.25))} className="p-1.5 active:bg-gray-200 rounded"><Minus size={14} /></button>
+            <span className="w-10 text-center" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} className="p-1.5 active:bg-gray-200 rounded"><Plus size={14} /></button>
+          </div>
+        </main>
+
+        {/* Barre d'outils mobile en bas */}
+        <nav className="flex items-center justify-around px-2 py-2 bg-white/95 backdrop-blur-xl border-t border-gray-100 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-30 shrink-0 safe-area-bottom">
+          <button onClick={undo} disabled={!canUndo} className="flex flex-col items-center gap-0.5 p-2 rounded-lg active:bg-gray-100 disabled:opacity-30 text-gray-600" title="Annuler">
+            <Undo2 size={20} />
+            <span className="text-[9px]">Annuler</span>
+          </button>
+          <button onClick={redo} disabled={!canRedo} className="flex flex-col items-center gap-0.5 p-2 rounded-lg active:bg-gray-100 disabled:opacity-30 text-gray-600" title="Rétablir">
+            <Redo2 size={20} />
+            <span className="text-[9px]">Rétablir</span>
+          </button>
+
+          {/* Bouton ajouter central */}
+          <div className="relative">
+            <button
+              onClick={() => setMobileAddOpen(!mobileAddOpen)}
+              className={`p-3 rounded-full shadow-lg transition-colors ${mobileAddOpen ? 'bg-gray-900 text-white' : 'bg-blue-500 text-white active:bg-blue-600'}`}
+              title="Ajouter un élément"
+            >
+              {mobileAddOpen ? <X size={22} /> : <Plus size={22} />}
+            </button>
+            {/* Menu d'ajout rapide */}
+            {mobileAddOpen && (
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-2xl border border-gray-200 p-3 flex gap-2 z-50">
+                <button onClick={() => handleMobileAdd('text')} className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 text-gray-700" title="Texte">
+                  <Type size={20} /><span className="text-[9px]">Texte</span>
+                </button>
+                <button onClick={() => handleMobileAdd('rect')} className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 text-gray-700" title="Rectangle">
+                  <Square size={20} /><span className="text-[9px]">Rect</span>
+                </button>
+                <button onClick={() => handleMobileAdd('circle')} className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 text-gray-700" title="Cercle">
+                  <Circle size={20} /><span className="text-[9px]">Cercle</span>
+                </button>
+                <button onClick={() => handleMobileAdd('triangle')} className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 text-gray-700" title="Triangle">
+                  <Triangle size={20} /><span className="text-[9px]">Triangle</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => removeSelection(selectedIds)}
+            disabled={selectedIds.length === 0}
+            className="flex flex-col items-center gap-0.5 p-2 rounded-lg active:bg-gray-100 disabled:opacity-30 text-gray-600"
+            title="Supprimer"
+          >
+            <Trash2 size={20} />
+            <span className="text-[9px]">Suppr.</span>
+          </button>
+          <button
+            onClick={() => handleExport('png')}
+            className="flex flex-col items-center gap-0.5 p-2 rounded-lg active:bg-gray-100 text-gray-600"
+            title="Exporter"
+          >
+            <Download size={20} />
+            <span className="text-[9px]">Export</span>
+          </button>
+        </nav>
+
+        {/* Overlay backdrop pour drawers */}
+        {(sidebarOpen || layersOpen) && (
+          <div
+            className="fixed inset-0 bg-black/30 z-40"
+            onClick={() => { setSidebarOpen(false); setLayersOpen(false); }}
+          />
+        )}
+
+        {/* Drawer Sidebar (gauche) */}
+        <div className={`fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] transform transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="h-full relative">
+            <Sidebar {...sidebarProps} />
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="absolute top-3 right-3 p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 z-10"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Drawer Calques (droite) */}
+        <div className={`fixed inset-y-0 right-0 z-50 w-72 max-w-[85vw] transform transition-transform duration-300 ease-out ${layersOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div className="h-full relative">
+            <LayersPanel {...layersPanelProps} />
+            <button
+              onClick={() => setLayersOpen(false)}
+              className="absolute top-3 left-3 p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 z-10"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── DESKTOP LAYOUT (inchangé) ── */
   return (
     <div className="flex h-screen w-screen bg-[#eef0f2] overflow-hidden font-sans text-gray-900 selection:bg-blue-200">
-      <Sidebar
-        elements={elements}
-        selectedElement={selectedElement}
-        selectedIds={selectedIds}
-        selectionCount={selectedIds.length}
-        elementCount={elements.length}
-        backgroundColor={backgroundColor}
-        customColors={customColors}
-        customFonts={customFonts}
-        canvasWidth={canvasWidth}
-        canvasHeight={canvasHeight}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        autoCanvasSize={autoCanvasSize}
-        onToggleAutoCanvasSize={() => setAutoCanvasSize(!autoCanvasSize)}
-        onAddElement={addElement}
-        onUpdateElement={updateElement}
-        onUpdateElementLive={updateElementLive}
-        onBeginHistory={beginHistory}
-        onRemoveElement={(id) => removeSelection([id])}
-        onDuplicate={() => duplicateSelection(selectedIds)}
-        onUpdateBackground={setBackgroundColor}
-        onSaveColor={saveColor}
-        onAddCustomFont={addCustomFont}
-        onBringToFront={() => bringToFront(selectedIds)}
-        onSendToBack={() => sendToBack(selectedIds)}
-        onBringForward={() => bringForward(selectedIds)}
-        onSendBackward={() => sendBackward(selectedIds)}
-        onFlip={flipSelection}
-        onExport={handleExport}
-        onClearCanvas={clearCanvas}
-        onAlign={handleAlign}
-        onDistribute={handleDistribute}
-        onUndo={undo}
-        onRedo={redo}
-        onApplyColor={(color) => applyColor(color, selectedIds)}
-        onGroup={() => groupSelection(selectedIds)}
-        onUngroup={() => ungroupSelection(selectedIds)}
-        onSetCanvasSize={handleSetCanvasSize}
-        onLoadTemplate={(tpl) => { setAutoCanvasSize(false); loadTemplate(tpl); }}
-      />
+      <Sidebar {...sidebarProps} />
       <main ref={mainRef} className="flex-1 h-full relative overflow-hidden flex items-center justify-center">
-        <Canvas
-          elements={elements}
-          selectedIds={selectedIds}
-          backgroundColor={backgroundColor}
-          width={canvasWidth}
-          height={canvasHeight}
-          onSelect={selectElement}
-          onSelectMany={selectMany}
-          onUpdateLive={updateElementLive}
-          onUpdateElementsLive={updateElementsLive}
-          onNudge={nudgeSelection}
-          onRemoveSelection={removeSelection}
-          onBeginHistory={beginHistory}
-          onBoundsChange={handleBoundsChange}
-          onDuplicate={() => duplicateSelection(selectedIds)}
-          onCopy={() => copySelection(selectedIds)}
-          onPaste={pasteClipboard}
-          onGroup={() => groupSelection(selectedIds)}
-          onUngroup={() => ungroupSelection(selectedIds)}
-          onBringToFront={() => bringToFront(selectedIds)}
-          onSendToBack={() => sendToBack(selectedIds)}
-          onBringForward={() => bringForward(selectedIds)}
-          onSendBackward={() => sendBackward(selectedIds)}
-          onCopyStyle={copyStyle}
-          onPasteStyle={pasteStyle}
-          hasCopiedStyle={hasCopiedStyle}
-          zoom={zoom}
-          />
+        {canvasJsx}
         {/* Zoom Controls */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur px-2 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-2 text-xs font-mono text-gray-600">
           <button onClick={() => setZoom(z => Math.max(0.1, z - 0.25))} className="p-1 hover:bg-gray-100 rounded" title="Dézoomer (Ctrl + -)"><Minus size={14} /></button>
@@ -354,16 +513,7 @@ function App() {
         </div>
       </main>
 
-      <LayersPanel
-        elements={elements}
-        selectedIds={selectedIds}
-        onSelect={selectElement}
-        onReorder={reorderElements}
-        onToggleVisible={toggleVisible}
-        onToggleLock={toggleLock}
-        onRename={renameElement}
-        onRemove={(id) => removeSelection([id])}
-      />
+      <LayersPanel {...layersPanelProps} />
     </div>
   );
 }
