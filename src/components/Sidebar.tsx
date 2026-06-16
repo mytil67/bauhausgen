@@ -484,10 +484,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                         <div>
                           <label className="text-[9px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Couleur</label>
-                          <div className="flex items-center gap-3 p-2 bg-gray-50 rounded border border-gray-100 mb-3">
+                          <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-100 mb-3">
                             <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0"><input type="color" value={ensureFullHex(selectedElement.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { color: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
-                            <input type="text" value={selectedElement.color} onChange={(e) => handleColorInput(e.target.value, (color) => onUpdateElement(selectedElement.id, { color }))} className="bg-transparent text-sm font-mono uppercase outline-none flex-1" />
-                            <button onClick={() => onSaveColor(selectedElement.color)} className="text-[10px] font-bold text-blue-600 uppercase">Mémoriser</button>
+                            <input type="text" value={selectedElement.color} onChange={(e) => handleColorInput(e.target.value, (color) => onUpdateElement(selectedElement.id, { color }))} className="bg-transparent text-sm font-mono uppercase outline-none flex-1 w-20" />
+                            <button onClick={() => onSaveColor(selectedElement.color)} className="text-[10px] font-bold text-blue-600 uppercase shrink-0">Mémoriser</button>
                           </div>
                           {!selectedElement.gradient ? (
                             <button onClick={() => onUpdateElement(selectedElement.id, { gradient: { type: 'linear', rotation: 0, colors: [{ offset: 0, color: selectedElement.color, opacity: 1 }, { offset: 1, color: '#ffffff', opacity: 1 }] } })} className="w-full py-1.5 border border-dashed border-gray-300 rounded text-[9px] font-bold uppercase text-gray-400 hover:text-blue-500 hover:border-blue-300 transition-all">+ Dégradé</button>
