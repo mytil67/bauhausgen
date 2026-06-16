@@ -543,7 +543,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                           <div className="space-y-4">
                             <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Espacement</label><span className="text-[9px] font-mono text-gray-400">{selectedElement.letterSpacing ?? 0}px</span></div><input type="range" min="-10" max="50" step="0.5" value={selectedElement.letterSpacing ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
-                            <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Courbure</label><span className="text-[9px] font-mono text-gray-400">{selectedElement.curve ?? 0}</span></div><input type="range" min="-100" max="100" step="1" value={selectedElement.curve ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { curve: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
+                            
+                            <div className="p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
+                              <div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Courbure</label><span className="text-[9px] font-mono text-gray-400">{selectedElement.curve ?? 0}</span></div>
+                              <input type="range" min="-100" max="100" step="1" value={selectedElement.curve ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { curve: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900 mb-2" />
+                              
+                              {Math.abs(selectedElement.curve ?? 0) > 0 && (
+                                <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-gray-200">
+                                  <div>
+                                    <label className="text-[8px] font-bold text-gray-400 block uppercase mb-1">Type</label>
+                                    <select value={selectedElement.curveType ?? 'arc'} onChange={(e) => onUpdateElement(selectedElement.id, { curveType: e.target.value as 'arc' | 'circle' })} className="w-full bg-white border border-gray-200 rounded px-1 py-1 text-[9px] font-bold outline-none">
+                                      <option value="arc">Arc de cercle</option>
+                                      <option value="circle">Cercle 360°</option>
+                                    </select>
+                                  </div>
+                                  <div className="flex items-center pt-3">
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                      <input type="checkbox" checked={!!selectedElement.curveInvert} onChange={(e) => onUpdateElement(selectedElement.id, { curveInvert: e.target.checked })} className="accent-gray-900" />
+                                      <span className="text-[9px] font-bold text-gray-500 uppercase">Inverser</span>
+                                    </label>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Options de Fond de Texte (Badge) */}
+                            <div className="p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input type="checkbox" checked={!!selectedElement.bgEnabled} onChange={(e) => onUpdateElement(selectedElement.id, { bgEnabled: e.target.checked })} className="accent-gray-900" />
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase">Fond (Badge)</span>
+                                </label>
+                              </div>
+                              {selectedElement.bgEnabled && (
+                                <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-gray-200">
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[8px] font-bold text-gray-400 uppercase">Couleur</label>
+                                    <div className="relative w-full h-5 rounded border border-gray-200 overflow-hidden bg-white"><input type="color" value={ensureFullHex(selectedElement.bgColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
+                                  </div>
+                                  <div>
+                                    <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Marge</label>
+                                    <input type="number" value={selectedElement.bgPadding ?? 10} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgPadding: Number(e.target.value) })} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Rayon</label>
+                                    <input type="number" value={selectedElement.bgRadius ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgRadius: Number(e.target.value) })} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}

@@ -754,17 +754,28 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
             }
 
-            // Path pour texte courbé (arc de cercle)
+            // Path pour texte courbé (arc de cercle ou cercle complet)
             if (el.type === 'text' && el.curve && el.curve !== 0) {
-              // On utilise une largeur estimée stable pour éviter la boucle infinie avec getBBox
-              // (car le BBox d'un texte courbé change selon la courbure elle-même)
               const estimatedWidth = el.text.length * el.fontSize * 0.55 * ((el.fontWidth ?? 100) / 100);
               const w = Math.max(estimatedWidth, 10);
               const curve = el.curve;
               const r = Math.abs(10000 / curve);
-              const sweep = curve > 0 ? 1 : 0;
-              // On crée un arc de cercle centré
-              const pathData = `M ${-w / 2},0 A ${r},${r} 0 0,${sweep} ${w / 2},0`;
+              // L'inversion inverse le sens de tracé (sweep)
+              const sweep = (curve > 0) !== !!el.curveInvert ? 1 : 0;
+              
+              let pathData = '';
+              if (el.curveType === 'circle') {
+                // Cercle complet composé de 2 arcs. 
+                // On ajuste le point de départ pour que startOffset="50%" place le texte au bon endroit.
+                if (sweep) {
+                  pathData = `M 0,${r} A ${r},${r} 0 1,1 0,${-r} A ${r},${r} 0 1,1 0,${r}`;
+                } else {
+                  pathData = `M 0,${-r} A ${r},${r} 0 1,0 0,${r} A ${r},${r} 0 1,0 0,${-r}`;
+                }
+              } else {
+                // Arc de cercle classique centré
+                pathData = `M ${-w / 2},0 A ${r},${r} 0 0,${sweep} ${w / 2},0`;
+              }
               defs.push(<path key={`path-${el.id}`} id={`path-${el.id}`} d={pathData} />);
             }
 
@@ -849,38 +860,51 @@ export const Canvas: React.FC<CanvasProps> = ({
                       </div>
                     </foreignObject>
                   ) : (
-                    <text
-                      x="0"
-                      y="0"
-                      fontSize={el.fontSize}
-                      fontFamily={el.fontFamily}
-                      fontWeight={el.fontWeight}
-                      fontStyle={el.italic ? 'italic' : 'normal'}
-                      letterSpacing={el.letterSpacing ?? 0}
-                      wordSpacing={el.wordSpacing ?? 0}
-                      fill={fill}
-                      stroke={el.strokeWidth && el.strokeWidth > 0 ? el.strokeColor : 'none'}
-                      strokeWidth={el.strokeWidth ?? 0}
-                      strokeLinejoin="round"
-                      textAnchor={el.textAlign ?? 'middle'}
-                      dominantBaseline="middle"
-                      className="select-none"
-                      style={{
-                        textTransform: el.textTransform ?? 'none',
-                        fontVariant: el.fontVariant ?? 'normal',
-                        writingMode: el.writingMode === 'vertical' ? 'vertical-rl' : 'horizontal-tb',
-                        textDecoration: el.textDecoration && el.textDecoration !== 'none'
-                          ? `${el.textDecoration} ${el.textDecorationStyle ?? 'solid'} ${el.textDecorationColor ?? el.color}`
-                          : 'none',
-                        fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
-                      }}
-                    >
-                      {el.curve && el.curve !== 0 && el.writingMode !== 'vertical' ? (
-                        <textPath xlinkHref={`#path-${el.id}`} startOffset="50%" textAnchor="middle">
-                          {el.text}
-                        </textPath>
-                      ) : el.text}
-                    </text>
+                    <>
+                      {el.bgEnabled && !el.curve && (
+                        <rect
+                          x={(bboxes[el.id]?.x ?? 0) - (el.bgPadding ?? 10)}
+                          y={(bboxes[el.id]?.y ?? 0) - (el.bgPadding ?? 10)}
+                          width={(bboxes[el.id]?.width ?? 0) + (el.bgPadding ?? 10) * 2}
+                          height={(bboxes[el.id]?.height ?? 0) + (el.bgPadding ?? 10) * 2}
+                          fill={el.bgColor ?? '#000000'}
+                          rx={el.bgRadius ?? 0}
+                          ry={el.bgRadius ?? 0}
+                        />
+                      )}
+                      <text
+                        x="0"
+                        y="0"
+                        fontSize={el.fontSize}
+                        fontFamily={el.fontFamily}
+                        fontWeight={el.fontWeight}
+                        fontStyle={el.italic ? 'italic' : 'normal'}
+                        letterSpacing={el.letterSpacing ?? 0}
+                        wordSpacing={el.wordSpacing ?? 0}
+                        fill={fill}
+                        stroke={el.strokeWidth && el.strokeWidth > 0 ? el.strokeColor : 'none'}
+                        strokeWidth={el.strokeWidth ?? 0}
+                        strokeLinejoin="round"
+                        textAnchor={el.textAlign ?? 'middle'}
+                        dominantBaseline="middle"
+                        className="select-none"
+                        style={{
+                          textTransform: el.textTransform ?? 'none',
+                          fontVariant: el.fontVariant ?? 'normal',
+                          writingMode: el.writingMode === 'vertical' ? 'vertical-rl' : 'horizontal-tb',
+                          textDecoration: el.textDecoration && el.textDecoration !== 'none'
+                            ? `${el.textDecoration} ${el.textDecorationStyle ?? 'solid'} ${el.textDecorationColor ?? el.color}`
+                            : 'none',
+                          fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
+                        }}
+                      >
+                        {el.curve && el.curve !== 0 && el.writingMode !== 'vertical' ? (
+                          <textPath xlinkHref={`#path-${el.id}`} startOffset="50%" textAnchor="middle">
+                            {el.text}
+                          </textPath>
+                        ) : el.text}
+                      </text>
+                    </>
                   )
                 )}
                 {el.type === 'text' && editingId === el.id && (() => {

@@ -48,6 +48,12 @@ export interface TextElement extends BaseElement {
   italic?: boolean;
   maxWidth?: number; // Pour le wrapping
   curve?: number; // Courbure du texte (-100 à 100)
+  curveType?: 'arc' | 'circle'; // Lot 2: arc ou cercle complet
+  curveInvert?: boolean; // Lot 2: inversion du sens
+  bgEnabled?: boolean; // Lot 2: fond de texte (badge)
+  bgColor?: string;
+  bgPadding?: number;
+  bgRadius?: number;
   // --- Lot 1 typographie ---
   writingMode?: 'horizontal' | 'vertical'; // Sens d'écriture
   fontVariant?: 'normal' | 'small-caps'; // Petites capitales
