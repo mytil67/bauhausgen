@@ -83,6 +83,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [mobileAddOpen, setMobileAddOpen] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
 
   const [zoom, setZoom] = useState(1);
 
