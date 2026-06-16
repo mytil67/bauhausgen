@@ -327,12 +327,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-3 flex items-center gap-2">
                   <Palette size={14} className="text-gray-400" /> Couleur de Fond
                 </div>
-                <div className="flex items-center gap-3 p-2 bg-gray-50 rounded border border-gray-100 mb-3">
+                <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-100 mb-3">
                   <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0">
                     <input type="color" value={ensureFullHex(backgroundColor)} onChange={(e) => onUpdateBackground(e.target.value)} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
                   </div>
-                  <input type="text" value={backgroundColor} onChange={(e) => handleColorInput(e.target.value, onUpdateBackground)} className="bg-transparent text-sm font-mono uppercase outline-none flex-1" />
-                  <button onClick={() => onSaveColor(backgroundColor)} className="text-[10px] font-bold text-blue-600 uppercase hover:underline">Mémoriser</button>
+                  <input type="text" value={backgroundColor} onChange={(e) => handleColorInput(e.target.value, onUpdateBackground)} className="bg-transparent text-sm font-mono uppercase outline-none flex-1 w-20" />
+                  <button onClick={() => onSaveColor(backgroundColor)} className="text-[10px] font-bold text-blue-600 uppercase hover:underline shrink-0">Mémoriser</button>
                 </div>
                 <div className="space-y-3">
                   {PALETTES.map((pal) => (
