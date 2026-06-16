@@ -815,7 +815,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             >
               <g transform={innerTransform}>
                 {el.type === 'text' && editingId !== el.id && (
-                  el.maxWidth && el.maxWidth > 0 ? (
+                  el.maxWidth && el.maxWidth > 0 && (!el.curve || el.curve === 0) ? (
                     <foreignObject 
                       x={-el.maxWidth / 2} 
                       y={-(el.fontSize * (el.lineHeight ?? 1.2) * 2) / 2} 
