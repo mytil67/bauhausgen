@@ -622,7 +622,7 @@ export const useComposition = () => {
         const styleProps = [
           'color', 'opacity', 'blendMode',
           'shadowColor', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'shadowOpacity',
-          'gradient', 'strokeColor', 'strokeWidth',
+          'gradient', 'pattern', 'strokeColor', 'strokeWidth',
           'fontFamily', 'fontWeight', 'fontWidth', 'letterSpacing', 'lineHeight', 'textAlign', 'textTransform', 'italic', 'curve',
           'writingMode', 'fontVariant', 'textDecoration', 'textDecorationStyle', 'textDecorationColor', 'wordSpacing',
           'curveType', 'curveInvert', 'bgEnabled', 'bgColor', 'bgPadding', 'bgRadius'

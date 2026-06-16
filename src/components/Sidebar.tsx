@@ -500,6 +500,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <div className="space-y-2">{selectedElement.gradient.colors.map((c, i) => (<div key={i} className="flex gap-2 items-center"><div className="relative w-5 h-5 rounded border border-gray-200 bg-white overflow-hidden shrink-0"><input type="color" value={ensureFullHex(c.color)} onMouseDown={onBeginHistory} onChange={(e) => { const newColors = [...selectedElement.gradient!.colors]; newColors[i] = { ...newColors[i], color: e.target.value }; onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } }); }} className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] cursor-pointer" /></div><input type="range" min="0" max="1" step="0.01" value={c.offset} onMouseDown={onBeginHistory} onChange={(e) => { const newColors = [...selectedElement.gradient!.colors]; newColors[i] = { ...newColors[i], offset: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } }); }} className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>))}</div>
                             </div>
                           )}
+
+                          {/* Motif (rayures / points / grille / damier) */}
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <label className="text-[9px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Motif</label>
+                            <select
+                              value={selectedElement.pattern?.type ?? 'none'}
+                              onChange={(e) => {
+                                const t = e.target.value;
+                                if (t === 'none') { onUpdateElement(selectedElement.id, { pattern: undefined }); return; }
+                                onUpdateElement(selectedElement.id, {
+                                  pattern: {
+                                    type: t as 'stripes' | 'dots' | 'grid' | 'checker',
+                                    color: selectedElement.pattern?.color ?? '#1a1a1a',
+                                    background: selectedElement.pattern?.background ?? selectedElement.color,
+                                    scale: selectedElement.pattern?.scale ?? 1,
+                                    angle: selectedElement.pattern?.angle ?? 0,
+                                  },
+                                });
+                              }}
+                              className="w-full p-2 bg-gray-50 border border-gray-100 rounded text-xs focus:bg-white outline-none"
+                            >
+                              <option value="none">Aucun motif</option>
+                              <option value="stripes">Rayures</option>
+                              <option value="dots">Points</option>
+                              <option value="grid">Grille</option>
+                              <option value="checker">Damier</option>
+                            </select>
+                            {selectedElement.pattern && (
+                              <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
+                                <div className="flex gap-2">
+                                  <div className="flex-1">
+                                    <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Motif</label>
+                                    <div className="relative w-full h-6 rounded border border-gray-200 overflow-hidden bg-white"><input type="color" value={ensureFullHex(selectedElement.pattern.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, color: e.target.value } })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Fond</label>
+                                    <div className="relative w-full h-6 rounded border border-gray-200 overflow-hidden bg-white"><input type="color" value={ensureFullHex(selectedElement.pattern.background === 'transparent' ? '#ffffff' : selectedElement.pattern.background)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, background: e.target.value } })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
+                                  </div>
+                                </div>
+                                <div><div className="flex justify-between items-center mb-1"><label className="text-[8px] font-bold text-gray-400 uppercase">Échelle</label><span className="text-[8px] font-mono text-gray-400">{selectedElement.pattern.scale.toFixed(2)}</span></div><input type="range" min="0.25" max="3" step="0.05" value={selectedElement.pattern.scale} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, scale: Number(e.target.value) } })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
+                                <div><div className="flex justify-between items-center mb-1"><label className="text-[8px] font-bold text-gray-400 uppercase">Angle</label><span className="text-[8px] font-mono text-gray-400">{selectedElement.pattern.angle}°</span></div><input type="range" min="0" max="360" step="1" value={selectedElement.pattern.angle} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, angle: Number(e.target.value) } })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}

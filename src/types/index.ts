@@ -32,6 +32,14 @@ export interface BaseElement {
     colors: { offset: number; color: string; opacity: number }[];
     rotation: number; // Pour le linéaire
   };
+  /** Remplissage à motif (rayures, points, grille, damier). Prioritaire sur gradient/couleur. */
+  pattern?: {
+    type: 'stripes' | 'dots' | 'grid' | 'checker';
+    color: string;       // couleur du motif (premier plan)
+    background: string;  // couleur de fond du motif ('transparent' possible)
+    scale: number;       // échelle de la tuile (0.25 → 3)
+    angle: number;       // rotation du motif (0 → 360)
+  };
 }
 
 export interface TextElement extends BaseElement {

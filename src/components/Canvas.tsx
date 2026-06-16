@@ -771,6 +771,33 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
             }
 
+            // Motif (rayures / points / grille / damier)
+            if (el.pattern) {
+              const { type, color, background, scale, angle } = el.pattern;
+              const s = Math.max(4, 24 * (scale || 1));
+              const t = s / 6; // épaisseur des traits
+              const id = `pattern-${el.id}`;
+              const bg = background && background !== 'transparent'
+                ? <rect width={s} height={s} fill={background} />
+                : null;
+              let motif: React.ReactNode;
+              if (type === 'stripes') {
+                motif = <rect width={s} height={s / 2} fill={color} />;
+              } else if (type === 'dots') {
+                motif = <circle cx={s / 2} cy={s / 2} r={s / 4} fill={color} />;
+              } else if (type === 'grid') {
+                motif = <><rect width={s} height={t} fill={color} /><rect width={t} height={s} fill={color} /></>;
+              } else { // checker
+                motif = <><rect width={s / 2} height={s / 2} fill={color} /><rect x={s / 2} y={s / 2} width={s / 2} height={s / 2} fill={color} /></>;
+              }
+              defs.push(
+                <pattern key={id} id={id} patternUnits="userSpaceOnUse" width={s} height={s} patternTransform={`rotate(${angle || 0})`}>
+                  {bg}
+                  {motif}
+                </pattern>
+              );
+            }
+
             // Path pour texte courbé (arc de cercle ou cercle complet)
             if (el.type === 'text' && el.curve && el.curve !== 0) {
               const curve = el.curve;
@@ -814,7 +841,9 @@ export const Canvas: React.FC<CanvasProps> = ({
             ? `url(#filter-shadow-${el.id})` 
             : undefined;
           
-          const fill = el.gradient ? `url(#gradient-${el.id})` : el.color;
+          const fill = el.pattern
+            ? `url(#pattern-${el.id})`
+            : el.gradient ? `url(#gradient-${el.id})` : el.color;
 
           return (
             <g
@@ -964,12 +993,12 @@ export const Canvas: React.FC<CanvasProps> = ({
                     </foreignObject>
                   );
                 })()}
-                {(el.type === 'rect' || el.type === 'line') && <rect x={-el.width / 2} y={-el.height / 2} width={el.width} height={el.height} fill={el.color} />}
-                {el.type === 'circle' && <circle cx="0" cy="0" r={el.width / 2} fill={el.color} />}
-                {el.type === 'triangle' && <polygon points={`0,${-el.height / 2} ${el.width / 2},${el.height / 2} ${-el.width / 2},${el.height / 2}`} fill={el.color} />}
-                {el.type === 'semicircle' && <path d={`M ${-el.width / 2},${el.height / 2} A ${el.width / 2} ${el.height} 0 0 1 ${el.width / 2} ${el.height / 2} Z`} fill={el.color} />}
-                {el.type === 'quarter' && <path d={`M ${-el.width / 2},${el.height / 2} L ${el.width / 2},${el.height / 2} A ${el.width} ${el.height} 0 0 0 ${-el.width / 2},${-el.height / 2} Z`} fill={el.color} />}
-                {el.type === 'ring' && <path fillRule="evenodd" d={`M ${-el.width / 2},0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${el.width / 2} 0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${-el.width / 2} 0 Z M ${-el.width / 4},0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${el.width / 4} 0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${-el.width / 4} 0 Z`} fill={el.color} />}
+                {(el.type === 'rect' || el.type === 'line') && <rect x={-el.width / 2} y={-el.height / 2} width={el.width} height={el.height} fill={fill} />}
+                {el.type === 'circle' && <circle cx="0" cy="0" r={el.width / 2} fill={fill} />}
+                {el.type === 'triangle' && <polygon points={`0,${-el.height / 2} ${el.width / 2},${el.height / 2} ${-el.width / 2},${el.height / 2}`} fill={fill} />}
+                {el.type === 'semicircle' && <path d={`M ${-el.width / 2},${el.height / 2} A ${el.width / 2} ${el.height} 0 0 1 ${el.width / 2} ${el.height / 2} Z`} fill={fill} />}
+                {el.type === 'quarter' && <path d={`M ${-el.width / 2},${el.height / 2} L ${el.width / 2},${el.height / 2} A ${el.width} ${el.height} 0 0 0 ${-el.width / 2},${-el.height / 2} Z`} fill={fill} />}
+                {el.type === 'ring' && <path fillRule="evenodd" d={`M ${-el.width / 2},0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${el.width / 2} 0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${-el.width / 2} 0 Z M ${-el.width / 4},0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${el.width / 4} 0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${-el.width / 4} 0 Z`} fill={fill} />}
               </g>
 
               {/* Contour de sélection (toujours visible si sélectionné) */}
