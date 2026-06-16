@@ -759,21 +759,28 @@ export const Canvas: React.FC<CanvasProps> = ({
               const estimatedWidth = el.text.length * el.fontSize * 0.55 * ((el.fontWidth ?? 100) / 100);
               const w = Math.max(estimatedWidth, 10);
               const curve = el.curve;
-              const r = Math.max(Math.abs(10000 / curve), 10); // Empêcher un rayon trop petit
+              let r = Math.abs(10000 / curve);
+              
+              if (el.curveType !== 'circle') {
+                // Pour un arc, le rayon r DOIT être au moins la moitié de la corde (w/2) sinon l'arc est impossible en SVG
+                r = Math.max(r, w / 2);
+              } else {
+                r = Math.max(r, 10);
+              }
+
               // L'inversion inverse le sens de tracé (sweep)
               const sweep = (curve > 0) !== !!el.curveInvert ? 1 : 0;
               
               let pathData = '';
               if (el.curveType === 'circle') {
-                // Pour un cercle complet, SVG textPath bug parfois si on fait un cercle parfait avec 2 arcs de 180°.
-                // On utilise une astuce : on dessine presque un cercle complet (ex: 359.9°)
-                // On part du centre haut (0, -r) ou centre bas (0, r) selon l'inversion
+                // Cercle complet construit avec 2 arcs de cercle de 180° parfaits.
+                // startOffset="50%" de <textPath> placera le centre du texte à la jointure des deux arcs.
                 if (sweep) {
-                  // Sens horaire : départ en haut, tourne vers la droite, finit presque en haut
-                  pathData = `M 0,${-r} A ${r},${r} 0 1,1 -0.01,${-r}`;
+                  // Départ en bas, passe par en haut, revient en bas (sens horaire)
+                  pathData = `M 0,${r} A ${r},${r} 0 0,1 0,${-r} A ${r},${r} 0 0,1 0,${r}`;
                 } else {
-                  // Sens anti-horaire : départ en bas, tourne vers la droite, finit presque en bas
-                  pathData = `M 0,${r} A ${r},${r} 0 1,0 -0.01,${r}`;
+                  // Départ en haut, passe par en bas, revient en haut (sens anti-horaire)
+                  pathData = `M 0,${-r} A ${r},${r} 0 0,0 0,${r} A ${r},${r} 0 0,0 0,${-r}`;
                 }
               } else {
                 // Arc de cercle classique centré
