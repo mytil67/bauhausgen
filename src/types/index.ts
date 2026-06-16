@@ -25,6 +25,8 @@ export interface BaseElement {
   shadowOffsetX?: number;
   shadowOffsetY?: number;
   shadowOpacity?: number;
+  strokeColor?: string;
+  strokeWidth?: number;
   gradient?: {
     type: 'linear' | 'radial';
     colors: { offset: number; color: string; opacity: number }[];
@@ -44,8 +46,6 @@ export interface TextElement extends BaseElement {
   textAlign?: 'start' | 'middle' | 'end';
   textTransform?: 'none' | 'uppercase' | 'lowercase';
   italic?: boolean;
-  strokeColor?: string;
-  strokeWidth?: number;
   maxWidth?: number; // Pour le wrapping
   curve?: number; // Courbure du texte (-100 à 100)
   // --- Lot 1 typographie ---

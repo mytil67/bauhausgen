@@ -8,12 +8,8 @@ import {
   Palette,
   LayoutTemplate,
   Frame,
-  MoveHorizontal,
-  MoveVertical,
-  RotateCcw,
-  Layers,
-  AlignCenter,
   AlignLeft,
+  AlignCenter,
   AlignRight,
   ArrowUp,
   ArrowDown,
@@ -28,14 +24,10 @@ import {
   AlignStartHorizontal,
   AlignCenterHorizontal,
   AlignEndHorizontal,
-  AlignHorizontalDistributeCenter,
-  AlignVerticalDistributeCenter,
   FlipHorizontal,
   FlipVertical,
   ChevronUp,
   ChevronDown,
-  Underline,
-  Strikethrough,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -115,7 +107,6 @@ const SHAPES: { type: ShapeType; label: string }[] = [
   { type: 'line', label: 'Ligne' },
 ];
 
-// Palettes Bauhaus
 const PALETTES: { name: string; colors: string[] }[] = [
   { name: 'Primaire', colors: ['#e63946', '#f4a261', '#1d3557', '#1a1a1a', '#f1faee'] },
   { name: 'Weimar', colors: ['#d62828', '#fcbf49', '#003049', '#eae2b7', '#1a1a1a'] },
@@ -123,14 +114,12 @@ const PALETTES: { name: string; colors: string[] }[] = [
   { name: 'Mono', colors: ['#1a1a1a', '#4a4a4a', '#8a8a8a', '#cfcfcf', '#ffffff'] },
 ];
 
-// Formats de canvas
 const CANVAS_PRESETS: { name: string; w: number; h: number }[] = [
   { name: 'Carré', w: 1080, h: 1080 },
   { name: 'Story', w: 1080, h: 1920 },
   { name: 'Post', w: 1080, h: 1350 },
   { name: 'Bannière', w: 1500, h: 500 },
   { name: 'A4 ↕', w: 1240, h: 1754 },
-  { name: 'A4 ↔', w: 1754, h: 1240 },
 ];
 
 const GOOGLE_FONTS = [
@@ -196,6 +185,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [alignToPage, setAlignToPage] = useState(false);
   const [isFontPickerOpen, setIsFontPickerOpen] = useState(false);
+  
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    transform: true,
+    appearance: true,
+    text: true,
+    effects: false,
+    document: true,
+    export: true
+  });
+
+  const toggleSection = (id: string) => {
+    setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const canAlignSelection = selectionCount >= 2;
   const effectiveToPage = canAlignSelection ? alignToPage : true;
@@ -203,12 +205,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canDistribute = selectionCount >= 3 || (selectionCount < 3 && elementCount >= 3);
 
   const alignButtons = [
-    { dir: 'left', Icon: AlignStartVertical, label: 'Aligner à gauche' },
-    { dir: 'center', Icon: AlignCenterVertical, label: 'Centrer horizontalement' },
-    { dir: 'right', Icon: AlignEndVertical, label: 'Aligner à droite' },
-    { dir: 'top', Icon: AlignStartHorizontal, label: 'Aligner en haut' },
-    { dir: 'middle', Icon: AlignCenterHorizontal, label: 'Centrer verticalement' },
-    { dir: 'bottom', Icon: AlignEndHorizontal, label: 'Aligner en bas' },
+    { dir: 'left', Icon: AlignStartVertical, label: 'Gauche' },
+    { dir: 'center', Icon: AlignCenterVertical, label: 'Centre H' },
+    { dir: 'right', Icon: AlignEndVertical, label: 'Droite' },
+    { dir: 'top', Icon: AlignStartHorizontal, label: 'Haut' },
+    { dir: 'middle', Icon: AlignCenterHorizontal, label: 'Milieu V' },
+    { dir: 'bottom', Icon: AlignEndHorizontal, label: 'Bas' },
   ] as const;
 
   const handleColorInput = (val: string, callback: (color: string) => void) => {
@@ -247,784 +249,344 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="w-80 h-full bg-white/95 backdrop-blur-xl border-r border-gray-100 flex flex-col overflow-y-auto p-5 gap-6 shadow-2xl z-10 custom-scrollbar">
-      <div className="flex items-center justify-between pb-1">
-        <h1 className="text-xl font-black tracking-tight text-gray-900">BAUHAUS GEN</h1>
-        <div className="flex gap-1">
-          <button onClick={onUndo} disabled={!canUndo} title="Annuler (Ctrl+Z)" className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent text-gray-500"><Undo2 size={16} /></button>
-          <button onClick={onRedo} disabled={!canRedo} title="Rétablir (Ctrl+Maj+Z)" className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent text-gray-500"><Redo2 size={16} /></button>
-        </div>
-      </div>
-
-      {/* Add Elements Section */}
-      <section>
-        <h2 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
-          <Layers size={12} /> Ajouter
-        </h2>
-        <button onClick={() => onAddElement('text')} className="w-full flex items-center justify-center gap-2 px-3 py-2 mb-2 bg-gray-900 text-white rounded text-sm font-medium hover:bg-blue-600 transition-colors shadow-sm"><Type size={16} /> Texte</button>
-        <div className="grid grid-cols-4 gap-1.5">
+    <div className="w-[360px] h-full bg-white border-r border-gray-100 flex shadow-2xl z-10 overflow-hidden shrink-0">
+      {/* 1. TOOL STRIP (Fixe à gauche) */}
+      <aside className="w-14 h-full bg-gray-50 border-r border-gray-100 flex flex-col items-center py-4 gap-4 shrink-0">
+        <div className="w-8 h-8 bg-gray-900 rounded flex items-center justify-center text-[10px] font-black text-white mb-2">B</div>
+        
+        <div className="flex flex-col gap-1 w-full px-2">
+          <button onClick={() => onAddElement('text')} title="Texte" className="w-full aspect-square flex items-center justify-center rounded hover:bg-blue-50 hover:text-blue-600 text-gray-500 transition-colors">
+            <Type size={20} />
+          </button>
+          <div className="h-px bg-gray-200 my-1 mx-2" />
           {SHAPES.map(({ type, label }) => (
             <button
               key={type}
               onClick={() => onAddElement(type)}
               title={label}
-              className="aspect-square flex items-center justify-center bg-gray-50 hover:bg-blue-50 hover:text-blue-600 text-gray-500 rounded border border-gray-100 hover:border-blue-200 transition-colors"
+              className="w-full aspect-square flex items-center justify-center rounded hover:bg-blue-50 hover:text-blue-600 text-gray-500 transition-colors"
             >
               <ShapeIcon type={type} />
             </button>
           ))}
         </div>
-      </section>
 
-      {/* Templates */}
-      <section>
-        <h2 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
-          <LayoutTemplate size={12} /> Modèles
-        </h2>
-        <div className="grid grid-cols-1 gap-1.5">
-          {TEMPLATES.map((tpl) => (
-            <button
-              key={tpl.name}
-              onClick={() => { if (window.confirm(`Charger « ${tpl.name} » ? La composition actuelle sera remplacée.`)) onLoadTemplate(tpl); }}
-              className="text-left px-3 py-2 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded border border-gray-100 hover:border-blue-200 text-xs font-medium transition-colors"
-            >
-              {tpl.name}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Format du canvas */}
-      <section>
-        <h2 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
-          <Frame size={12} /> Format
-        </h2>
-        <div className="grid grid-cols-3 gap-1.5">
-          <button
-            onClick={onToggleAutoCanvasSize}
-            className={`py-1.5 rounded border text-[9px] font-bold uppercase tracking-wider transition-colors ${autoCanvasSize ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
-            title="S'adapte à l'écran"
-          >
-            Auto
+        <div className="mt-auto flex flex-col gap-1 w-full px-2">
+          <button onClick={onUndo} disabled={!canUndo} title="Annuler" className="w-full aspect-square flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
+            <Undo2 size={18} />
           </button>
-          {CANVAS_PRESETS.map((p) => {
-            const active = !autoCanvasSize && canvasWidth === p.w && canvasHeight === p.h;
-            return (
-              <button
-                key={p.name}
-                onClick={() => onSetCanvasSize(p.w, p.h)}
-                className={`py-1.5 rounded border text-[9px] font-bold uppercase tracking-wider transition-colors ${active ? 'bg-gray-900 text-white border-gray-900 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
-                title={`${p.w}×${p.h}`}
-              >
-                {p.name}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Palettes Bauhaus */}
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
-          <Palette size={14} /> Palettes
-        </h2>
-        <p className="text-[10px] text-gray-400 mb-2 leading-snug">
-          {selectionCount > 0 ? 'Applique la couleur à la sélection.' : 'Applique la couleur au fond.'}
-        </p>
-        <div className="space-y-1.5">
-          {PALETTES.map((pal) => (
-            <div key={pal.name} className="flex items-center gap-1">
-              <span className="text-[9px] font-bold text-gray-400 w-12 shrink-0 uppercase">{pal.name}</span>
-              <div className="flex-1 grid grid-cols-5 gap-1">
-                {pal.colors.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => onApplyColor(c)}
-                    className="aspect-square rounded-sm border border-gray-200 hover:scale-110 transition-transform"
-                    style={{ backgroundColor: c }}
-                    title={c}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Alignement & distribution */}
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
-          <AlignCenterVertical size={14} /> Alignement
-        </h2>
-
-        <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded mb-3 text-[10px] font-bold uppercase tracking-wide">
-          <button
-            onClick={() => canAlignSelection && setAlignToPage(false)}
-            disabled={!canAlignSelection}
-            className={`py-1 rounded transition-all ${!effectiveToPage ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'} disabled:opacity-40 disabled:cursor-not-allowed`}
-            title="Aligner les éléments sélectionnés entre eux"
-          >
-            Sélection
-          </button>
-          <button
-            onClick={() => setAlignToPage(true)}
-            className={`py-1 rounded transition-all ${effectiveToPage ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'}`}
-            title="Aligner sur la page (le canvas)"
-          >
-            Page
+          <button onClick={onRedo} disabled={!canRedo} title="Rétablir" className="w-full aspect-square flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
+            <Redo2 size={18} />
           </button>
         </div>
+      </aside>
 
-        <div className="grid grid-cols-6 gap-1">
-          {alignButtons.map(({ dir, Icon, label }) => (
-            <button
-              key={dir}
-              onClick={() => onAlign(dir, effectiveToPage)}
-              disabled={!canAlign}
-              className="aspect-square flex items-center justify-center rounded border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 text-gray-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-50 disabled:hover:text-gray-600 disabled:hover:border-gray-200"
-              title={label}
-            >
-              <Icon size={16} />
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 gap-1 mt-2">
-          <button
-            onClick={() => onDistribute('horizontal')}
-            disabled={!canDistribute}
-            className="flex items-center justify-center gap-1.5 py-1.5 rounded border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 text-gray-600 text-[10px] font-bold uppercase transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-50 disabled:hover:text-gray-600"
-            title="Espacement horizontal égal"
-          >
-            <AlignHorizontalDistributeCenter size={14} /> Espacer H
-          </button>
-          <button
-            onClick={() => onDistribute('vertical')}
-            disabled={!canDistribute}
-            className="flex items-center justify-center gap-1.5 py-1.5 rounded border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 text-gray-600 text-[10px] font-bold uppercase transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-50 disabled:hover:text-gray-600"
-            title="Espacement vertical égal"
-          >
-            <AlignVerticalDistributeCenter size={14} /> Espacer V
-          </button>
-        </div>
-      </section>
-
-      {/* Font Upload Section */}
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
-          <Upload size={14} /> Mes Polices
-        </h2>
-        <input type="file" ref={fileInputRef} onChange={handleFontUpload} accept=".ttf,.otf,.woff,.woff2" className="hidden" />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded text-xs font-bold uppercase hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
-        >
-          <Upload size={14} /> Charger une police (OTF/TTF)
-        </button>
-      </section>
-
-      {/* Global Controls */}
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Fond</h2>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="relative w-8 h-8 shrink-0 overflow-hidden rounded border border-gray-300">
-            <input
-              type="color"
-              value={ensureFullHex(backgroundColor)}
-              onChange={(e) => onUpdateBackground(e.target.value)}
-              className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer"
-            />
-          </div>
-          <input
-            type="text"
-            value={backgroundColor}
-            onChange={(e) => handleColorInput(e.target.value, onUpdateBackground)}
-            placeholder="#FFFFFF"
-            className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded uppercase font-mono focus:outline-none"
-          />
-          <button onClick={() => onSaveColor(backgroundColor)} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-[10px] font-bold uppercase whitespace-nowrap">Mémoriser</button>
-        </div>
-        {customColors.length > 0 && (
-          <div className="grid grid-cols-8 gap-1 pt-2">
-            {customColors.map((c, i) => (
-              <button key={`${c}-${i}`} onClick={() => onUpdateBackground(c)} className={`w-full aspect-square rounded-sm border ${backgroundColor.toLowerCase() === c.toLowerCase() ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`} style={{ backgroundColor: c }} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Selected Element Controls / Arrangement */}
-      <section className="flex-1">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-            {selectionCount > 0 ? 'Agencement' : 'Aucune sélection'}
+      {/* 2. PROPERTIES PANEL (Contextuel) */}
+      <div className="flex-1 flex flex-col h-full overflow-y-auto custom-scrollbar bg-white">
+        {/* Header dynamique */}
+        <header className="px-4 py-3 border-b border-gray-100 sticky top-0 bg-white/95 backdrop-blur z-20">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">
+            {selectionCount === 0 ? 'Réglages Document' : selectionCount === 1 ? `Propriétés : ${selectedElement?.type}` : `${selectionCount} Éléments sélectionnés`}
           </h2>
-          <div className="flex gap-1">
-            {selectionCount >= 2 && (
-              <button onClick={onGroup} title="Grouper (Ctrl+G)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded flex items-center gap-1 text-[10px] font-bold">
-                <Copy size={16} /> G
-              </button>
-            )}
-            {(selectedElement?.groupId || selectedIds.some(id => elements?.find(e => e.id === id)?.groupId)) && (
-              <button onClick={onUngroup} title="Dégrouper (Ctrl+Maj+G)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded flex items-center gap-1 text-[10px] font-bold">
-                <LayoutTemplate size={16} className="opacity-50" /> U
-              </button>
-            )}
-            {selectionCount > 0 && (
-              <button onClick={onDuplicate} title="Dupliquer (Ctrl+D)" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded"><Copy size={16} /></button>
-            )}
-            {selectionCount > 0 && (
-              <button onClick={() => selectedIds.forEach(id => onRemoveElement(id))} title="Supprimer (Suppr)" className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
-            )}
-          </div>
-        </div>
+        </header>
 
-        {selectionCount > 0 ? (
-          <div className="space-y-4">
-            {/* Z-Order */}
-            <div className="grid grid-cols-4 gap-1 p-1 bg-gray-50 rounded border border-gray-200">
-              <button onClick={onBringToFront} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Tout devant"><ArrowUp size={14} /></button>
-              <button onClick={onBringForward} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Avancer"><ChevronUp size={14} /></button>
-              <button onClick={onSendBackward} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Reculer"><ChevronDown size={14} /></button>
-              <button onClick={onSendToBack} className="p-2 hover:bg-white rounded transition-all flex justify-center text-gray-700" title="Tout derrière"><ArrowDown size={14} /></button>
-            </div>
-
-            {/* Flip controls */}
-            <div className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Retourner</span>
-              <div className="flex gap-2">
-                <button onClick={() => onFlip('horizontal', selectedIds)} className="p-1.5 hover:bg-white rounded border border-transparent hover:border-gray-200 text-gray-600 flex items-center gap-1 text-[10px] font-bold" title="H-Flip"><FlipHorizontal size={14} /> H</button>
-                <button onClick={() => onFlip('vertical', selectedIds)} className="p-1.5 hover:bg-white rounded border border-transparent hover:border-gray-200 text-gray-600 flex items-center gap-1 text-[10px] font-bold" title="V-Flip"><FlipVertical size={14} /> V</button>
-              </div>
-            </div>
-
-            {selectedElement && selectionCount === 1 ? (
-              <div className="space-y-4 pt-4 border-t border-gray-100">
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-2">Propriétés</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">X POSITION</label><input type="number" value={Math.round(selectedElement.x)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { x: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1">Y POSITION</label><input type="number" value={Math.round(selectedElement.y)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { y: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <label className="text-[10px] font-bold text-gray-400 block uppercase">Inclinaison X</label>
-                      <input type="number" value={Math.round(selectedElement.skewX ?? 0)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewX: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                    </div>
-                    <input type="range" min="-45" max="45" step="1" value={selectedElement.skewX ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewX: Number(e.target.value) })} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <label className="text-[10px] font-bold text-gray-400 block uppercase">Inclinaison Y</label>
-                      <input type="number" value={Math.round(selectedElement.skewY ?? 0)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewY: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                    </div>
-                    <input type="range" min="-45" max="45" step="1" value={selectedElement.skewY ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { skewY: Number(e.target.value) })} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 block mb-1 uppercase">Mode de fusion</label>
-                  <select
-                    value={selectedElement.blendMode ?? 'normal'}
-                    onChange={(e) => onUpdateElement(selectedElement.id, { blendMode: e.target.value as any })}
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded font-medium"
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="multiply">Produit (Multiply)</option>
-                    <option value="screen">Superposition (Screen)</option>
-                    <option value="overlay">Incrustation (Overlay)</option>
-                    <option value="darken">Obscurcir</option>
-                    <option value="lighten">Éclaircir</option>
-                    <option value="difference">Différence</option>
-                    <option value="exclusion">Exclusion</option>
-                  </select>
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-1">
-                    <label className="text-[10px] font-bold text-gray-400 block flex items-center gap-2 uppercase"><RotateCcw size={10} /> Rotation</label>
-                    <div className="flex items-center gap-1">
-                      <input type="number" value={Math.round(selectedElement.rotation)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                      <span className="text-[10px] text-gray-400 font-mono">°</span>
-                    </div>
-                  </div>
-                  <input type="range" min="0" max="360" value={selectedElement.rotation} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-1">
-                    <label className="text-[10px] font-bold text-gray-400 block uppercase">Opacité</label>
-                    <div className="flex items-center gap-1">
-                      <input type="number" value={Math.round(selectedElement.opacity * 100)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) / 100 })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                      <span className="text-[10px] text-gray-400 font-mono">%</span>
-                    </div>
-                  </div>
-                  <input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
-                </div>
-
-                <div className="pt-2 border-t border-gray-100">
-                  <label className="text-[10px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Dégradé</label>
-                  {!selectedElement.gradient ? (
-                    <button 
-                      onClick={() => onUpdateElement(selectedElement.id, { 
-                        gradient: { type: 'linear', rotation: 0, colors: [{ offset: 0, color: selectedElement.color, opacity: 1 }, { offset: 1, color: '#ffffff', opacity: 1 }] } 
-                      })}
-                      className="w-full py-1.5 border border-dashed border-gray-300 rounded text-[10px] font-bold uppercase text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors"
-                    >
-                      Ajouter un dégradé
-                    </button>
-                  ) : (
-                    <div className="space-y-3 p-2 bg-gray-50 rounded border border-gray-200">
-                      <div className="flex justify-between items-center mb-1">
-                        <select 
-                          value={selectedElement.gradient.type} 
-                          onChange={(e) => onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, type: e.target.value as any } })}
-                          className="text-[10px] font-bold bg-transparent outline-none"
-                        >
-                          <option value="linear">Linéaire</option>
-                          <option value="radial">Radial</option>
-                        </select>
-                        <button 
-                          onClick={() => onUpdateElement(selectedElement.id, { gradient: undefined })}
-                          className="text-[10px] text-red-500 font-bold uppercase"
-                        >
-                          Supprimer
-                        </button>
+        <div className="p-4 space-y-6">
+          {selectionCount === 0 ? (
+            /* --- MODE DOCUMENT --- */
+            <>
+              <section>
+                <button onClick={() => toggleSection('document')} className="w-full flex items-center justify-between mb-3 group">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-900 flex items-center gap-2">
+                    <Frame size={14} className="text-gray-400" /> Format du Canvas
+                  </span>
+                  <ChevronDown size={14} className={`text-gray-300 transition-transform ${openSections.document ? '' : '-rotate-90'}`} />
+                </button>
+                {openSections.document && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                        <label className="text-[9px] font-bold text-gray-400 block mb-1 uppercase">Largeur</label>
+                        <input type="number" value={canvasWidth} onChange={(e) => onSetCanvasSize(Number(e.target.value), canvasHeight)} className="w-full bg-transparent text-sm font-mono outline-none" />
                       </div>
-                      
-                      {selectedElement.gradient.type === 'linear' && (
-                        <div>
-                          <label className="text-[9px] font-bold text-gray-400 block uppercase">Angle</label>
-                          <input 
-                            type="range" min="0" max="360" value={selectedElement.gradient.rotation} 
-                            onMouseDown={onBeginHistory}
-                            onChange={(e) => onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, rotation: Number(e.target.value) } })} 
-                            className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" 
-                          />
-                        </div>
-                      )}
-
-                      <div className="space-y-2">
-                        {selectedElement.gradient.colors.map((c, i) => (
-                          <div key={i} className="flex gap-2 items-center">
-                            <div className="relative w-5 h-5 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
-                              <input 
-                                type="color" value={ensureFullHex(c.color)} 
-                                onMouseDown={onBeginHistory}
-                                onChange={(e) => {
-                                  const newColors = [...selectedElement.gradient!.colors];
-                                  newColors[i] = { ...newColors[i], color: e.target.value };
-                                  onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } });
-                                }} 
-                                className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] cursor-pointer" 
-                              />
-                            </div>
-                            <input 
-                              type="range" min="0" max="1" step="0.01" value={c.offset} 
-                              onMouseDown={onBeginHistory}
-                              onChange={(e) => {
-                                const newColors = [...selectedElement.gradient!.colors];
-                                newColors[i] = { ...newColors[i], offset: Number(e.target.value) };
-                                onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } });
-                              }} 
-                              className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" 
-                            />
-                            {selectedElement.gradient!.colors.length > 2 && (
-                              <button 
-                                onClick={() => {
-                                  const newColors = selectedElement.gradient!.colors.filter((_, idx) => idx !== i);
-                                  onUpdateElement(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } });
-                                }}
-                                className="text-red-400 hover:text-red-600"
-                              >
-                                <Trash2 size={10} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                        <button 
-                          onClick={() => {
-                            const newColors = [...selectedElement.gradient!.colors, { offset: 1, color: '#ffffff', opacity: 1 }].sort((a,b) => a.offset - b.offset);
-                            onUpdateElement(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } });
-                          }}
-                          className="w-full py-1 text-[9px] font-bold uppercase text-blue-500"
-                        >
-                          + Ajouter un point
-                        </button>
+                      <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                        <label className="text-[9px] font-bold text-gray-400 block mb-1 uppercase">Hauteur</label>
+                        <input type="number" value={canvasHeight} onChange={(e) => onSetCanvasSize(canvasWidth, Number(e.target.value))} className="w-full bg-transparent text-sm font-mono outline-none" />
                       </div>
                     </div>
-                  )}
-                </div>
-
-                <div className="pt-2 border-t border-gray-100">
-                  <label className="text-[10px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Ombre Portée</label>
-                  <div className="space-y-3">
-                    <div className="flex gap-2 items-center">
-                      <div className="relative w-8 h-8 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
-                        <input type="color" value={ensureFullHex(selectedElement.shadowColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between mb-1">
-                          <label className="text-[9px] font-bold text-gray-400 block uppercase">Opacité</label>
-                          <input type="number" value={Math.round((selectedElement.shadowOpacity ?? 0.5) * 100)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) / 100 })} className="w-8 text-[9px] font-mono text-right bg-transparent outline-none" />
-                        </div>
-                        <input type="range" min="0" max="1" step="0.01" value={selectedElement.shadowOpacity ?? 0.5} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <div className="flex justify-between mb-1">
-                          <label className="text-[9px] font-bold text-gray-400 block uppercase">Flou</label>
-                          <input type="number" value={Math.round(selectedElement.shadowBlur ?? 0)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowBlur: Number(e.target.value) })} className="w-8 text-[9px] font-mono text-right bg-transparent outline-none" />
-                        </div>
-                        <input type="range" min="0" max="50" step="1" value={selectedElement.shadowBlur ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowBlur: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 block uppercase mb-1">Décalage X/Y</label>
-                        <div className="flex gap-1">
-                          <input type="number" value={selectedElement.shadowOffsetX ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOffsetX: Number(e.target.value) })} className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded font-mono" />
-                          <input type="number" value={selectedElement.shadowOffsetY ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOffsetY: Number(e.target.value) })} className="w-full px-1 py-0.5 text-[10px] border border-gray-300 rounded font-mono" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveHorizontal size={10} /> ÉCHELLE X</label><input type="number" step="0.1" value={selectedElement.scaleX} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleX: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                  <div><label className="text-[10px] font-bold text-gray-400 block mb-1 flex items-center gap-2"><MoveVertical size={10} /> ÉCHELLE Y</label><input type="number" step="0.1" value={selectedElement.scaleY} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { scaleY: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 block mb-1">COULEUR</label>
-                  <div className="flex gap-2 mb-2">
-                    <div className="relative w-10 h-10 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
-                      <input type="color" value={ensureFullHex(selectedElement.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { color: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
-                    </div>
-                    <input type="text" value={selectedElement.color} onChange={(e) => handleColorInput(e.target.value, (color) => onUpdateElement(selectedElement.id, { color }))} placeholder="#000000" className="flex-1 px-3 py-1 text-sm border border-gray-300 rounded uppercase font-mono" />
-                    <button onClick={() => onSaveColor(selectedElement.color)} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-[10px] font-bold uppercase whitespace-nowrap">Mémoriser</button>
-                  </div>
-                  {customColors.length > 0 && (
-                    <div className="grid grid-cols-8 gap-1 mb-2">
-                      {customColors.map((c, i) => (
-                        <button key={`${c}-el-${i}`} onClick={() => onUpdateElement(selectedElement.id, { color: c })} className={`w-full aspect-square rounded-sm border ${selectedElement.color.toLowerCase() === c.toLowerCase() ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'}`} style={{ backgroundColor: c }} />
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button onClick={onToggleAutoCanvasSize} className={`py-2 rounded border text-[9px] font-bold uppercase transition-all ${autoCanvasSize ? 'bg-gray-900 text-white border-gray-900 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>Auto</button>
+                      {CANVAS_PRESETS.map((p) => (
+                        <button key={p.name} onClick={() => onSetCanvasSize(p.w, p.h)} className={`py-2 rounded border text-[9px] font-bold uppercase transition-all ${!autoCanvasSize && canvasWidth === p.w && canvasHeight === p.h ? 'bg-gray-900 text-white border-gray-900 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>{p.name}</button>
                       ))}
                     </div>
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <div className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-3 flex items-center gap-2">
+                  <Palette size={14} className="text-gray-400" /> Couleur de Fond
+                </div>
+                <div className="flex items-center gap-3 p-2 bg-gray-50 rounded border border-gray-100 mb-3">
+                  <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0">
+                    <input type="color" value={ensureFullHex(backgroundColor)} onChange={(e) => onUpdateBackground(e.target.value)} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
+                  </div>
+                  <input type="text" value={backgroundColor} onChange={(e) => handleColorInput(e.target.value, onUpdateBackground)} className="bg-transparent text-sm font-mono uppercase outline-none flex-1" />
+                  <button onClick={() => onSaveColor(backgroundColor)} className="text-[10px] font-bold text-blue-600 uppercase hover:underline">Mémoriser</button>
+                </div>
+                <div className="space-y-3">
+                  {PALETTES.map((pal) => (
+                    <div key={pal.name} className="flex flex-col gap-1.5">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">{pal.name}</span>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {pal.colors.map((c) => (
+                          <button key={c} onClick={() => onApplyColor(c)} className="aspect-square rounded-sm border border-gray-100 hover:scale-110 transition-transform shadow-sm" style={{ backgroundColor: c }} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {customColors.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Mes Couleurs</span>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {customColors.map((c, i) => (
+                          <button key={`${c}-${i}`} onClick={() => onApplyColor(c)} className="aspect-square rounded-sm border border-gray-100 hover:scale-110 transition-transform shadow-sm" style={{ backgroundColor: c }} />
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
+              </section>
 
-                {selectedElement.type === 'text' && (
-                  <div className="space-y-4 pt-4 border-t border-gray-100">
-                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">TEXTE</label><textarea value={selectedElement.text} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { text: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded min-h-[60px]" /></div>
-                    <div className="relative">
-                      <button
-                        onClick={() => setIsFontPickerOpen(!isFontPickerOpen)}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded flex justify-between items-center bg-white hover:bg-gray-50 transition-colors"
-                      >
-                        <span style={{ fontFamily: selectedElement.fontFamily }} className="truncate text-base">
-                          {selectedElement.fontFamily.split(',')[0].replace(/['"]/g, '')}
-                        </span>
-                        <ChevronDown size={14} className="opacity-50 shrink-0" />
-                      </button>
+              <section>
+                <div className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-3 flex items-center gap-2">
+                  <LayoutTemplate size={14} className="text-gray-400" /> Templates
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {TEMPLATES.map((tpl) => (
+                    <button key={tpl.name} onClick={() => { if (window.confirm(`Charger « ${tpl.name} » ?`)) onLoadTemplate(tpl); }} className="text-left px-3 py-2 bg-white hover:bg-blue-50 rounded border border-gray-200 hover:border-blue-200 text-xs font-medium transition-all group">
+                      {tpl.name} <span className="float-right text-gray-300 group-hover:text-blue-400">→</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+              
+              <section>
+                <div className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-3 flex items-center gap-2">
+                  <Upload size={14} className="text-gray-400" /> Mes Polices
+                </div>
+                <input type="file" ref={fileInputRef} onChange={handleFontUpload} accept=".ttf,.otf,.woff,.woff2" className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} className="w-full py-2 bg-gray-50 hover:bg-white text-gray-600 border border-gray-200 rounded text-[10px] font-bold uppercase transition-all">Charger OTF/TTF</button>
+              </section>
+            </>
+          ) : (
+            /* --- MODE ÉLÉMENT (SÉLECTION) --- */
+            <>
+              <section>
+                <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded mb-3">
+                  <button onClick={() => canAlignSelection && setAlignToPage(false)} disabled={!canAlignSelection} className={`py-1 rounded text-[9px] font-bold uppercase transition-all ${!effectiveToPage ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'} disabled:opacity-20`}>Sélection</button>
+                  <button onClick={() => setAlignToPage(true)} className={`py-1 rounded text-[9px] font-bold uppercase transition-all ${effectiveToPage ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'}`}>Page</button>
+                </div>
+                <div className="grid grid-cols-6 gap-1">
+                  {alignButtons.map(({ dir, Icon, label }) => (
+                    <button key={dir} onClick={() => onAlign(dir, effectiveToPage)} disabled={!canAlign} className="aspect-square flex items-center justify-center rounded bg-gray-50 border border-gray-100 hover:border-blue-300 hover:text-blue-600 text-gray-500 disabled:opacity-20 transition-all" title={label}><Icon size={14} /></button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button onClick={() => onDistribute('horizontal')} disabled={!canDistribute} className="flex items-center justify-center gap-2 py-1.5 bg-gray-50 border border-gray-100 rounded text-[9px] font-bold uppercase text-gray-500 hover:bg-white disabled:opacity-20 transition-all">Espacer H</button>
+                  <button onClick={() => onDistribute('vertical')} disabled={!canDistribute} className="flex items-center justify-center gap-2 py-1.5 bg-gray-50 border border-gray-100 rounded text-[9px] font-bold uppercase text-gray-500 hover:bg-white disabled:opacity-20 transition-all">Espacer V</button>
+                </div>
+              </section>
 
-                      {isFontPickerOpen && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setIsFontPickerOpen(false)} />
-                          <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto py-1 custom-scrollbar">
-                            <div className="px-3 py-1.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/90 sticky top-0 backdrop-blur">Polices Google</div>
-                            {GOOGLE_FONTS.map(f => (
-                              <button
-                                key={f.value}
-                                onClick={() => {
-                                  onUpdateElement(selectedElement.id, { fontFamily: f.value });
-                                  setIsFontPickerOpen(false);
-                                }}
-                                className={`w-full text-left px-4 py-2 text-base hover:bg-blue-50 transition-colors truncate ${selectedElement.fontFamily === f.value ? 'bg-blue-50 text-blue-600' : 'text-gray-800'}`}
-                                style={{ fontFamily: f.value }}
-                              >
-                                {f.label}
-                              </button>
-                            ))}
-                            {customFonts.length > 0 && (
-                              <>
-                                <div className="px-3 py-1.5 mt-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/90 sticky top-0 backdrop-blur border-t border-gray-100">Mes Polices</div>
-                                {customFonts.map(f => (
-                                  <button
-                                    key={f.name}
-                                    onClick={() => {
-                                      onUpdateElement(selectedElement.id, { fontFamily: f.name });
-                                      setIsFontPickerOpen(false);
-                                    }}
-                                    className={`w-full text-left px-4 py-2 text-base hover:bg-blue-50 transition-colors truncate ${selectedElement.fontFamily === f.name ? 'bg-blue-50 text-blue-600' : 'text-gray-800'}`}
-                                    style={{ fontFamily: f.name }}
-                                  >
-                                    {f.name}
-                                  </button>
-                                ))}
-                              </>
-                            )}
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex gap-1 p-1 bg-gray-50 rounded border border-gray-100">
+                    <button onClick={onBringToFront} title="Premier plan" className="p-1.5 hover:bg-white rounded text-gray-500"><ArrowUp size={14} /></button>
+                    <button onClick={onBringForward} title="Avancer" className="p-1.5 hover:bg-white rounded text-gray-500"><ChevronUp size={14} /></button>
+                    <button onClick={onSendBackward} title="Reculer" className="p-1.5 hover:bg-white rounded text-gray-500"><ChevronDown size={14} /></button>
+                    <button onClick={onSendToBack} title="Arrière plan" className="p-1.5 hover:bg-white rounded text-gray-500"><ArrowDown size={14} /></button>
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={onDuplicate} title="Dupliquer" className="p-2 bg-gray-50 hover:bg-blue-50 text-gray-500 hover:text-blue-600 rounded border border-gray-100"><Copy size={16} /></button>
+                    <button onClick={() => selectedIds.forEach(id => onRemoveElement(id))} title="Supprimer" className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded border border-red-100"><Trash2 size={16} /></button>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={onGroup} disabled={selectionCount < 2} className="flex-1 py-1.5 bg-gray-50 border border-gray-200 rounded text-[10px] font-bold uppercase text-gray-500 hover:bg-white transition-all disabled:opacity-20">Grouper</button>
+                  {(selectedElement?.groupId || selectedIds.some(id => elements.find(e => e.id === id)?.groupId)) && (
+                    <button onClick={onUngroup} className="flex-1 py-1.5 bg-gray-50 border border-gray-200 rounded text-[10px] font-bold uppercase text-gray-500 hover:bg-white transition-all">Dégrouper</button>
+                  )}
+                </div>
+              </section>
+
+              {selectionCount === 1 && selectedElement && (
+                <>
+                  <section>
+                    <button onClick={() => toggleSection('transform')} className="w-full flex items-center justify-between mb-3 group">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-900">Transformation</span>
+                      <ChevronDown size={14} className={`text-gray-300 transition-transform ${openSections.transform ? '' : '-rotate-90'}`} />
+                    </button>
+                    {openSections.transform && (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                            <label className="text-[9px] font-bold text-gray-400 block mb-0.5 uppercase">X</label>
+                            <input type="number" value={Math.round(selectedElement.x)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { x: Number(e.target.value) })} className="w-full bg-transparent text-sm font-mono outline-none" />
                           </div>
-                        </>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <input type="number" value={selectedElement.fontSize} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" title="Taille" />
-                      <select value={selectedElement.fontWeight} onChange={(e) => onUpdateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded">
-                        <option value="normal">Normal</option><option value="bold">Gras</option><option value="100">Thin</option><option value="300">Light</option><option value="500">Medium</option><option value="700">Bold</option><option value="900">Black</option>
-                      </select>
-                    </div>
-
-                    {/* Alignement et Style de texte */}
-                    <div className="flex gap-1 p-1 bg-gray-50 rounded border border-gray-200">
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'start' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textAlign === 'start' ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Gauche"
-                      ><AlignLeft size={14} /></button>
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'middle' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded ${(!selectedElement.textAlign || selectedElement.textAlign === 'middle') ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Centre"
-                      ><AlignCenter size={14} /></button>
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'end' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textAlign === 'end' ? 'bg-white shadow-sm' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Droite"
-                      ><AlignRight size={14} /></button>
-                      <div className="w-px h-4 bg-gray-200 self-center mx-1" />
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { italic: !selectedElement.italic })}
-                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.italic ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Italique"
-                      ><Italic size={14} /></button>
-                      <div className="w-px h-4 bg-gray-200 self-center mx-1" />
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[10px] flex items-center ${selectedElement.textTransform === 'uppercase' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Majuscules"
-                      >AA</button>
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { textTransform: selectedElement.textTransform === 'lowercase' ? 'none' : 'lowercase' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[10px] flex items-center ${selectedElement.textTransform === 'lowercase' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Minuscules"
-                      >aa</button>
-                    </div>
-
-                    {/* Décoration, petites capitales & sens d'écriture */}
-                    <div className="flex gap-1 p-1 bg-gray-50 rounded border border-gray-200">
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'underline' ? 'none' : 'underline' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textDecoration === 'underline' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Souligné"
-                      ><Underline size={14} /></button>
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'line-through' ? 'none' : 'line-through' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textDecoration === 'line-through' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Barré"
-                      ><Strikethrough size={14} /></button>
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'overline' ? 'none' : 'overline' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[11px] leading-none flex items-center ${selectedElement.textDecoration === 'overline' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Surligné"
-                      ><span style={{ textDecoration: 'overline' }}>O</span></button>
-                      <div className="w-px h-4 bg-gray-200 self-center mx-1" />
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { fontVariant: selectedElement.fontVariant === 'small-caps' ? 'normal' : 'small-caps' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[10px] flex items-center ${selectedElement.fontVariant === 'small-caps' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Petites capitales"
-                      >Sᴄ</button>
-                      <div className="w-px h-4 bg-gray-200 self-center mx-1" />
-                      <button
-                        onClick={() => onUpdateElement(selectedElement.id, { writingMode: selectedElement.writingMode === 'vertical' ? 'horizontal' : 'vertical' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[11px] flex items-center ${selectedElement.writingMode === 'vertical' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
-                        title="Texte vertical"
-                      ><span style={{ writingMode: 'vertical-rl' as React.CSSProperties['writingMode'], lineHeight: 1 }}>A</span></button>
-                    </div>
-
-                    {/* Style & couleur de la décoration (si active) */}
-                    {selectedElement.textDecoration && selectedElement.textDecoration !== 'none' && (
-                      <div className="flex gap-2 items-center">
-                        <select
-                          value={selectedElement.textDecorationStyle ?? 'solid'}
-                          onChange={(e) => onUpdateElement(selectedElement.id, { textDecorationStyle: e.target.value as 'solid' | 'dashed' | 'dotted' | 'wavy' })}
-                          className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded font-medium"
-                          title="Style du trait"
-                        >
-                          <option value="solid">Plein</option>
-                          <option value="dashed">Tirets</option>
-                          <option value="dotted">Pointillés</option>
-                          <option value="wavy">Ondulé</option>
-                        </select>
-                        <div className="relative w-8 h-8 shrink-0 overflow-hidden rounded border border-gray-200 bg-white" title="Couleur du trait">
-                          <input type="color" value={ensureFullHex(selectedElement.textDecorationColor ?? selectedElement.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { textDecorationColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
+                          <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                            <label className="text-[9px] font-bold text-gray-400 block mb-0.5 uppercase">Y</label>
+                            <input type="number" value={Math.round(selectedElement.y)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { y: Number(e.target.value) })} className="w-full bg-transparent text-sm font-mono outline-none" />
+                          </div>
+                        </div>
+                        {selectedElement.type !== 'text' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                              <label className="text-[9px] font-bold text-gray-400 block mb-0.5 uppercase">Largeur</label>
+                              <input type="number" value={Math.round(selectedElement.width)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { width: Number(e.target.value) })} className="w-full bg-transparent text-sm font-mono outline-none" />
+                            </div>
+                            <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                              <label className="text-[9px] font-bold text-gray-400 block mb-0.5 uppercase">Hauteur</label>
+                              <input type="number" value={Math.round(selectedElement.height)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { height: Number(e.target.value) })} className="w-full bg-transparent text-sm font-mono outline-none" />
+                            </div>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-4 pt-1">
+                          <div>
+                            <div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Rotation</label><span className="text-[9px] font-mono text-gray-400">{Math.round(selectedElement.rotation)}°</span></div>
+                            <input type="range" min="0" max="360" value={selectedElement.rotation} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { rotation: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                          </div>
+                          <div>
+                            <div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Opacité</label><span className="text-[9px] font-mono text-gray-400">{Math.round(selectedElement.opacity * 100)}%</span></div>
+                            <input type="range" min="0" max="1" step="0.01" value={selectedElement.opacity} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { opacity: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button onClick={() => onFlip('horizontal', selectedIds)} className="flex items-center justify-center gap-2 py-2 bg-gray-50 hover:bg-gray-100 rounded text-[10px] font-bold uppercase text-gray-600 border border-gray-100 transition-all"><FlipHorizontal size={14} /> Flip H</button>
+                          <button onClick={() => onFlip('vertical', selectedIds)} className="flex items-center justify-center gap-2 py-2 bg-gray-50 hover:bg-gray-100 rounded text-[10px] font-bold uppercase text-gray-600 border border-gray-100 transition-all"><FlipVertical size={14} /> Flip V</button>
                         </div>
                       </div>
                     )}
+                  </section>
 
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Interlettrage</label>
-                        <div className="flex items-center gap-1">
-                          <input type="number" step="0.5" value={selectedElement.letterSpacing ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                          <span className="text-[10px] text-gray-400 font-mono">px</span>
+                  <section>
+                    <button onClick={() => toggleSection('appearance')} className="w-full flex items-center justify-between mb-3 group">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-900">Apparence</span>
+                      <ChevronDown size={14} className={`text-gray-300 transition-transform ${openSections.appearance ? '' : '-rotate-90'}`} />
+                    </button>
+                    {openSections.appearance && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Fusion</label>
+                          <select value={selectedElement.blendMode ?? 'normal'} onChange={(e) => onUpdateElement(selectedElement.id, { blendMode: e.target.value as any })} className="w-full p-2 bg-gray-50 border border-gray-100 rounded text-xs focus:bg-white outline-none">
+                            <option value="normal">Normal</option><option value="multiply">Produit</option><option value="screen">Superposition</option><option value="overlay">Incrustation</option><option value="difference">Différence</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Couleur</label>
+                          <div className="flex items-center gap-3 p-2 bg-gray-50 rounded border border-gray-100 mb-3">
+                            <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0"><input type="color" value={ensureFullHex(selectedElement.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { color: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
+                            <input type="text" value={selectedElement.color} onChange={(e) => handleColorInput(e.target.value, (color) => onUpdateElement(selectedElement.id, { color }))} className="bg-transparent text-sm font-mono uppercase outline-none flex-1" />
+                            <button onClick={() => onSaveColor(selectedElement.color)} className="text-[10px] font-bold text-blue-600 uppercase">Mémoriser</button>
+                          </div>
+                          {!selectedElement.gradient ? (
+                            <button onClick={() => onUpdateElement(selectedElement.id, { gradient: { type: 'linear', rotation: 0, colors: [{ offset: 0, color: selectedElement.color, opacity: 1 }, { offset: 1, color: '#ffffff', opacity: 1 }] } })} className="w-full py-1.5 border border-dashed border-gray-300 rounded text-[9px] font-bold uppercase text-gray-400 hover:text-blue-500 hover:border-blue-300 transition-all">+ Dégradé</button>
+                          ) : (
+                            <div className="p-3 bg-gray-50 rounded border border-gray-100 space-y-3">
+                              <div className="flex justify-between items-center"><select value={selectedElement.gradient.type} onChange={(e) => onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, type: e.target.value as any } })} className="text-[10px] font-bold bg-transparent outline-none"><option value="linear">Linéaire</option><option value="radial">Radial</option></select><button onClick={() => onUpdateElement(selectedElement.id, { gradient: undefined })} className="text-[9px] text-red-500 font-bold uppercase">Supprimer</button></div>
+                              <div className="space-y-2">{selectedElement.gradient.colors.map((c, i) => (<div key={i} className="flex gap-2 items-center"><div className="relative w-5 h-5 rounded border border-gray-200 bg-white overflow-hidden shrink-0"><input type="color" value={ensureFullHex(c.color)} onMouseDown={onBeginHistory} onChange={(e) => { const newColors = [...selectedElement.gradient!.colors]; newColors[i] = { ...newColors[i], color: e.target.value }; onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } }); }} className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] cursor-pointer" /></div><input type="range" min="0" max="1" step="0.01" value={c.offset} onMouseDown={onBeginHistory} onChange={(e) => { const newColors = [...selectedElement.gradient!.colors]; newColors[i] = { ...newColors[i], offset: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } }); }} className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>))}</div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <input
-                        type="range"
-                        min="-10"
-                        max="50"
-                        step="0.5"
-                        value={selectedElement.letterSpacing ?? 0}
-                        onMouseDown={onBeginHistory}
-                        onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })}
-                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-                      />
-                    </div>
+                    )}
+                  </section>
 
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Espacement des mots</label>
-                        <div className="flex items-center gap-1">
-                          <input type="number" step="0.5" value={selectedElement.wordSpacing ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { wordSpacing: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                          <span className="text-[10px] text-gray-400 font-mono">px</span>
+                  {selectedElement.type === 'text' && (
+                    <section>
+                      <button onClick={() => toggleSection('text')} className="w-full flex items-center justify-between mb-3 group">
+                        <span className="text-xs font-bold uppercase tracking-wider text-gray-900">Typographie</span>
+                        <ChevronDown size={14} className={`text-gray-300 transition-transform ${openSections.text ? '' : '-rotate-90'}`} />
+                      </button>
+                      {openSections.text && (
+                        <div className="space-y-4">
+                          <textarea value={selectedElement.text} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { text: e.target.value })} className="w-full p-2 bg-gray-50 border border-gray-100 rounded text-sm focus:bg-white outline-none min-h-[60px] resize-none" />
+                          <button onClick={() => setIsFontPickerOpen(!isFontPickerOpen)} className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded text-left text-sm flex justify-between items-center hover:bg-white hover:border-blue-200 transition-all">
+                            <span style={{ fontFamily: selectedElement.fontFamily }} className="truncate">{selectedElement.fontFamily.split(',')[0].replace(/['"]/g, '')}</span>
+                            <ChevronDown size={14} className="text-gray-400" />
+                          </button>
+                          {isFontPickerOpen && (
+                            <div className="absolute left-14 right-4 bg-white border border-gray-200 rounded shadow-xl z-50 max-h-60 overflow-y-auto py-1">
+                              <div className="px-3 py-1 text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 sticky top-0">Google Fonts</div>
+                              {GOOGLE_FONTS.map(f => (<button key={f.value} onClick={() => { onUpdateElement(selectedElement.id, { fontFamily: f.value }); setIsFontPickerOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 ${selectedElement.fontFamily === f.value ? 'bg-blue-50 text-blue-600 font-bold' : ''}`} style={{ fontFamily: f.value }}>{f.label}</button>))}
+                              {customFonts.length > 0 && (
+                                <>
+                                  <div className="px-3 py-1 mt-1 text-[8px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 sticky top-0 border-t">Mes Polices</div>
+                                  {customFonts.map(f => (
+                                    <button key={f.name} onClick={() => { onUpdateElement(selectedElement.id, { fontFamily: f.name }); setIsFontPickerOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors ${selectedElement.fontFamily === f.name ? 'bg-blue-50 text-blue-600 font-bold' : ''}`} style={{ fontFamily: f.name }}>{f.name}</button>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-gray-50 p-2 rounded border border-gray-100"><label className="text-[9px] font-bold text-gray-400 block uppercase">Taille</label><input type="number" value={selectedElement.fontSize} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full bg-transparent text-sm font-mono outline-none" /></div>
+                            <div className="bg-gray-50 p-2 rounded border border-gray-100"><label className="text-[9px] font-bold text-gray-400 block uppercase">Graisse</label><select value={selectedElement.fontWeight} onChange={(e) => onUpdateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full bg-transparent text-xs font-bold outline-none cursor-pointer"><option value="normal">Normal</option><option value="bold">Gras</option><option value="100">Thin</option><option value="300">Light</option><option value="500">Medium</option><option value="700">Bold</option><option value="900">Black</option></select></div>
+                          </div>
+                          <div className="flex gap-1 p-1 bg-gray-50 rounded border border-gray-100">
+                            <button onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'start' })} className={`flex-1 flex justify-center p-2 rounded ${selectedElement.textAlign === 'start' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}><AlignLeft size={16} /></button>
+                            <button onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'middle' })} className={`flex-1 flex justify-center p-2 rounded ${(!selectedElement.textAlign || selectedElement.textAlign === 'middle') ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}><AlignCenter size={16} /></button>
+                            <button onClick={() => onUpdateElement(selectedElement.id, { textAlign: 'end' })} className={`flex-1 flex justify-center p-2 rounded ${selectedElement.textAlign === 'end' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}><AlignRight size={16} /></button>
+                            <div className="w-px h-4 bg-gray-200 self-center mx-1" />
+                            <button onClick={() => onUpdateElement(selectedElement.id, { italic: !selectedElement.italic })} className={`flex-1 flex justify-center p-2 rounded ${selectedElement.italic ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}><Italic size={16} /></button>
+                            <button onClick={() => onUpdateElement(selectedElement.id, { fontVariant: selectedElement.fontVariant === 'small-caps' ? 'normal' : 'small-caps' })} className={`flex-1 flex justify-center p-2 rounded text-[10px] font-bold ${selectedElement.fontVariant === 'small-caps' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}>SC</button>
+                          </div>
+                          <div className="space-y-4">
+                            <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Espacement</label><span className="text-[9px] font-mono text-gray-400">{selectedElement.letterSpacing ?? 0}px</span></div><input type="range" min="-10" max="50" step="0.5" value={selectedElement.letterSpacing ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { letterSpacing: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
+                            <div><div className="flex justify-between items-center mb-1.5"><label className="text-[9px] font-bold text-gray-400 uppercase">Courbure</label><span className="text-[9px] font-mono text-gray-400">{selectedElement.curve ?? 0}</span></div><input type="range" min="-100" max="100" step="1" value={selectedElement.curve ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { curve: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  <section>
+                    <button onClick={() => toggleSection('effects')} className="w-full flex items-center justify-between mb-3 group">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-900">Effets</span>
+                      <ChevronDown size={14} className={`text-gray-300 transition-transform ${openSections.effects ? '' : '-rotate-90'}`} />
+                    </button>
+                    {openSections.effects && (
+                      <div className="space-y-4 animate-in fade-in duration-200">
+                        <div>
+                          <div className="flex justify-between items-center mb-2"><label className="text-[9px] font-bold text-gray-400 uppercase">Contour</label><span className="text-[9px] font-mono text-gray-400">{selectedElement.strokeWidth ?? 0}px</span></div>
+                          <div className="flex gap-3 p-2 bg-gray-50 rounded border border-gray-100"><div className="relative w-7 h-7 rounded border border-gray-200 overflow-hidden shrink-0 bg-white"><input type="color" value={ensureFullHex(selectedElement.strokeColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div><input type="range" min="0" max="20" step="0.5" value={selectedElement.strokeWidth ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900 self-center" /></div>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded border border-gray-100 space-y-3">
+                          <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide block">Ombre Portée</label>
+                          <div className="flex gap-3"><div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0 bg-white"><input type="color" value={ensureFullHex(selectedElement.shadowColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div><div className="flex-1"><div className="flex justify-between items-center mb-1"><label className="text-[8px] font-bold text-gray-400 uppercase">Opacité</label><span className="text-[8px] font-mono text-gray-400">{Math.round((selectedElement.shadowOpacity ?? 0.5) * 100)}%</span></div><input type="range" min="0" max="1" step="0.01" value={selectedElement.shadowOpacity ?? 0.5} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div></div>
                         </div>
                       </div>
-                      <input
-                        type="range"
-                        min="-10"
-                        max="50"
-                        step="0.5"
-                        value={selectedElement.wordSpacing ?? 0}
-                        onMouseDown={onBeginHistory}
-                        onChange={(e) => onUpdateElementLive(selectedElement.id, { wordSpacing: Number(e.target.value) })}
-                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-                      />
-                    </div>
+                    )}
+                  </section>
+                </>
+              )}
+            </>
+          )}
 
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Interligne</label>
-                        <input type="number" step="0.1" value={selectedElement.lineHeight ?? 1.2} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                      </div>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="3"
-                        step="0.1"
-                        value={selectedElement.lineHeight ?? 1.2}
-                        onMouseDown={onBeginHistory}
-                        onChange={(e) => onUpdateElementLive(selectedElement.id, { lineHeight: Number(e.target.value) })}
-                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Étirement (Width)</label>
-                        <div className="flex items-center gap-1">
-                          <input type="number" value={selectedElement.fontWidth ?? 100} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { fontWidth: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                          <span className="text-[10px] text-gray-400 font-mono">%</span>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min="50"
-                        max="200"
-                        step="1"
-                        value={selectedElement.fontWidth ?? 100}
-                        onMouseDown={onBeginHistory}
-                        onChange={(e) => onUpdateElementLive(selectedElement.id, { fontWidth: Number(e.target.value) })}
-                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <label className="text-[10px] font-bold text-gray-400 block uppercase">Courbure (Curve)</label>
-                        <input type="number" value={selectedElement.curve ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { curve: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                      </div>
-                      <input
-                        type="range"
-                        min="-100"
-                        max="100"
-                        step="1"
-                        value={selectedElement.curve ?? 0}
-                        onMouseDown={onBeginHistory}
-                        onChange={(e) => onUpdateElementLive(selectedElement.id, { curve: Number(e.target.value) })}
-                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-                      />
-                    </div>
-
-                    <div className="pt-2">
-                      <div className="flex justify-between mb-1">
-                        <label className="text-[10px] font-bold text-gray-400 block uppercase tracking-wide">Largeur Max (Wrapping)</label>
-                        <input type="number" value={selectedElement.maxWidth ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { maxWidth: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="2000"
-                        step="10"
-                        value={selectedElement.maxWidth ?? 0}
-                        onMouseDown={onBeginHistory}
-                        onChange={(e) => onUpdateElementLive(selectedElement.id, { maxWidth: Number(e.target.value) })}
-                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-                      />
-                      <p className="text-[8px] text-gray-400 mt-1 italic">Mettre à 0 pour une ligne unique.</p>
-                    </div>
-
-                    <div className="pt-2">
-                      <div className="flex justify-between mb-2">
-                        <label className="text-[10px] font-bold text-gray-400 block uppercase tracking-wide">Contour (Stroke)</label>
-                        <input type="number" step="0.5" value={selectedElement.strokeWidth ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="w-10 text-[10px] font-mono text-right bg-transparent outline-none" />
-                      </div>
-                      <div className="flex gap-2 items-center">
-                        <div className="relative w-8 h-8 shrink-0 overflow-hidden rounded border border-gray-200 bg-white">
-                          <input type="color" value={ensureFullHex(selectedElement.strokeColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="20"
-                          step="0.5"
-                          value={selectedElement.strokeWidth ?? 0}
-                          onMouseDown={onBeginHistory}
-                          onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeWidth: Number(e.target.value) })}
-                          className="flex-1 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedElement.type !== 'text' && (
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
-                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">LARGEUR</label><input type="number" value={Math.round(selectedElement.width)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { width: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">HAUTEUR</label><input type="number" value={Math.round(selectedElement.height)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { height: Number(e.target.value) })} className="w-full px-2 py-1 text-sm border border-gray-300 rounded" /></div>
-                  </div>
-                )}
+          <section className="pt-4 border-t border-gray-100">
+            <button onClick={() => toggleSection('export')} className="w-full flex items-center justify-between mb-3 group">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-900 flex items-center gap-2"><Download size={14} className="text-gray-400" /> Export & Actions</span>
+              <ChevronDown size={14} className={`text-gray-300 transition-transform ${openSections.export ? '' : '-rotate-90'}`} />
+            </button>
+            {openSections.export && (
+              <div className="space-y-2 animate-in fade-in duration-200">
+                <button onClick={() => onExport('svg')} className="w-full py-2 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-black transition-all shadow-sm">Exporter en SVG</button>
+                <div className="grid grid-cols-2 gap-2"><button onClick={() => onExport('png')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">PNG</button><button onClick={() => onExport('jpg')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">JPG</button></div>
+                <button onClick={onClearCanvas} className="w-full mt-4 py-2 text-red-400 hover:text-red-600 text-[9px] font-bold uppercase tracking-widest transition-colors">Vider le canvas</button>
               </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="h-40 flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg">
-            <p className="text-gray-300 text-xs text-center px-4 italic">Sélectionnez un ou plusieurs éléments sur le canvas pour les agencer.</p>
-          </div>
-        )}
-      </section>
-
-      <section className="pt-4 border-t border-gray-200">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2"><Download size={14} /> Exporter</h2>
-        <div className="flex flex-col gap-2">
-          <button onClick={() => onExport('svg')} className="w-full bg-gray-900 text-white text-xs font-bold py-2 rounded hover:bg-black uppercase tracking-widest transition-colors">SVG</button>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => onExport('png')} className="w-full bg-gray-100 text-gray-900 text-xs font-bold py-2 rounded hover:bg-gray-200 uppercase tracking-widest transition-colors">PNG</button>
-            <button onClick={() => onExport('jpg')} className="w-full bg-gray-100 text-gray-900 text-xs font-bold py-2 rounded hover:bg-gray-200 uppercase tracking-widest transition-colors">JPG</button>
-          </div>
+            )}
+          </section>
         </div>
-        <button onClick={onClearCanvas} className="w-full mt-4 py-2 text-red-500 text-[10px] font-bold uppercase hover:bg-red-50 rounded transition-colors">Vider le canvas</button>
-      </section>
+      </div>
     </div>
   );
 };
