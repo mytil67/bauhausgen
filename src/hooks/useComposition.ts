@@ -647,7 +647,7 @@ export const useComposition = () => {
         ...prev,
         elements: prev.elements.map((el) => {
           if (!set.has(el.id)) return el;
-          return { ...el, ...style };
+          return { ...el, ...style } as CompositionElement;
         }),
       };
     });

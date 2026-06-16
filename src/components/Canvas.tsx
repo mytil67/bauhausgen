@@ -65,6 +65,9 @@ export const Canvas: React.FC<CanvasProps> = ({
   onSendToBack,
   onBringForward,
   onSendBackward,
+  onCopyStyle,
+  onPasteStyle,
+  hasCopiedStyle,
   zoom,
 }) => {
   const [dragMode, setDragMode] = useState<DragMode>(null);
