@@ -375,7 +375,14 @@ function App() {
           >
             <Menu size={22} />
           </button>
-          <h1 className="text-sm font-black tracking-tight text-gray-900">BAUHAUS GEN</h1>
+          <div className="flex flex-col items-center">
+            <h1 className="text-sm font-black tracking-tight text-gray-900 leading-none">BAUHAUS GEN</h1>
+            <div className="flex items-center gap-1.5 mt-0.5 text-[8px] font-mono text-gray-400 uppercase tracking-tighter">
+              <span>v0.1.0</span>
+              <span>•</span>
+              <a href="https://github.com/mytil67/bauhausgen" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500">@mytil</a>
+            </div>
+          </div>
           <button
             onClick={() => { setLayersOpen(true); setSidebarOpen(false); }}
             className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 text-gray-700"
@@ -505,11 +512,26 @@ function App() {
           <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} className="p-1 hover:bg-gray-100 rounded" title="Zoomer (Ctrl + +)"><Plus size={14} /></button>
         </div>
 
-        {/* Status Bar */}
-        <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur px-3 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-4 text-[10px] font-mono text-gray-500 uppercase tracking-widest">
-          <span>{elements.length} éléments</span>
-          {selectedIds.length > 0 && <span>{selectedIds.length} sél.</span>}
-          <span>{canvasWidth}x{canvasHeight}px</span>
+        {/* Status Bar & Credits */}
+        <div className="absolute bottom-4 right-4 flex items-center gap-3">
+          <div className="bg-white/80 backdrop-blur px-3 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-4 text-[10px] font-mono text-gray-500 uppercase tracking-widest">
+            <span>{elements.length} éléments</span>
+            {selectedIds.length > 0 && <span>{selectedIds.length} sél.</span>}
+            <span>{canvasWidth}x{canvasHeight}px</span>
+          </div>
+          <div className="bg-white/80 backdrop-blur px-3 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-3 text-[10px] font-mono text-gray-400">
+            <span>v0.1.0</span>
+            <span className="w-px h-2.5 bg-gray-200" />
+            <a 
+              href="https://github.com/mytil67/bauhausgen" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 hover:text-blue-500 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+              <span>@mytil</span>
+            </a>
+          </div>
         </div>
       </main>
 
