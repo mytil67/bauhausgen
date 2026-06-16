@@ -3,7 +3,7 @@ import {
   Trash2, Copy, LayoutTemplate, ArrowUp, ArrowDown, Download,
   ChevronUp, ChevronDown
 } from 'lucide-react';
-import type { CompositionElement, ElementBounds } from '../types';
+import type { CompositionElement, TextElement, ElementBounds } from '../types';
 
 interface CanvasProps {
   elements: CompositionElement[];
@@ -58,6 +58,32 @@ const curveRadius = (el: CompositionElement): number => {
   }
   return Math.max(Math.abs(10000 / el.curve), 10);
 };
+
+/** Rend un `<text>` aux glyphes nus (sans décor/contour), réutilisé pour le masque de
+ *  découpe (knockout) et la cible de mesure invisible. */
+const glyphText = (el: TextElement, fill: string, extra: React.SVGProps<SVGTextElement> = {}) => (
+  <text
+    x="0"
+    y="0"
+    fontSize={el.fontSize}
+    fontFamily={el.fontFamily}
+    fontWeight={el.fontWeight}
+    fontStyle={el.italic ? 'italic' : 'normal'}
+    letterSpacing={el.letterSpacing ?? 0}
+    wordSpacing={el.wordSpacing ?? 0}
+    textAnchor={el.textAlign ?? 'middle'}
+    dominantBaseline="middle"
+    fill={fill}
+    style={{
+      textTransform: el.textTransform ?? 'none',
+      fontVariant: el.fontVariant ?? 'normal',
+      fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`,
+    }}
+    {...extra}
+  >
+    {el.text}
+  </text>
+);
 
 export const Canvas: React.FC<CanvasProps> = ({
   elements,
@@ -798,6 +824,26 @@ export const Canvas: React.FC<CanvasProps> = ({
               );
             }
 
+            // Masque de découpe (knockout) : plaque pleine, lettres en trou
+            if (el.type === 'text' && el.knockout && !el.curve) {
+              const b = bboxes[el.id] || FALLBACK_BBOX;
+              const pad = el.bgPadding ?? 16;
+              defs.push(
+                <mask
+                  key={`ko-${el.id}`}
+                  id={`knockout-${el.id}`}
+                  maskUnits="userSpaceOnUse"
+                  x={b.x - pad - 8}
+                  y={b.y - pad - 8}
+                  width={b.width + pad * 2 + 16}
+                  height={b.height + pad * 2 + 16}
+                >
+                  <rect x={b.x - pad} y={b.y - pad} width={b.width + pad * 2} height={b.height + pad * 2} rx={el.bgRadius ?? 0} fill="white" />
+                  {glyphText(el, 'black')}
+                </mask>
+              );
+            }
+
             // Path pour texte courbé (arc de cercle ou cercle complet)
             if (el.type === 'text' && el.curve && el.curve !== 0) {
               const curve = el.curve;
@@ -830,20 +876,26 @@ export const Canvas: React.FC<CanvasProps> = ({
           const innerTransform = `scale(${el.scaleX}, ${el.scaleY})`;
           const bbox = bboxes[el.id] || FALLBACK_BBOX;
 
-          // La boîte de sélection englobe le badge de fond s'il est actif (texte sans courbure)
-          const bgPad = el.type === 'text' && el.bgEnabled && !el.curve ? (el.bgPadding ?? 10) : 0;
+          // La boîte de sélection englobe la plaque (badge ou découpe) si active (texte sans courbure)
+          const plateActive = el.type === 'text' && !el.curve && (el.bgEnabled || el.knockout);
+          const bgPad = plateActive ? (el.bgPadding ?? (el.type === 'text' && el.knockout ? 16 : 10)) : 0;
           const sw = (bbox.width + bgPad * 2) * el.scaleX;
           const sh = (bbox.height + bgPad * 2) * el.scaleY;
           const sx = (bbox.x - bgPad) * el.scaleX;
           const sy = (bbox.y - bgPad) * el.scaleY;
 
-          const filterUrl = (el.shadowBlur && el.shadowBlur > 0) || (el.shadowOpacity && el.shadowOpacity > 0) 
-            ? `url(#filter-shadow-${el.id})` 
+          const filterUrl = (el.shadowBlur && el.shadowBlur > 0) || (el.shadowOpacity && el.shadowOpacity > 0)
+            ? `url(#filter-shadow-${el.id})`
             : undefined;
-          
+
           const fill = el.pattern
             ? `url(#pattern-${el.id})`
             : el.gradient ? `url(#gradient-${el.id})` : el.color;
+
+          // Ombres de texte multiples (CSS text-shadow), distinct du filtre drop-shadow
+          const textShadowCss = el.type === 'text' && el.textShadows && el.textShadows.length
+            ? el.textShadows.map((s) => `${s.x}px ${s.y}px ${s.blur}px ${s.color}`).join(', ')
+            : undefined;
 
           return (
             <g
@@ -863,8 +915,24 @@ export const Canvas: React.FC<CanvasProps> = ({
             >
               <g transform={innerTransform}>
                 {el.type === 'text' && editingId !== el.id && (
-                  el.maxWidth && el.maxWidth > 0 && (!el.curve || el.curve === 0) ? (
-                    <foreignObject 
+                  el.knockout && !el.curve ? (
+                    <>
+                      {/* Texte invisible pour la mesure (le bbox sert à dimensionner la plaque) */}
+                      {glyphText(el, 'none', { className: 'measure-target', 'aria-hidden': true })}
+                      {/* Plaque pleine, lettres découpées via le masque */}
+                      <rect
+                        x={(bboxes[el.id]?.x ?? 0) - (el.bgPadding ?? 16)}
+                        y={(bboxes[el.id]?.y ?? 0) - (el.bgPadding ?? 16)}
+                        width={(bboxes[el.id]?.width ?? 0) + (el.bgPadding ?? 16) * 2}
+                        height={(bboxes[el.id]?.height ?? 0) + (el.bgPadding ?? 16) * 2}
+                        rx={el.bgRadius ?? 0}
+                        ry={el.bgRadius ?? 0}
+                        fill={fill}
+                        mask={`url(#knockout-${el.id})`}
+                      />
+                    </>
+                  ) : el.maxWidth && el.maxWidth > 0 && (!el.curve || el.curve === 0) ? (
+                    <foreignObject
                       x={-el.maxWidth / 2} 
                       y={-(el.fontSize * (el.lineHeight ?? 1.2) * 2) / 2} 
                       width={el.maxWidth} 
@@ -895,6 +963,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                           ? `${el.textDecoration} ${el.textDecorationStyle ?? 'solid'} ${el.textDecorationColor ?? el.color}`
                           : 'none',
                         WebkitTextStroke: el.strokeWidth && el.strokeWidth > 0 ? `${el.strokeWidth}px ${el.strokeColor}` : 'none',
+                        textShadow: textShadowCss,
                         wordBreak: 'break-word',
                         whiteSpace: 'pre-wrap',
                         fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
@@ -938,6 +1007,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                           textDecoration: el.textDecoration && el.textDecoration !== 'none'
                             ? `${el.textDecoration} ${el.textDecorationStyle ?? 'solid'} ${el.textDecorationColor ?? el.color}`
                             : 'none',
+                          textShadow: textShadowCss,
                           fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
                         }}
                       >

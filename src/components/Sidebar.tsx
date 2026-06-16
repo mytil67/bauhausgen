@@ -685,6 +685,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </div>
                               )}
                             </div>
+
+                            {/* Texte découpé (knockout) */}
+                            <div className="p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" checked={!!selectedElement.knockout} onChange={(e) => onUpdateElement(selectedElement.id, { knockout: e.target.checked })} className="accent-gray-900" />
+                                <span className="text-[9px] font-bold text-gray-400 uppercase">Texte découpé (knockout)</span>
+                              </label>
+                              {selectedElement.knockout && (
+                                <>
+                                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
+                                    <div>
+                                      <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Marge</label>
+                                      <input type="number" value={selectedElement.bgPadding ?? 16} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgPadding: Number(e.target.value) })} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Rayon</label>
+                                      <input type="number" value={selectedElement.bgRadius ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgRadius: Number(e.target.value) })} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                    </div>
+                                  </div>
+                                  <p className="text-[8px] text-gray-300 italic">Les lettres laissent voir le fond / les éléments derrière. La couleur de la plaque = remplissage du texte.</p>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Ombres de texte multiples */}
+                            <div className="p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase">Ombres de texte</span>
+                                <button onClick={() => onUpdateElement(selectedElement.id, { textShadows: [...(selectedElement.textShadows ?? []), { x: 3, y: 3, blur: 0, color: '#000000' }] })} className="text-[9px] font-bold text-blue-600 uppercase">+ Ajouter</button>
+                              </div>
+                              {(selectedElement.textShadows ?? []).map((s, i) => (
+                                <div key={i} className="flex gap-1 items-center">
+                                  <div className="relative w-6 h-6 rounded border border-gray-200 overflow-hidden bg-white shrink-0" title="Couleur"><input type="color" value={ensureFullHex(s.color)} onMouseDown={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], color: e.target.value }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
+                                  <input type="number" title="Décalage X" value={s.x} onFocus={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], x: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                  <input type="number" title="Décalage Y" value={s.y} onFocus={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], y: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                  <input type="number" title="Flou" min="0" value={s.blur} onFocus={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], blur: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                  <button onClick={() => { const arr = (selectedElement.textShadows ?? []).filter((_, idx) => idx !== i); onUpdateElement(selectedElement.id, { textShadows: arr.length ? arr : undefined }); }} className="text-red-400 hover:text-red-600 shrink-0" title="Supprimer"><Trash2 size={11} /></button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       )}

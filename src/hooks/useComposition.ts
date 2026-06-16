@@ -625,7 +625,8 @@ export const useComposition = () => {
           'gradient', 'pattern', 'strokeColor', 'strokeWidth',
           'fontFamily', 'fontWeight', 'fontWidth', 'letterSpacing', 'lineHeight', 'textAlign', 'textTransform', 'italic', 'curve',
           'writingMode', 'fontVariant', 'textDecoration', 'textDecorationStyle', 'textDecorationColor', 'wordSpacing',
-          'curveType', 'curveInvert', 'bgEnabled', 'bgColor', 'bgPadding', 'bgRadius'
+          'curveType', 'curveInvert', 'bgEnabled', 'bgColor', 'bgPadding', 'bgRadius',
+          'knockout', 'textShadows'
         ] as const;
         const style: Partial<CompositionElement> = {};
         styleProps.forEach((prop) => {
