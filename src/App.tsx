@@ -318,6 +318,7 @@ function App() {
     onUngroup: () => ungroupSelection(selectedIds),
     onSetCanvasSize: handleSetCanvasSize,
     onLoadTemplate: (tpl: Parameters<typeof loadTemplate>[0]) => { setAutoCanvasSize(false); loadTemplate(tpl); },
+    onInteractionChange: setIsInteracting,
   };
 
   const layersPanelProps = {
@@ -465,13 +466,13 @@ function App() {
         {/* Overlay backdrop pour drawers */}
         {(sidebarOpen || layersOpen) && (
           <div
-            className="fixed inset-0 bg-black/30 z-40"
+            className={`fixed inset-0 z-40 transition-colors duration-200 ${isInteracting ? 'bg-transparent pointer-events-none' : 'bg-black/30'}`}
             onClick={() => { setSidebarOpen(false); setLayersOpen(false); }}
           />
         )}
 
         {/* Drawer Sidebar (gauche) */}
-        <div className={`fixed inset-y-0 left-0 z-50 w-[360px] max-w-[90vw] transform transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-[360px] max-w-[90vw] transform transition-all duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isInteracting ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
           <div className="h-full relative">
             <Sidebar {...sidebarProps} />
             <button

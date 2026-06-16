@@ -70,6 +70,7 @@ interface SidebarProps {
   onUngroup: () => void;
   onSetCanvasSize: (w: number, h: number) => void;
   onLoadTemplate: (tpl: Template) => void;
+  onInteractionChange?: (isInteracting: boolean) => void;
 }
 
 const ensureFullHex = (color: string): string => {
