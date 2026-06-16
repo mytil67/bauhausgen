@@ -26,13 +26,16 @@ npm run preview  # prévisualise le build
 - `hooks/useComposition.ts` — **source de vérité unique**. État `CompositionState`,
   persistance localStorage (clé `bauhaus-composition-state`), et toutes les actions
   (add/update/remove, align, distribute, z-order, couleurs, polices, export reset).
-- `components/Canvas.tsx` — rendu SVG + interactions souris (déplacer/redimensionner/
-  pivoter via poignées), cadre de sélection, et **smart guides type Figma/Canva** pendant
-  le drag. Le plus gros et le plus délicat des fichiers.
+- `hooks/useIsMobile.ts` — détection responsive (< 768px) via `useSyncExternalStore`
+  + `matchMedia`. Utilisé par `App.tsx` pour basculer entre layout desktop et mobile.
+- `components/Canvas.tsx` — rendu SVG + interactions souris **et tactiles** (déplacer/
+  redimensionner/pivoter via poignées), cadre de sélection, et **smart guides type
+  Figma/Canva** pendant le drag. Le plus gros et le plus délicat des fichiers.
 - `components/Sidebar.tsx` — panneau gauche : ajout d'éléments, alignement auto,
   upload de police, couleurs, propriétés de l'élément sélectionné, export.
 - `types/index.ts` — `CompositionElement = TextElement | ShapeElement`, `CompositionState`.
-- `App.tsx` — assemble le tout + logique d'export SVG/PNG/JPG.
+- `App.tsx` — assemble le tout + logique d'export SVG/PNG/JPG + **layout responsive**
+  (desktop = flex 3 colonnes, mobile = drawers coulissants + barre d'outils en bas).
 
 ## Modèle de données
 - `BaseElement` : id, type, x, y, rotation, scaleX, scaleY, color, opacity.
@@ -43,6 +46,7 @@ npm run preview  # prévisualise le build
 
 ## Conventions / pièges
 - Les coordonnées canvas viennent de `getScreenCTM()` — ne pas mélanger avec coords écran.
+  `getPositionFromClient(clientX, clientY)` est le helper unifié (mouse & touch).
 - `bboxes` (getBBox) est recalculé via effet après chaque changement d'`elements` ; il y a
   un délai d'un render → les fallbacks `{-50,-25,100,50}` couvrent ce cas.
 - Le scale est appliqué dans un `<g>` interne séparé pour que l'UI de sélection reste à
@@ -120,11 +124,37 @@ placé dans le groupe interne (hérite translate/rotate/scale). `onChange` → `
 (pas d'historique par frappe ; `beginHistory` au démarrage de l'édition). Sortie sur
 Entrée/Échap/blur. Les poignées sont masquées pendant l'édition (`editingId !== el.id`).
 
+## Version mobile (ajout 2026-06-16)
+Layout responsive piloté par `useIsMobile` (breakpoint 768px).
+
+**Desktop** (inchangé) : flex 3 colonnes — Sidebar | Canvas | LayersPanel.
+
+**Mobile** :
+- **Header** : hamburger (ouvre Sidebar en drawer gauche) + titre + icône calques
+  (ouvre LayersPanel en drawer droit). Drawers avec backdrop semi-transparent + bouton ✕.
+- **Canvas** : occupe tout l'espace central, zoom en haut à droite, padding réduit (`p-4`).
+- **Barre d'outils en bas** : Annuler / Rétablir / bouton **+** central (menu popup
+  d'ajout rapide : Texte, Rect, Cercle, Triangle) / Supprimer / Export PNG.
+  Classe `.safe-area-bottom` pour les appareils à encoche.
+- **Touch** : `onTouchStart` sur chaque élément SVG → sélection + drag.
+  `handleCanvasTouchStart` sur le fond → désélection. Touch move/end branchés sur le
+  même pipeline que les mouse events via objet synthétique `{ clientX, clientY }`.
+  `touch-action: none` sur le conteneur canvas pour bloquer le scroll/zoom navigateur.
+- **Viewport** : `maximum-scale=1, user-scalable=no` dans `index.html`.
+  `touch-action: manipulation` sur les boutons (CSS).
+
+**Limitations actuelles mobile** :
+- Pas de pinch-to-zoom (zoom uniquement via boutons +/−).
+- Pas de marquee (rubber-band) tactile, seulement tap-to-select.
+- Les poignées de resize/rotation ne sont pas adaptées aux doigts (taille inchangée).
+- Pas de double-tap pour édition inline de texte.
+
 ## Dette restante / idées
 - Coalescing d'historique sur les inputs number/text (1 entrée par caractère actuellement).
 - Export Google Fonts dépend d'un fetch réseau (CORS) — peut retomber sur système hors-ligne.
 - Pas de redimensionnement multi, pas de calques nommés, pas de copier/coller inter-onglets.
 - `localStorage` réécrit à chaque changement de `doc` (mineur).
+- Mobile : pinch-to-zoom, poignées plus grosses, marquee tactile, double-tap pour éditer.
 
 ## Décisions de design à respecter
 - Esthétique sobre « pro » (gris/blanc, accents bleus #3b82f6, magenta pour guides,
