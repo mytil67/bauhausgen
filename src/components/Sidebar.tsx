@@ -797,11 +797,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.italic ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
                         title="Italique"
                       ><Italic size={14} /></button>
+                      <div className="w-px h-4 bg-gray-200 self-center mx-1" />
                       <button
                         onClick={() => onUpdateElement(selectedElement.id, { textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase' })}
-                        className={`flex-1 flex justify-center p-1.5 rounded ${selectedElement.textTransform === 'uppercase' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[10px] flex items-center ${selectedElement.textTransform === 'uppercase' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
                         title="Majuscules"
-                      ><CaseSensitive size={14} /></button>
+                      >AA</button>
+                      <button
+                        onClick={() => onUpdateElement(selectedElement.id, { textTransform: selectedElement.textTransform === 'lowercase' ? 'none' : 'lowercase' })}
+                        className={`flex-1 flex justify-center p-1.5 rounded font-bold text-[10px] flex items-center ${selectedElement.textTransform === 'lowercase' ? 'bg-white shadow-sm text-blue-600' : 'hover:bg-gray-100 opacity-60'}`}
+                        title="Minuscules"
+                      >aa</button>
                     </div>
 
                     <div>
