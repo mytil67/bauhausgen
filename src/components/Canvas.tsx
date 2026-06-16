@@ -786,10 +786,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           const innerTransform = `scale(${el.scaleX}, ${el.scaleY})`;
           const bbox = bboxes[el.id] || FALLBACK_BBOX;
 
-          const sw = bbox.width * el.scaleX;
-          const sh = bbox.height * el.scaleY;
-          const sx = bbox.x * el.scaleX;
-          const sy = bbox.y * el.scaleY;
+          // La boîte de sélection englobe le badge de fond s'il est actif (texte sans courbure)
+          const bgPad = el.type === 'text' && el.bgEnabled && !el.curve ? (el.bgPadding ?? 10) : 0;
+          const sw = (bbox.width + bgPad * 2) * el.scaleX;
+          const sh = (bbox.height + bgPad * 2) * el.scaleY;
+          const sx = (bbox.x - bgPad) * el.scaleX;
+          const sy = (bbox.y - bgPad) * el.scaleY;
 
           const filterUrl = (el.shadowBlur && el.shadowBlur > 0) || (el.shadowOpacity && el.shadowOpacity > 0) 
             ? `url(#filter-shadow-${el.id})` 
@@ -895,7 +897,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                       >
                         {el.curve && el.curve !== 0 && el.writingMode !== 'vertical' ? (
                           <textPath 
-                            xlinkHref={`#path-${el.id}`} 
+                            href={`#path-${el.id}`} 
                             startOffset="50%" 
                             textAnchor="middle"
                             {...(el.curveType === 'circle' ? { 
