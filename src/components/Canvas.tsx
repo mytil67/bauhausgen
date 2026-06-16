@@ -42,6 +42,23 @@ type DragMode = 'move' | 'rotate' | ResizeHandle | null;
 
 const FALLBACK_BBOX = { x: -50, y: -25, width: 100, height: 50 } as DOMRect;
 
+/**
+ * Rayon du cercle support pour un texte courbé.
+ * - mode « arc » : rayon dérivé de la courbure (10000/curve) — courbe douce → grand rayon.
+ * - mode « circle » (360°) : rayon calculé d'après la LONGUEUR du texte pour qu'il fasse
+ *   exactement le tour sans étirement ni débordement (la circonférence ≈ largeur du mot).
+ */
+const curveRadius = (el: CompositionElement): number => {
+  if (el.type !== 'text' || !el.curve) return 10;
+  if (el.curveType === 'circle') {
+    const est =
+      Math.max(el.text.length, 1) * el.fontSize * 0.6 * ((el.fontWidth ?? 100) / 100) +
+      el.text.length * (el.letterSpacing ?? 0);
+    return Math.max(est / (2 * Math.PI), el.fontSize * 0.7);
+  }
+  return Math.max(Math.abs(10000 / el.curve), 10);
+};
+
 export const Canvas: React.FC<CanvasProps> = ({
   elements,
   selectedIds,
@@ -757,7 +774,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             // Path pour texte courbé (arc de cercle ou cercle complet)
             if (el.type === 'text' && el.curve && el.curve !== 0) {
               const curve = el.curve;
-              const r = Math.max(Math.abs(10000 / curve), 10);
+              const r = curveRadius(el);
               const sweep = (curve > 0) !== !!el.curveInvert ? 1 : 0;
               
               // On crée systématiquement un cercle complet dont l'apex (le sommet ou le creux) est exactement à (0,0).
@@ -900,9 +917,9 @@ export const Canvas: React.FC<CanvasProps> = ({
                             href={`#path-${el.id}`} 
                             startOffset="50%" 
                             textAnchor="middle"
-                            {...(el.curveType === 'circle' ? { 
-                              textLength: Math.PI * 2 * Math.max(Math.abs(10000 / el.curve), 10), 
-                              lengthAdjust: "spacing" 
+                            {...(el.curveType === 'circle' ? {
+                              textLength: Math.PI * 2 * curveRadius(el),
+                              lengthAdjust: "spacing"
                             } : {})}
                           >
                             {el.text}
