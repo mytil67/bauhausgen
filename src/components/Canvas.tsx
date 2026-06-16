@@ -834,6 +834,12 @@ export const Canvas: React.FC<CanvasProps> = ({
                         letterSpacing: (el.letterSpacing ?? 0) + 'px',
                         textAlign: (el.textAlign === 'middle' ? 'center' : el.textAlign === 'end' ? 'right' : 'left') as any,
                         textTransform: el.textTransform ?? 'none',
+                        fontVariant: el.fontVariant ?? 'normal',
+                        wordSpacing: (el.wordSpacing ?? 0) + 'px',
+                        writingMode: el.writingMode === 'vertical' ? 'vertical-rl' : 'horizontal-tb',
+                        textDecoration: el.textDecoration && el.textDecoration !== 'none'
+                          ? `${el.textDecoration} ${el.textDecorationStyle ?? 'solid'} ${el.textDecorationColor ?? el.color}`
+                          : 'none',
                         WebkitTextStroke: el.strokeWidth && el.strokeWidth > 0 ? `${el.strokeWidth}px ${el.strokeColor}` : 'none',
                         wordBreak: 'break-word',
                         whiteSpace: 'pre-wrap',
@@ -851,6 +857,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                       fontWeight={el.fontWeight}
                       fontStyle={el.italic ? 'italic' : 'normal'}
                       letterSpacing={el.letterSpacing ?? 0}
+                      wordSpacing={el.wordSpacing ?? 0}
                       fill={fill}
                       stroke={el.strokeWidth && el.strokeWidth > 0 ? el.strokeColor : 'none'}
                       strokeWidth={el.strokeWidth ?? 0}
@@ -858,12 +865,17 @@ export const Canvas: React.FC<CanvasProps> = ({
                       textAnchor={el.textAlign ?? 'middle'}
                       dominantBaseline="middle"
                       className="select-none"
-                      style={{ 
+                      style={{
                         textTransform: el.textTransform ?? 'none',
+                        fontVariant: el.fontVariant ?? 'normal',
+                        writingMode: el.writingMode === 'vertical' ? 'vertical-rl' : 'horizontal-tb',
+                        textDecoration: el.textDecoration && el.textDecoration !== 'none'
+                          ? `${el.textDecoration} ${el.textDecorationStyle ?? 'solid'} ${el.textDecorationColor ?? el.color}`
+                          : 'none',
                         fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
                       }}
                     >
-                      {el.curve && el.curve !== 0 ? (
+                      {el.curve && el.curve !== 0 && el.writingMode !== 'vertical' ? (
                         <textPath xlinkHref={`#path-${el.id}`} startOffset="50%" textAnchor="middle">
                           {el.text}
                         </textPath>
@@ -983,17 +995,20 @@ export const Canvas: React.FC<CanvasProps> = ({
           {/* Badges d'espacement (bleu) / espacement égal (rose) */}
           {measurements.map((m, i) => {
             const isVertical = m.x1 === m.x2;
-            const color = m.kind === 'equal' ? '#ec4899' : '#2563eb';
-            const labelW = Math.max(18, String(m.value).length * 7 + 8) / zoom;
+            const color = m.kind === 'equal' ? '#ec4899' : '#ec4899'; // On utilise le rose partout pour un look Canva/Figma cohérent
+            const labelW = Math.max(20, String(m.value).length * 6 + 10) / zoom;
+            const labelH = 14 / zoom;
             const mx = (m.x1 + m.x2) / 2;
             const my = (m.y1 + m.y2) / 2;
-            const a = 3 / zoom; // taille des têtes de flèche compensée
-            // Pastille décalée pour ne pas masquer la ligne de mesure
-            const labelCx = isVertical ? mx + labelW / 2 + 5 / zoom : mx;
-            const labelCy = isVertical ? my : my - 11 / zoom;
+            const a = 4 / zoom; // taille des têtes de flèche
+            
+            // On centre le label sur la ligne
+            const labelCx = mx;
+            const labelCy = my;
 
             return (
               <g key={`m-${i}`}>
+                {/* Zone d'espacement (très subtile) */}
                 {m.kind === 'equal' && (
                   <rect
                     x={isVertical ? m.x1 - 10 / zoom : Math.min(m.x1, m.x2)}
@@ -1001,11 +1016,14 @@ export const Canvas: React.FC<CanvasProps> = ({
                     width={isVertical ? 20 / zoom : Math.abs(m.x2 - m.x1)}
                     height={isVertical ? Math.abs(m.y2 - m.y1) : 20 / zoom}
                     fill={color}
-                    opacity="0.1"
+                    opacity="0.05"
                   />
                 )}
+                
+                {/* Ligne principale */}
                 <line x1={m.x1} y1={m.y1} x2={m.x2} y2={m.y2} stroke={color} strokeWidth={strokeGuide} />
-                {/* Doubles flèches aux extrémités */}
+                
+                {/* Têtes de flèches (double flèche) */}
                 {isVertical ? (
                   <>
                     <path d={`M${m.x1 - a},${m.y1 + a} L${m.x1},${m.y1} L${m.x1 + a},${m.y1 + a}`} fill="none" stroke={color} strokeWidth={strokeGuide} />
@@ -1017,8 +1035,26 @@ export const Canvas: React.FC<CanvasProps> = ({
                     <path d={`M${m.x2 - a},${m.y2 - a} L${m.x2},${m.y2} L${m.x2 - a},${m.y2 + a}`} fill="none" stroke={color} strokeWidth={strokeGuide} />
                   </>
                 )}
-                <rect x={labelCx - labelW / 2} y={labelCy - 7 / zoom} width={labelW} height={14 / zoom} fill={color} rx={3 / zoom} />
-                <text x={labelCx} y={labelCy} fontSize={9 / zoom} fontWeight="bold" fill="white" textAnchor="middle" dominantBaseline="central" className="select-none font-mono">
+
+                {/* Petit carré (badge) avec la valeur */}
+                <rect 
+                  x={labelCx - labelW / 2} 
+                  y={labelCy - labelH / 2} 
+                  width={labelW} 
+                  height={labelH} 
+                  fill={color} 
+                  rx={2 / zoom} 
+                />
+                <text 
+                  x={labelCx} 
+                  y={labelCy} 
+                  fontSize={8 / zoom} 
+                  fontWeight="bold" 
+                  fill="white" 
+                  textAnchor="middle" 
+                  dominantBaseline="central" 
+                  className="select-none font-sans"
+                >
                   {m.value}
                 </text>
               </g>
