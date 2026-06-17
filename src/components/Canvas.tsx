@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Trash2, Copy, LayoutTemplate, ArrowUp, ArrowDown, Download,
   ChevronUp, ChevronDown
@@ -32,6 +32,8 @@ interface CanvasProps {
   onCopyStyle: (id: string) => void;
   onPasteStyle: (ids: string[]) => void;
   hasCopiedStyle: boolean;
+  /** Ref optionnelle : Canvas y place une fonction de mesure fraîche des bbox (pour l'alignement). */
+  measureRef?: React.MutableRefObject<(() => ElementBounds) | null>;
   zoom: number;
 }
 
@@ -146,6 +148,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   onCopyStyle,
   onPasteStyle,
   hasCopiedStyle,
+  measureRef,
   zoom,
 }) => {
   const [dragMode, setDragMode] = useState<DragMode>(null);
@@ -343,15 +346,31 @@ export const Canvas: React.FC<CanvasProps> = ({
     };
   }, [marqueeActive, elements, bboxes, onSelect, onSelectMany]);
 
+  // Mesure fraîche des boîtes englobantes (getBBox) de tous les éléments, à la demande.
+  const measureBounds = useCallback((): { [key: string]: DOMRect } => {
+    const nb: { [key: string]: DOMRect } = {};
+    elements.forEach((el) => {
+      const ref = elementRefs.current[el.id];
+      if (ref) {
+        const content = (ref.querySelector('.measure-target') || ref.querySelector('text, rect, circle, polygon, path, image')) as SVGGraphicsElement;
+        if (content) nb[el.id] = content.getBBox();
+      }
+    });
+    return nb;
+  }, [elements]);
+
+  // Expose une mesure fraîche pour l'alignement (évite d'utiliser un cache périmé).
+  useEffect(() => {
+    if (measureRef) measureRef.current = measureBounds;
+  }, [measureRef, measureBounds]);
+
   useEffect(() => {
     const newBboxes: { [key: string]: DOMRect } = {};
     elements.forEach((el) => {
       const ref = elementRefs.current[el.id];
       if (ref) {
         const content = (ref.querySelector('.measure-target') || ref.querySelector('text, rect, circle, polygon, path, image')) as SVGGraphicsElement;
-        if (content) {
-          newBboxes[el.id] = content.getBBox();
-        }
+        if (content) newBboxes[el.id] = content.getBBox();
       }
     });
     setBboxes(newBboxes);

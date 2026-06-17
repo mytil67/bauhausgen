@@ -77,13 +77,16 @@ function App() {
   const handleBoundsChange = useCallback((b: ElementBounds) => {
     boundsRef.current = b;
   }, []);
+  // Mesure fraîche à la demande (alignement) : évite un cache périmé (polices, etc.)
+  const measureRef = useRef<(() => ElementBounds) | null>(null);
+  const freshBounds = useCallback(() => measureRef.current?.() ?? boundsRef.current, []);
   const handleAlign = useCallback(
-    (dir: AlignDirection, toPage: boolean) => alignElements(dir, selectedIds, boundsRef.current, toPage),
-    [alignElements, selectedIds],
+    (dir: AlignDirection, toPage: boolean) => alignElements(dir, selectedIds, freshBounds(), toPage),
+    [alignElements, selectedIds, freshBounds],
   );
   const handleDistribute = useCallback(
-    (axis: DistributeAxis) => distributeElements(axis, selectedIds, boundsRef.current),
-    [distributeElements, selectedIds],
+    (axis: DistributeAxis) => distributeElements(axis, selectedIds, freshBounds()),
+    [distributeElements, selectedIds, freshBounds],
   );
 
   const isMobile = useIsMobile();
@@ -409,6 +412,7 @@ function App() {
       onRemoveSelection={removeSelection}
       onBeginHistory={beginHistory}
       onBoundsChange={handleBoundsChange}
+      measureRef={measureRef}
       onDuplicate={() => duplicateSelection(selectedIds)}
       onCopy={() => copySelection(selectedIds)}
       onPaste={pasteClipboard}

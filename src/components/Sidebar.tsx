@@ -209,7 +209,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedElement,
   selectedIds,
   selectionCount,
-  elementCount,
   backgroundColor,
   customColors,
   customFonts,
@@ -275,10 +274,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const canAlignSelection = selectionCount >= 2;
-  const effectiveToPage = canAlignSelection ? alignToPage : true;
-  const canAlign = effectiveToPage ? elementCount >= 1 : canAlignSelection;
-  const canDistribute = selectionCount >= 3 || (selectionCount < 3 && elementCount >= 3);
+  const canAlignSelection = selectionCount >= 2;          // aligner les sélectionnés entre eux
+  const effectiveToPage = canAlignSelection ? alignToPage : true; // <2 sélectionnés → forcément Page
+  const canAlign = effectiveToPage ? selectionCount >= 1 : canAlignSelection; // Page = aligne la sélection
+  const canDistribute = selectionCount >= 3;              // répartir = sur la sélection (≥3)
 
   const alignButtons = [
     { dir: 'left', Icon: AlignStartVertical, label: 'Gauche' },

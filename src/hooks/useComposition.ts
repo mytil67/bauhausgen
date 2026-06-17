@@ -607,27 +607,25 @@ export const useComposition = () => {
   const alignElements = useCallback(
     (direction: AlignDirection, ids: string[], bounds: ElementBounds, toPage = false) => {
       commit((prev) => {
-        // Cible : la page, ou la sélection (>=2 éléments). Sinon rien à faire.
-        const useSelection = !toPage && ids.length >= 2;
-        if (!toPage && !useSelection) return prev;
-
+        // On aligne TOUJOURS la sélection (jamais tous les éléments). Le référentiel
+        // est la PAGE (toPage) ou la boîte englobante du groupe sélectionné.
         const set = new Set(ids);
-        const targets = useSelection
-          ? prev.elements.filter((el) => set.has(el.id))
-          : prev.elements;
-        if (targets.length < 1) return prev;
+        const targets = prev.elements.filter((el) => set.has(el.id));
+        if (targets.length === 0) return prev;
+        // Aligner la sélection sur elle-même n'a de sens qu'à partir de 2 éléments.
+        if (!toPage && targets.length < 2) return prev;
 
         const boxes = targets.map((el) => getBox(el, bounds));
 
-        // Référentiel d'alignement (boîte de groupe ou page)
-        const ref = useSelection
-          ? {
+        // Référentiel d'alignement (page ou boîte de groupe)
+        const ref = toPage
+          ? { left: 0, right: prev.canvasWidth, top: 0, bottom: prev.canvasHeight }
+          : {
               left: Math.min(...boxes.map((b) => b.left)),
               right: Math.max(...boxes.map((b) => b.right)),
               top: Math.min(...boxes.map((b) => b.top)),
               bottom: Math.max(...boxes.map((b) => b.bottom)),
-            }
-          : { left: 0, right: prev.canvasWidth, top: 0, bottom: prev.canvasHeight };
+            };
         const refCx = (ref.left + ref.right) / 2;
         const refCy = (ref.top + ref.bottom) / 2;
 
@@ -667,12 +665,9 @@ export const useComposition = () => {
   const distributeElements = useCallback(
     (axis: DistributeAxis, ids: string[], bounds: ElementBounds) => {
       commit((prev) => {
-        // Distribue la sélection (>=3) ou, à défaut, tous les éléments.
-        const useSelection = ids.length >= 3;
+        // Distribue uniquement la sélection (>=3 éléments).
         const set = new Set(ids);
-        const targets = useSelection
-          ? prev.elements.filter((el) => set.has(el.id))
-          : prev.elements;
+        const targets = prev.elements.filter((el) => set.has(el.id));
         if (targets.length < 3) return prev;
 
         const horizontal = axis === 'horizontal';
