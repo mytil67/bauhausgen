@@ -30,6 +30,8 @@ import {
   ChevronDown,
   Underline,
   Strikethrough,
+  Pipette,
+  Brush,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -70,6 +72,9 @@ interface SidebarProps {
   onApplyColor: (color: string) => void;
   onGroup: () => void;
   onUngroup: () => void;
+  onCopyStyle: (id: string) => void;
+  onPasteStyle: (ids: string[]) => void;
+  hasCopiedStyle: boolean;
   onSetCanvasSize: (w: number, h: number) => void;
   onLoadTemplate: (tpl: Template) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
@@ -192,6 +197,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onApplyColor,
   onGroup,
   onUngroup,
+  onCopyStyle,
+  onPasteStyle,
+  hasCopiedStyle,
   onSetCanvasSize,
   onLoadTemplate,
 }) => {
@@ -430,6 +438,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {(selectedElement?.groupId || selectedIds.some(id => elements.find(e => e.id === id)?.groupId)) && (
                     <button onClick={onUngroup} className="flex-1 py-1.5 bg-gray-50 border border-gray-200 rounded text-[10px] font-bold uppercase text-gray-500 hover:bg-white transition-all">Dégrouper</button>
                   )}
+                </div>
+                {/* Copier / coller la mise en forme (police, taille, couleur, effets…) */}
+                <div className="flex gap-2 mt-2">
+                  <button onClick={() => selectionCount === 1 && onCopyStyle(selectedIds[0])} disabled={selectionCount !== 1} title="Copier police, taille, couleur, effets… (Ctrl+Alt+C)" className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-gray-50 border border-gray-200 rounded text-[10px] font-bold uppercase text-gray-500 hover:bg-white hover:text-blue-600 transition-all disabled:opacity-20"><Pipette size={13} /> Copier le format</button>
+                  <button onClick={() => onPasteStyle(selectedIds)} disabled={!hasCopiedStyle || selectionCount === 0} title="Appliquer la mise en forme copiée (Ctrl+Alt+V)" className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-gray-50 border border-gray-200 rounded text-[10px] font-bold uppercase text-gray-500 hover:bg-white hover:text-blue-600 transition-all disabled:opacity-20"><Brush size={13} /> Coller</button>
                 </div>
               </section>
 
