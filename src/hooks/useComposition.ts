@@ -645,6 +645,12 @@ export const useComposition = () => {
             (style as any)[prop] = (el as any)[prop];
           }
         });
+        // Taille visuelle d'un texte redimensionné aux poignées (= scale). Copiée
+        // uniquement depuis un texte (les formes se dimensionnent via largeur/hauteur).
+        if (el.type === 'text') {
+          style.scaleX = el.scaleX;
+          style.scaleY = el.scaleY;
+        }
         copiedStyleRef.current = style;
         setHasCopiedStyle(true);
       }
@@ -661,6 +667,13 @@ export const useComposition = () => {
         ...prev,
         elements: prev.elements.map((el) => {
           if (!set.has(el.id)) return el;
+          // Le scale (taille du texte) ne s'applique qu'à une cible texte ; on l'omet
+          // pour une forme afin de ne pas la redimensionner involontairement.
+          if (el.type !== 'text' && ('scaleX' in style || 'scaleY' in style)) {
+            const { scaleX, scaleY, ...rest } = style;
+            void scaleX; void scaleY;
+            return { ...el, ...rest } as CompositionElement;
+          }
           return { ...el, ...style } as CompositionElement;
         }),
       };
