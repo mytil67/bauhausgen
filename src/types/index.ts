@@ -27,6 +27,7 @@ export interface BaseElement {
   shadowOpacity?: number;
   strokeColor?: string;
   strokeWidth?: number;
+  noFill?: boolean; // Remplissage transparent (forme/texte évidé, contour seul)
   gradient?: {
     type: 'linear' | 'radial';
     colors: { offset: number; color: string; opacity: number }[];

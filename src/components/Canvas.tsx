@@ -910,9 +910,16 @@ export const Canvas: React.FC<CanvasProps> = ({
             ? `url(#filter-shadow-${el.id})`
             : undefined;
 
-          const fill = el.pattern
+          const fill = el.noFill
+            ? 'none'
+            : el.pattern
             ? `url(#pattern-${el.id})`
             : el.gradient ? `url(#gradient-${el.id})` : el.color;
+
+          // Contour des formes (le texte gère son propre stroke)
+          const shapeStroke = el.strokeWidth && el.strokeWidth > 0
+            ? { stroke: el.strokeColor ?? '#000000', strokeWidth: el.strokeWidth, strokeLinejoin: 'round' as const }
+            : {};
 
           // Ombres de texte multiples (CSS text-shadow), distinct du filtre drop-shadow
           const textShadowCss = el.type === 'text' && el.textShadows && el.textShadows.length
@@ -1085,12 +1092,12 @@ export const Canvas: React.FC<CanvasProps> = ({
                     </foreignObject>
                   );
                 })()}
-                {(el.type === 'rect' || el.type === 'line') && <rect x={-el.width / 2} y={-el.height / 2} width={el.width} height={el.height} fill={fill} />}
-                {el.type === 'circle' && <circle cx="0" cy="0" r={el.width / 2} fill={fill} />}
-                {el.type === 'triangle' && <polygon points={`0,${-el.height / 2} ${el.width / 2},${el.height / 2} ${-el.width / 2},${el.height / 2}`} fill={fill} />}
-                {el.type === 'semicircle' && <path d={`M ${-el.width / 2},${el.height / 2} A ${el.width / 2} ${el.height} 0 0 1 ${el.width / 2} ${el.height / 2} Z`} fill={fill} />}
-                {el.type === 'quarter' && <path d={`M ${-el.width / 2},${el.height / 2} L ${el.width / 2},${el.height / 2} A ${el.width} ${el.height} 0 0 0 ${-el.width / 2},${-el.height / 2} Z`} fill={fill} />}
-                {el.type === 'ring' && <path fillRule="evenodd" d={`M ${-el.width / 2},0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${el.width / 2} 0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${-el.width / 2} 0 Z M ${-el.width / 4},0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${el.width / 4} 0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${-el.width / 4} 0 Z`} fill={fill} />}
+                {(el.type === 'rect' || el.type === 'line') && <rect x={-el.width / 2} y={-el.height / 2} width={el.width} height={el.height} fill={fill} {...shapeStroke} />}
+                {el.type === 'circle' && <circle cx="0" cy="0" r={el.width / 2} fill={fill} {...shapeStroke} />}
+                {el.type === 'triangle' && <polygon points={`0,${-el.height / 2} ${el.width / 2},${el.height / 2} ${-el.width / 2},${el.height / 2}`} fill={fill} {...shapeStroke} />}
+                {el.type === 'semicircle' && <path d={`M ${-el.width / 2},${el.height / 2} A ${el.width / 2} ${el.height} 0 0 1 ${el.width / 2} ${el.height / 2} Z`} fill={fill} {...shapeStroke} />}
+                {el.type === 'quarter' && <path d={`M ${-el.width / 2},${el.height / 2} L ${el.width / 2},${el.height / 2} A ${el.width} ${el.height} 0 0 0 ${-el.width / 2},${-el.height / 2} Z`} fill={fill} {...shapeStroke} />}
+                {el.type === 'ring' && <path fillRule="evenodd" d={`M ${-el.width / 2},0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${el.width / 2} 0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${-el.width / 2} 0 Z M ${-el.width / 4},0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${el.width / 4} 0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${-el.width / 4} 0 Z`} fill={fill} {...shapeStroke} />}
               </g>
 
               {/* Contour de sélection (toujours visible si sélectionné) */}
