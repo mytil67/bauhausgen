@@ -100,6 +100,40 @@ const ensureFullHex = (color: string): string => {
   return '#000000';
 };
 
+/** Normalise une saisie hex (#abc, abcdef…) ; renvoie null si invalide (frappe en cours tolérée). */
+const normalizeHexInput = (val: string): string | null => {
+  let v = val.trim();
+  if (v && !v.startsWith('#')) v = '#' + v;
+  if (v === '' || /^#[0-9A-Fa-f]{0,6}$/.test(v)) return v;
+  return null;
+};
+
+/**
+ * Sélecteur de couleur réutilisable : pastille (input color) + champ hexadécimal
+ * où l'on peut TAPER ou COLLER un code (#RRGGBB). Utilisé partout.
+ */
+const ColorField: React.FC<{
+  value: string;
+  onChange: (c: string) => void;
+  onBeginHistory?: () => void;
+  swatch?: string; // classes de taille de la pastille
+}> = ({ value, onChange, onBeginHistory, swatch = 'w-7 h-7' }) => (
+  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+    <div className={`relative ${swatch} rounded border border-gray-200 overflow-hidden shrink-0 bg-white`}>
+      <input type="color" value={ensureFullHex(value)} onMouseDown={onBeginHistory} onChange={(e) => onChange(e.target.value)} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
+    </div>
+    <input
+      type="text"
+      value={value}
+      onFocus={onBeginHistory}
+      onChange={(e) => { const n = normalizeHexInput(e.target.value); if (n !== null) onChange(n); }}
+      placeholder="#000000"
+      spellCheck={false}
+      className="flex-1 min-w-0 px-2 py-1 text-xs font-mono uppercase border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-400 outline-none"
+    />
+  </div>
+);
+
 // Aperçu vectoriel d'une forme (pour les boutons d'ajout)
 const ShapeIcon: React.FC<{ type: ShapeType }> = ({ type }) => {
   const c = 'currentColor';
@@ -255,14 +289,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { dir: 'bottom', Icon: AlignEndHorizontal, label: 'Bas' },
   ] as const;
 
-  const handleColorInput = (val: string, callback: (color: string) => void) => {
-    let normalized = val;
-    if (!val.startsWith('#') && val.length > 0) normalized = '#' + val;
-    if (/^#[0-9A-Fa-f]{0,6}$/.test(normalized) || normalized === '') {
-      callback(normalized);
-    }
-  };
-
   const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -378,10 +404,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Palette size={14} className="text-gray-400" /> Couleur de Fond
                 </div>
                 <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-100 mb-3">
-                  <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0">
-                    <input type="color" value={ensureFullHex(backgroundColor)} onChange={(e) => onUpdateBackground(e.target.value)} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
-                  </div>
-                  <input type="text" value={backgroundColor} onChange={(e) => handleColorInput(e.target.value, onUpdateBackground)} className="bg-transparent text-sm font-mono uppercase outline-none flex-1 w-20" />
+                  <ColorField value={backgroundColor} onChange={onUpdateBackground} swatch="w-8 h-8" />
                   <button onClick={() => onSaveColor(backgroundColor)} className="text-[10px] font-bold text-blue-600 uppercase hover:underline shrink-0">Mémoriser</button>
                 </div>
 
@@ -406,7 +429,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="space-y-2">
                       {backgroundGradient.colors.map((c, i) => (
                         <div key={i} className="flex gap-2 items-center">
-                          <div className="relative w-5 h-5 rounded border border-gray-200 bg-white overflow-hidden shrink-0"><input type="color" value={ensureFullHex(c.color)} onMouseDown={onBeginHistory} onChange={(e) => { const nc = [...backgroundGradient.colors]; nc[i] = { ...nc[i], color: e.target.value }; onSetBackgroundGradientLive({ ...backgroundGradient, colors: nc }); }} className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] cursor-pointer" /></div>
+                          <ColorField value={c.color} onBeginHistory={onBeginHistory} onChange={(col) => { const nc = [...backgroundGradient.colors]; nc[i] = { ...nc[i], color: col }; onSetBackgroundGradientLive({ ...backgroundGradient, colors: nc }); }} swatch="w-5 h-5" />
                           <input type="range" min="0" max="1" step="0.01" value={c.offset} onMouseDown={onBeginHistory} onChange={(e) => { const nc = [...backgroundGradient.colors]; nc[i] = { ...nc[i], offset: Number(e.target.value) }; onSetBackgroundGradientLive({ ...backgroundGradient, colors: nc }); }} className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
                           {backgroundGradient.colors.length > 2 && (
                             <button onClick={() => onSetBackgroundGradient({ ...backgroundGradient, colors: backgroundGradient.colors.filter((_, idx) => idx !== i) })} className="text-red-400 hover:text-red-600"><Trash2 size={10} /></button>
@@ -572,8 +595,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div>
                           <label className="text-[9px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Couleur</label>
                           <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-100 mb-3">
-                            <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0"><input type="color" value={ensureFullHex(selectedElement.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { color: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
-                            <input type="text" value={selectedElement.color} onChange={(e) => handleColorInput(e.target.value, (color) => onUpdateElement(selectedElement.id, { color }))} className="bg-transparent text-sm font-mono uppercase outline-none flex-1 w-20" />
+                            <ColorField value={selectedElement.color} onChange={(c) => onUpdateElementLive(selectedElement.id, { color: c })} onBeginHistory={onBeginHistory} swatch="w-8 h-8" />
                             <button onClick={() => onSaveColor(selectedElement.color)} className="text-[10px] font-bold text-blue-600 uppercase shrink-0">Mémoriser</button>
                           </div>
                           {!selectedElement.gradient ? (
@@ -581,7 +603,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           ) : (
                             <div className="p-3 bg-gray-50 rounded border border-gray-100 space-y-3">
                               <div className="flex justify-between items-center"><select value={selectedElement.gradient.type} onChange={(e) => onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, type: e.target.value as any } })} className="text-[10px] font-bold bg-transparent outline-none"><option value="linear">Linéaire</option><option value="radial">Radial</option></select><button onClick={() => onUpdateElement(selectedElement.id, { gradient: undefined })} className="text-[9px] text-red-500 font-bold uppercase">Supprimer</button></div>
-                              <div className="space-y-2">{selectedElement.gradient.colors.map((c, i) => (<div key={i} className="flex gap-2 items-center"><div className="relative w-5 h-5 rounded border border-gray-200 bg-white overflow-hidden shrink-0"><input type="color" value={ensureFullHex(c.color)} onMouseDown={onBeginHistory} onChange={(e) => { const newColors = [...selectedElement.gradient!.colors]; newColors[i] = { ...newColors[i], color: e.target.value }; onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } }); }} className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] cursor-pointer" /></div><input type="range" min="0" max="1" step="0.01" value={c.offset} onMouseDown={onBeginHistory} onChange={(e) => { const newColors = [...selectedElement.gradient!.colors]; newColors[i] = { ...newColors[i], offset: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } }); }} className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>))}</div>
+                              <div className="space-y-2">{selectedElement.gradient.colors.map((c, i) => (<div key={i} className="flex gap-2 items-center"><ColorField value={c.color} onBeginHistory={onBeginHistory} onChange={(col) => { const newColors = [...selectedElement.gradient!.colors]; newColors[i] = { ...newColors[i], color: col }; onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } }); }} swatch="w-5 h-5" /><input type="range" min="0" max="1" step="0.01" value={c.offset} onMouseDown={onBeginHistory} onChange={(e) => { const newColors = [...selectedElement.gradient!.colors]; newColors[i] = { ...newColors[i], offset: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { gradient: { ...selectedElement.gradient!, colors: newColors } }); }} className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>))}</div>
                             </div>
                           )}
 
@@ -613,15 +635,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </select>
                             {selectedElement.pattern && (
                               <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
-                                <div className="flex gap-2">
-                                  <div className="flex-1">
-                                    <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Motif</label>
-                                    <div className="relative w-full h-6 rounded border border-gray-200 overflow-hidden bg-white"><input type="color" value={ensureFullHex(selectedElement.pattern.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, color: e.target.value } })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
-                                  </div>
-                                  <div className="flex-1">
-                                    <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Fond</label>
-                                    <div className="relative w-full h-6 rounded border border-gray-200 overflow-hidden bg-white"><input type="color" value={ensureFullHex(selectedElement.pattern.background === 'transparent' ? '#ffffff' : selectedElement.pattern.background)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, background: e.target.value } })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
-                                  </div>
+                                <div className="flex items-center gap-2">
+                                  <label className="text-[8px] font-bold text-gray-400 uppercase w-10 shrink-0">Motif</label>
+                                  <ColorField value={selectedElement.pattern.color} onBeginHistory={onBeginHistory} onChange={(c) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, color: c } })} swatch="w-6 h-6" />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <label className="text-[8px] font-bold text-gray-400 uppercase w-10 shrink-0">Fond</label>
+                                  <ColorField value={selectedElement.pattern.background === 'transparent' ? '#ffffff' : selectedElement.pattern.background} onBeginHistory={onBeginHistory} onChange={(c) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, background: c } })} swatch="w-6 h-6" />
                                 </div>
                                 <div><div className="flex justify-between items-center mb-1"><label className="text-[8px] font-bold text-gray-400 uppercase">Échelle</label><span className="text-[8px] font-mono text-gray-400">{selectedElement.pattern.scale.toFixed(2)}</span></div><input type="range" min="0.25" max="3" step="0.05" value={selectedElement.pattern.scale} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, scale: Number(e.target.value) } })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
                                 <div><div className="flex justify-between items-center mb-1"><label className="text-[8px] font-bold text-gray-400 uppercase">Angle</label><span className="text-[8px] font-mono text-gray-400">{selectedElement.pattern.angle}°</span></div><input type="range" min="0" max="360" step="1" value={selectedElement.pattern.angle} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { pattern: { ...selectedElement.pattern!, angle: Number(e.target.value) } })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
@@ -705,9 +725,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <option value="dotted">Pointillés</option>
                                 <option value="wavy">Ondulé</option>
                               </select>
-                              <div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0 bg-white" title="Couleur du trait">
-                                <input type="color" value={ensureFullHex(selectedElement.textDecorationColor ?? selectedElement.color)} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { textDecorationColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" />
-                              </div>
+                              <ColorField value={selectedElement.textDecorationColor ?? selectedElement.color} onBeginHistory={onBeginHistory} onChange={(c) => onUpdateElementLive(selectedElement.id, { textDecorationColor: c })} swatch="w-7 h-7" />
                             </div>
                           )}
                           <div className="space-y-4">
@@ -753,18 +771,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </label>
                               </div>
                               {selectedElement.bgEnabled && (
-                                <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-gray-200">
-                                  <div className="flex flex-col gap-1">
-                                    <label className="text-[8px] font-bold text-gray-400 uppercase">Couleur</label>
-                                    <div className="relative w-full h-5 rounded border border-gray-200 overflow-hidden bg-white"><input type="color" value={ensureFullHex(selectedElement.bgColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
+                                <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <label className="text-[8px] font-bold text-gray-400 uppercase w-12 shrink-0">Couleur</label>
+                                    <ColorField value={selectedElement.bgColor ?? '#000000'} onBeginHistory={onBeginHistory} onChange={(c) => onUpdateElementLive(selectedElement.id, { bgColor: c })} swatch="w-6 h-6" />
                                   </div>
-                                  <div>
-                                    <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Marge</label>
-                                    <input type="number" value={selectedElement.bgPadding ?? 10} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgPadding: Number(e.target.value) })} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
-                                  </div>
-                                  <div>
-                                    <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Rayon</label>
-                                    <input type="number" value={selectedElement.bgRadius ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgRadius: Number(e.target.value) })} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Marge</label>
+                                      <input type="number" value={selectedElement.bgPadding ?? 10} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgPadding: Number(e.target.value) })} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Rayon</label>
+                                      <input type="number" value={selectedElement.bgRadius ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { bgRadius: Number(e.target.value) })} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -814,11 +834,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {/* Liste des ombres (champs explicites) */}
                               {(selectedElement.textShadows ?? []).map((s, i) => (
                                 <div key={i} className="p-2 bg-white rounded border border-gray-200 space-y-1.5">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="relative w-5 h-5 rounded border border-gray-200 overflow-hidden bg-white shrink-0" title="Couleur de l'ombre"><input type="color" value={ensureFullHex(s.color)} onMouseDown={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], color: e.target.value }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
-                                      <span className="text-[9px] font-bold text-gray-500 uppercase">Ombre {i + 1}</span>
-                                    </div>
+                                  <div className="flex items-center gap-2">
+                                    <ColorField value={s.color} onBeginHistory={onBeginHistory} onChange={(c) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], color: c }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} swatch="w-5 h-5" />
                                     <button onClick={() => { const arr = (selectedElement.textShadows ?? []).filter((_, idx) => idx !== i); onUpdateElement(selectedElement.id, { textShadows: arr.length ? arr : undefined }); }} className="text-red-400 hover:text-red-600 shrink-0" title="Supprimer cette ombre"><Trash2 size={12} /></button>
                                   </div>
                                   <div className="grid grid-cols-3 gap-1.5">
@@ -857,7 +874,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <div className="space-y-4 animate-in fade-in duration-200">
                         <div>
                           <div className="flex justify-between items-center mb-2"><label className="text-[9px] font-bold text-gray-400 uppercase">Contour</label><div className="flex items-center gap-0.5"><input type="number" step="0.5" value={selectedElement.strokeWidth ?? 0} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="w-10 text-[9px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /><span className="text-[9px] font-mono text-gray-400">px</span></div></div>
-                          <div className="flex gap-3 p-2 bg-gray-50 rounded border border-gray-100"><div className="relative w-7 h-7 rounded border border-gray-200 overflow-hidden shrink-0 bg-white"><input type="color" value={ensureFullHex(selectedElement.strokeColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div><input type="range" min="0" max="20" step="0.5" value={selectedElement.strokeWidth ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900 self-center" /></div>
+                          <div className="p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
+                            <ColorField value={selectedElement.strokeColor ?? '#000000'} onBeginHistory={onBeginHistory} onChange={(c) => onUpdateElementLive(selectedElement.id, { strokeColor: c })} swatch="w-7 h-7" />
+                            <input type="range" min="0" max="20" step="0.5" value={selectedElement.strokeWidth ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                          </div>
                           {(selectedElement.strokeWidth ?? 0) > 0 && (() => {
                             // Le texte ne propose pas « intérieur » (non émulable proprement sur les glyphes)
                             const opts = selectedElement.type === 'text'
@@ -885,7 +905,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                         <div className="p-3 bg-gray-50 rounded border border-gray-100 space-y-3">
                           <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wide block">Ombre Portée</label>
-                          <div className="flex gap-3"><div className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden shrink-0 bg-white"><input type="color" value={ensureFullHex(selectedElement.shadowColor ?? '#000000')} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowColor: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div><div className="flex-1"><div className="flex justify-between items-center mb-1"><label className="text-[8px] font-bold text-gray-400 uppercase">Opacité</label><div className="flex items-center gap-0.5"><input type="number" value={Math.round((selectedElement.shadowOpacity ?? 0.5) * 100)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) / 100 })} className="w-10 text-[8px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /><span className="text-[8px] font-mono text-gray-400">%</span></div></div><input type="range" min="0" max="1" step="0.01" value={selectedElement.shadowOpacity ?? 0.5} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div></div>
+                          <ColorField value={selectedElement.shadowColor ?? '#000000'} onBeginHistory={onBeginHistory} onChange={(c) => onUpdateElementLive(selectedElement.id, { shadowColor: c })} swatch="w-8 h-8" />
+                          <div><div className="flex justify-between items-center mb-1"><label className="text-[8px] font-bold text-gray-400 uppercase">Opacité</label><div className="flex items-center gap-0.5"><input type="number" value={Math.round((selectedElement.shadowOpacity ?? 0.5) * 100)} onFocus={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) / 100 })} className="w-10 text-[8px] font-mono text-right bg-white border border-gray-200 rounded px-1 py-0.5 outline-none text-gray-700 focus:border-blue-400" /><span className="text-[8px] font-mono text-gray-400">%</span></div></div><input type="range" min="0" max="1" step="0.01" value={selectedElement.shadowOpacity ?? 0.5} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowOpacity: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" /></div>
                           <div>
                             <div className="flex justify-between items-center mb-1"><label className="text-[8px] font-bold text-gray-400 uppercase">Flou</label><span className="text-[8px] font-mono text-gray-400">{Math.round(selectedElement.shadowBlur ?? 0)}</span></div>
                             <input type="range" min="0" max="50" step="1" value={selectedElement.shadowBlur ?? 0} onMouseDown={onBeginHistory} onChange={(e) => onUpdateElementLive(selectedElement.id, { shadowBlur: Number(e.target.value) })} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />

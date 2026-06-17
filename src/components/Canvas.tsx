@@ -1029,15 +1029,15 @@ export const Canvas: React.FC<CanvasProps> = ({
               key={el.id}
               ref={(ref) => { elementRefs.current[el.id] = ref; }}
               transform={outerTransform}
+              filter={filterUrl}
               onMouseDown={(e) => handleMouseDown(e, el)}
               onTouchStart={(e) => handleTouchStart(e, el)}
               onClick={(e) => e.stopPropagation()}
               onDoubleClick={(e) => { e.stopPropagation(); startEditing(el); }}
-              style={{ 
-                cursor: dragMode === 'move' && isSelected ? 'grabbing' : 'grab', 
+              style={{
+                cursor: dragMode === 'move' && isSelected ? 'grabbing' : 'grab',
                 opacity: el.opacity,
                 mixBlendMode: el.blendMode as React.CSSProperties['mixBlendMode'] ?? 'normal',
-                filter: filterUrl
               }}
             >
               <g transform={innerTransform}>
