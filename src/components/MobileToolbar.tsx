@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import type { CompositionElement, ElementType, ShapeType, AlignDirection } from '../types';
 import {
   Type, Image as ImageIcon, Copy, Trash2,
-  Palette, CaseUpper, Ruler, Layers as LayersIcon, Sparkles, Move, PenTool, Grid3x3,
+  Palette, CaseUpper, Ruler, Layers as LayersIcon, Sparkles, Move, PenTool, Grid3x3, Magnet,
   ChevronUp, ChevronDown, ArrowUp, ArrowDown, FlipHorizontal, FlipVertical,
   AlignLeft, AlignCenter, AlignRight, Bold, Italic, Plus, MoreHorizontal, Droplet,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
@@ -56,6 +56,8 @@ interface MobileToolbarProps {
   onExport: () => void;
   onOpenLayers: () => void;
   onOpenFull: () => void;
+  grid: { show: boolean; snap: boolean; size: number };
+  onSetGrid: (g: { show: boolean; snap: boolean; size: number }) => void;
 }
 
 type Cat = { id: string; label: string; icon: React.ReactNode };
@@ -75,6 +77,7 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
     cats = [
       { id: 'add', label: 'Ajouter', icon: <Plus size={20} /> },
       { id: 'bg', label: 'Fond', icon: <Palette size={20} /> },
+      { id: 'grid', label: 'Grille', icon: <Grid3x3 size={20} /> },
     ];
   } else if (isText) {
     cats = [
@@ -128,6 +131,16 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
               <Section title="Couleur de fond">
                 <Swatches colors={[...PALETTES.flat(), ...p.customColors]} onPick={(c) => p.onApplyColor(c)} />
                 <button onClick={p.onOpenFull} className="mt-3 w-full py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold active:bg-gray-200">Dégradé, formats, modèles…</button>
+              </Section>
+            )}
+
+            {panel === 'grid' && (
+              <Section title="Grille & magnétisme">
+                <div className="flex gap-2 mb-3">
+                  <Seg active={p.grid.show} onClick={() => p.onSetGrid({ ...p.grid, show: !p.grid.show })}><span className="flex items-center gap-1.5 text-sm font-bold"><Grid3x3 size={16} /> Afficher</span></Seg>
+                  <Seg active={p.grid.snap} onClick={() => p.onSetGrid({ ...p.grid, snap: !p.grid.snap })}><span className="flex items-center gap-1.5 text-sm font-bold"><Magnet size={16} /> Aimanter</span></Seg>
+                </div>
+                <Slider label="Taille de la grille" min={5} max={100} step={5} value={p.grid.size} onBegin={() => undefined} onChange={(v) => p.onSetGrid({ ...p.grid, size: v })} />
               </Section>
             )}
 

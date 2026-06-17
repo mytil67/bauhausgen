@@ -6,7 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { LayersPanel } from './components/LayersPanel';
 import { ShortcutsHelp } from './components/ShortcutsHelp';
 import { MobileToolbar } from './components/MobileToolbar';
-import { Plus, Minus, Menu, Layers, X } from 'lucide-react';
+import { Plus, Minus, Menu, Layers, X, Grid3x3, Magnet } from 'lucide-react';
 import type { ElementBounds, AlignDirection, DistributeAxis } from './types';
 
 // Polices Google utilisées dans l'éditeur (pour tentative d'embarquement à l'export)
@@ -95,6 +95,16 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+
+  // Grille & magnétisme (préférence d'éditeur, persistée)
+  const [grid, setGrid] = useState<{ show: boolean; snap: boolean; size: number }>(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('bauhaus-grid') || 'null');
+      if (s && typeof s.size === 'number') return s;
+    } catch { /* ignore */ }
+    return { show: false, snap: false, size: 20 };
+  });
+  useEffect(() => { localStorage.setItem('bauhaus-grid', JSON.stringify(grid)); }, [grid]);
 
   const [zoom, setZoom] = useState(1);
 
@@ -410,6 +420,9 @@ function App() {
       onBeginHistory={beginHistory}
       onBoundsChange={handleBoundsChange}
       measureRef={measureRef}
+      showGrid={grid.show}
+      gridSize={grid.size}
+      snapToGrid={grid.snap}
       onDuplicate={() => duplicateSelection(selectedIds)}
       onCopy={() => copySelection(selectedIds)}
       onPaste={pasteClipboard}
@@ -506,6 +519,8 @@ function App() {
             onExport={() => handleExport('png')}
             onOpenLayers={() => setLayersOpen(true)}
             onOpenFull={() => setSidebarOpen(true)}
+            grid={grid}
+            onSetGrid={(g) => setGrid(g)}
           />
         )}
 
@@ -567,6 +582,20 @@ function App() {
           <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} className="p-1 hover:bg-gray-100 rounded" title="Zoomer (Ctrl + +)"><Plus size={14} /></button>
           <span className="w-px h-3.5 bg-gray-200" />
           <button onClick={() => setHelpOpen(true)} className="w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full font-bold" title="Raccourcis clavier (?)">?</button>
+        </div>
+
+        {/* Grille & magnétisme */}
+        <div className="absolute bottom-4 left-4 bg-white/80 backdrop-blur px-2 py-1 rounded-full border border-gray-200 shadow-sm flex items-center gap-1.5 text-xs font-mono text-gray-600">
+          <button onClick={() => setGrid(g => ({ ...g, show: !g.show }))} className={`p-1.5 rounded-full transition-colors ${grid.show ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'}`} title="Afficher la grille"><Grid3x3 size={14} /></button>
+          {grid.show && (
+            <>
+              <button onClick={() => setGrid(g => ({ ...g, snap: !g.snap }))} className={`p-1.5 rounded-full transition-colors ${grid.snap ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'}`} title="Aimanter à la grille"><Magnet size={14} /></button>
+              <span className="w-px h-3.5 bg-gray-200" />
+              <button onClick={() => setGrid(g => ({ ...g, size: Math.max(5, g.size - 5) }))} className="p-1 hover:bg-gray-100 rounded" title="Réduire la grille"><Minus size={12} /></button>
+              <span className="w-9 text-center">{grid.size}px</span>
+              <button onClick={() => setGrid(g => ({ ...g, size: Math.min(200, g.size + 5) }))} className="p-1 hover:bg-gray-100 rounded" title="Agrandir la grille"><Plus size={12} /></button>
+            </>
+          )}
         </div>
 
         {/* Status Bar & Credits */}

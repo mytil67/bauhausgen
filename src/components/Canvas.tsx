@@ -34,6 +34,9 @@ interface CanvasProps {
   hasCopiedStyle: boolean;
   /** Ref optionnelle : Canvas y place une fonction de mesure fraîche des bbox (pour l'alignement). */
   measureRef?: React.MutableRefObject<(() => ElementBounds) | null>;
+  showGrid?: boolean;
+  gridSize?: number;
+  snapToGrid?: boolean;
   zoom: number;
 }
 
@@ -168,6 +171,9 @@ export const Canvas: React.FC<CanvasProps> = ({
   onPasteStyle,
   hasCopiedStyle,
   measureRef,
+  showGrid,
+  gridSize = 20,
+  snapToGrid,
   zoom,
 }) => {
   const [dragMode, setDragMode] = useState<DragMode>(null);
@@ -543,6 +549,17 @@ export const Canvas: React.FC<CanvasProps> = ({
         let newCx = mouseCx;
         let newCy = mouseCy;
 
+        // Aimantation à la grille : on cale le bord haut-gauche de la boîte sur la grille
+        // (prioritaire sur les smart guides, qui sont désactivés dans ce mode).
+        if (snapToGrid && gridSize > 0) {
+          const gLeft = Math.round((mouseCx - halfW) / gridSize) * gridSize;
+          const gTop = Math.round((mouseCy - halfH) / gridSize) * gridSize;
+          setActiveGuides({ x: [], y: [] });
+          setMeasurements([]);
+          onNudge(Math.round(gLeft + halfW - currentCx), Math.round(gTop + halfH - currentCy), selectedIds);
+          return;
+        }
+
         // Boîtes absolues des autres éléments (non sélectionnés), en tenant compte de leur ancre
         const selectedSet = new Set(selectedIds);
         const others = elements
@@ -772,6 +789,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 newW = newH * aspect;
               }
             }
+            if (snapToGrid && gridSize > 0 && !shift) {
+              newW = Math.max(gridSize, Math.round(newW / gridSize) * gridSize);
+              newH = Math.max(gridSize, Math.round(newH / gridSize) * gridSize);
+            }
             const updates: { width?: number; height?: number } = {};
             if (shift || multX !== 0) updates.width = Math.max(10, newW);
             if (shift || multY !== 0) updates.height = Math.max(10, newH);
@@ -849,7 +870,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements]);
+  }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements, snapToGrid, gridSize]);
 
   return (
     <div className="w-full h-full overflow-auto relative bg-transparent flex p-4 md:p-12" style={{ touchAction: 'none' }}>
@@ -887,6 +908,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               </radialGradient>
             );
           })()}
+          {showGrid && gridSize > 0 && (
+            <pattern id="editor-grid" width={gridSize} height={gridSize} patternUnits="userSpaceOnUse">
+              <path d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`} fill="none" stroke="#3b82f6" strokeWidth={0.5} opacity={0.35} />
+            </pattern>
+          )}
           {elements.map((el) => {
             const defs: React.ReactNode[] = [];
             
@@ -1024,6 +1050,11 @@ export const Canvas: React.FC<CanvasProps> = ({
             ne pas casser le cadre de sélection (marquee) ni la désélection au clic. */}
         {backgroundGradient && (
           <rect x="0" y="0" width={width} height={height} fill="url(#bg-gradient)" pointerEvents="none" />
+        )}
+
+        {/* Grille (aide d'édition : ignorée à l'export, transparente aux clics) */}
+        {showGrid && gridSize > 0 && (
+          <rect x="0" y="0" width={width} height={height} fill="url(#editor-grid)" pointerEvents="none" className="export-ignore" />
         )}
 
         {elements.map((el) => {
