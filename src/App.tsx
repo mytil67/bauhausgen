@@ -199,7 +199,7 @@ function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [undo, redo, duplicateSelection, selectAll, selectElement, selectedIds, copySelection, removeSelection, pasteClipboard, groupSelection, ungroupSelection]);
+  }, [undo, redo, duplicateSelection, selectAll, selectElement, selectedIds, copySelection, removeSelection, pasteClipboard, groupSelection, ungroupSelection, copyStyle, pasteStyle]);
 
   /** Construit une chaîne SVG exportable : UI de sélection retirée + polices embarquées. */
   const buildExportSvg = async (): Promise<string | null> => {

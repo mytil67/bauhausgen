@@ -31,16 +31,40 @@ npm run preview  # prévisualise le build
 - `components/Canvas.tsx` — rendu SVG + interactions souris **et tactiles** (déplacer/
   redimensionner/pivoter via poignées), cadre de sélection, et **smart guides type
   Figma/Canva** pendant le drag. Le plus gros et le plus délicat des fichiers.
+  Partiellement découpé dans `components/canvas/` (refactor 2026-06-17) :
+  - `canvas/render.tsx` — helpers de rendu PURS : `shapeGeom` (géométrie de chaque forme),
+    `glyphText`, `hexToRgba`, `curveRadius`, `FALLBACK_BBOX`, et `buildElementDefs(el, bboxes)`
+    (filtre d'ombre, dégradé, motif, masques de contour/knockout, path de courbe).
+  - `canvas/smartGuides.ts` — `computeMoveSnap(...)` : fonction PURE qui calcule
+    l'aimantation (alignement + espacement égal + voisins) et renvoie `{guidesX, guidesY,
+    measurements, dx, dy}`. Le composant applique le résultat (états + `onNudge`).
+  - `canvas/CanvasContextMenu.tsx` — menu contextuel (clic droit) présentationnel.
+  Reste inline dans `Canvas.tsx` (~1055 lignes) : le rendu des éléments (texte/forme/image
+  + poignées de sélection/groupe) et les gestionnaires de gestes. Candidat suivant au
+  découpage : un composant `ElementView` pour le rendu d'un élément.
 - `components/Sidebar.tsx` — panneau gauche : ajout d'éléments, alignement auto,
   upload de police, couleurs, propriétés de l'élément sélectionné, export.
 - `types/index.ts` — `CompositionElement = TextElement | ShapeElement`, `CompositionState`.
 - `App.tsx` — assemble le tout + logique d'export SVG/PNG/JPG + **layout responsive**
   (desktop = flex 3 colonnes, mobile = drawers coulissants + barre d'outils en bas).
 
-## Modèle de données
-- `BaseElement` : id, type, x, y, rotation, scaleX, scaleY, color, opacity.
-- `TextElement` : + text, fontSize, fontFamily, fontWeight.
-- `ShapeElement` (rect/circle/triangle) : + width, height.
+## Modèle de données (`types/index.ts`)
+- `BaseElement` : id, type, x, y, rotation, scaleX, scaleY, **skewX/skewY**, color, opacity,
+  **blendMode** (16 modes), name/visible/locked (calque), **groupId**, **ombre**
+  (shadowColor/Blur/OffsetX/OffsetY/Opacity), **contour** (strokeColor/strokeWidth/strokeAlign
+  center|inside|outside), **noFill** (remplissage transparent), **gradient** (linear|radial,
+  colors[], rotation), **pattern** (stripes|dots|grid|checker + color/background/scale/angle ;
+  prioritaire sur gradient/couleur).
+- `TextElement` : + text, fontSize, fontFamily, fontWeight, **fontWidth** (polices variables),
+  letterSpacing, lineHeight, textAlign, textTransform, italic, **maxWidth** (wrapping), curve
+  + curveType (arc|circle) + curveInvert, **bgEnabled/bgColor/bgPadding/bgRadius** (badge),
+  **knockout** (lettres évidées), **textShadows[]** (ombres multiples), + props Lot 1 typo
+  (writingMode, fontVariant, textDecoration*, wordSpacing).
+- `ShapeElement` : type ∈ rect/circle/triangle/semicircle/quarter/ring/line/**hexagon/diamond/
+  star/cross/arrow** + width, height.
+- `ImageElement` : type 'image' + href (data URL embarqué) + width, height. Ajouté via `addImage`.
+- `DocState` (partie historisée) : name, elements, backgroundColor, **backgroundGradient**,
+  canvasWidth, canvasHeight, customColors, customFonts.
 - Tout est centré sur (x, y) ; le SVG dessine autour de l'origine (ex. rect en -w/2,-h/2).
 - L'**ordre du tableau `elements` = ordre de z-index** (dernier = premier plan).
 
@@ -51,7 +75,9 @@ npm run preview  # prévisualise le build
   un délai d'un render → les fallbacks `{-50,-25,100,50}` couvrent ce cas.
 - Le scale est appliqué dans un `<g>` interne séparé pour que l'UI de sélection reste à
   taille constante.
-- `tsc -b` passe. `eslint` : voir « Problèmes connus ».
+- `tsc -b` **et** `eslint .` passent sans erreur ni warning (dette ESLint soldée le
+  2026-06-17 : plus aucun `any`, deps d'effets complètes). Garder ce niveau : pas de
+  nouveau `as any` ni de `eslint-disable` sans justification.
 
 ## État (mis à jour 2026-06-15)
 Refonte effectuée — build/lint/tsc OK. Ce qui a été fait :
@@ -149,6 +175,40 @@ Layout responsive piloté par `useIsMobile` (breakpoint 768px).
 - Les poignées de resize/rotation ne sont pas adaptées aux doigts (taille inchangée).
 - Pas de double-tap pour édition inline de texte.
 
+## Lots intermédiaires (synthèse, jusqu'au 2026-06-17)
+Plusieurs gros lots ajoutés après la refonte de base. État actuel des fonctionnalités :
+- **Groupes** : `groupId` partagé ; Ctrl+G groupe (≥2), Ctrl+Maj+G dégroupe. `expandGroups`
+  étend toute sélection à ses groupes (clic, marquee, duplication régénère les groupIds).
+- **Retournement** : `flipSelection('horizontal'|'vertical')` = inverse scaleX/scaleY.
+- **Z-order incrémental** : en plus de bringToFront/sendToBack, `bringForward`/`sendBackward`
+  (d'un cran, sans franchir les autres éléments sélectionnés).
+- **Nudge clavier** : flèches = 1 px, Maj+flèches = 10 px (`nudgeSelection`, live + historique).
+- **Copier la mise en forme** : `copyStyle`/`pasteStyle` (Ctrl+Alt+C / Ctrl+Alt+V). Copie les
+  `COMMON_STYLE_PROPS` (couleur, opacité, blend, ombre, dégradé, motif, contour, noFill) ; pour
+  un texte ajoute `TEXT_STYLE_PROPS` (typo + scale). Coller un style texte sur une forme omet le scale.
+- **Copier/Coller éléments** : via `localStorage['bauhaus-clipboard']` (donc **inter-onglets**),
+  Ctrl+C / Ctrl+X / Ctrl+V. Offset +24,+24 au collage, regénère les groupIds.
+- **Remplissages avancés** : dégradés (par élément ET fond via `backgroundGradient`), motifs
+  (rayures/points/grille/damier), contour avec alignement, `noFill` (contour seul / texte évidé).
+- **Images** : import PNG/JPG/SVG (`handleImportImage` → data URL → `addImage`), dimensionnées
+  pour tenir dans 60 % du canvas. Rendues comme `<image>` dans le Canvas.
+- **Effets texte** : knockout (lettres découpées laissant voir le fond, filtre SVG), ombres
+  multiples (`textShadows[]`), badge de fond, courbure arc/cercle.
+- **Sauvegarde projet** : export/import `.json` portable (`handleExportProject`/`handleImportProject`,
+  `loadProject`) — polices embarquées en data URL. Distinct des exports SVG/PNG/JPG.
+- **Grille & magnétisme** : `grid {show, snap, size}` persisté dans `localStorage['bauhaus-grid']`.
+  Snap-to-grid pendant drag/resize (désactivé si Maj). Barre dédiée en bas à gauche (desktop).
+- **Repères manuels (guides)** : `guides {x:number[], y:number[]}` en coords canvas, persistés
+  (`localStorage['bauhaus-guides']`), **déplaçables** (drag sur le Canvas) et **aimantants**.
+  Ajout/effacement via la barre grille (desktop) et la MobileToolbar.
+- **Zoom** : Ctrl+molette (zoom à la souris), Ctrl + / Ctrl - / Ctrl 0, boutons +/−. Plage 0.1→5.
+- **Menu contextuel** (clic droit Canvas) : grouper/dégrouper, z-order, copier/coller (+ style),
+  dupliquer, supprimer.
+- **Panneau d'aide** des raccourcis (`ShortcutsHelp`, touche `?`).
+- **Canvas auto** : `autoCanvasSize` (ResizeObserver) ajuste la taille pour remplir l'espace ;
+  désactivé dès qu'on choisit un format/template/import explicite (`handleSetCanvasSize`).
+- **Persistance** : localStorage **debouncé à 500 ms** (plus de réécriture à chaque frame).
+
 ## Typographie — Lot 1 (ajout 2026-06-16)
 Implémentation du « Lot 1 » de `TYPOGRAPHY_ROADMAP.md`. Nouvelles props sur `TextElement` :
 `writingMode` (horizontal/vertical), `fontVariant` (small-caps), `textDecoration`
@@ -157,12 +217,14 @@ Implémentation du « Lot 1 » de `TYPOGRAPHY_ROADMAP.md`. Nouvelles props sur `
 ajoutées à `copyStyle`, contrôlées dans la barre de style + sliders de la Sidebar. Le texte
 courbé (`curve`) est désactivé quand `writingMode === 'vertical'`. Prochain : Lot 2.
 
-## Dette restante / idées
+## Dette restante / idées (mis à jour 2026-06-17)
 - Coalescing d'historique sur les inputs number/text (1 entrée par caractère actuellement).
 - Export Google Fonts dépend d'un fetch réseau (CORS) — peut retomber sur système hors-ligne.
-- Pas de redimensionnement multi, pas de calques nommés, pas de copier/coller inter-onglets.
-- `localStorage` réécrit à chaque changement de `doc` (mineur).
+- Pas de redimensionnement multi (resize n'agit qu'en sélection unique).
 - Mobile : pinch-to-zoom, poignées plus grosses, marquee tactile, double-tap pour éditer.
+- Le bundle JS approche 370 ko (Canvas.tsx ~1580 lignes) — découpage possible si ça grossit.
+- ~~copier/coller inter-onglets~~ ✓ (clipboard via localStorage) ; ~~localStorage à chaque
+  frame~~ ✓ (debounce 500 ms) ; ~~calques nommés~~ ✓ (renommage).
 
 ## Décisions de design à respecter
 - Esthétique sobre « pro » (gris/blanc, accents bleus #3b82f6, magenta pour guides,

@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  Trash2, Copy, LayoutTemplate, ArrowUp, ArrowDown, Download,
-  ChevronUp, ChevronDown
-} from 'lucide-react';
-import type { CompositionElement, TextElement, ShapeElement, ElementBounds } from '../types';
+import type { CompositionElement, ElementBounds } from '../types';
+import { FALLBACK_BBOX, shapeGeom, hexToRgba, curveRadius, glyphText, buildElementDefs } from './canvas/render';
+import { computeMoveSnap, type Measurement } from './canvas/smartGuides';
+import { CanvasContextMenu } from './canvas/CanvasContextMenu';
 
 interface CanvasProps {
   elements: CompositionElement[];
@@ -48,103 +47,6 @@ interface ContextMenuState { x: number; y: number; visible: boolean; }
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 type DragMode = 'move' | 'rotate' | ResizeHandle | null;
 
-const FALLBACK_BBOX = { x: -50, y: -25, width: 100, height: 50 } as DOMRect;
-
-/** Géométrie nue d'une forme, réutilisée pour le rendu, les clips et les masques
- *  (afin d'émuler l'alignement du contour intérieur/extérieur). */
-const shapeGeom = (el: ShapeElement, props: React.SVGAttributes<SVGElement>): React.ReactNode => {
-  const w = el.width, h = el.height;
-  switch (el.type) {
-    case 'rect':
-    case 'line':
-      return <rect x={-w / 2} y={-h / 2} width={w} height={h} {...props} />;
-    case 'circle':
-      return <circle cx="0" cy="0" r={w / 2} {...props} />;
-    case 'triangle':
-      return <polygon points={`0,${-h / 2} ${w / 2},${h / 2} ${-w / 2},${h / 2}`} {...props} />;
-    case 'semicircle':
-      return <path d={`M ${-w / 2},${h / 2} A ${w / 2} ${h} 0 0 1 ${w / 2} ${h / 2} Z`} {...props} />;
-    case 'quarter':
-      return <path d={`M ${-w / 2},${h / 2} L ${w / 2},${h / 2} A ${w} ${h} 0 0 0 ${-w / 2},${-h / 2} Z`} {...props} />;
-    case 'ring':
-      return <path fillRule="evenodd" d={`M ${-w / 2},0 A ${w / 2} ${h / 2} 0 1 0 ${w / 2} 0 A ${w / 2} ${h / 2} 0 1 0 ${-w / 2} 0 Z M ${-w / 4},0 A ${w / 4} ${h / 4} 0 1 1 ${w / 4} 0 A ${w / 4} ${h / 4} 0 1 1 ${-w / 4} 0 Z`} {...props} />;
-    case 'hexagon': // hexagone plat-dessus
-      return <polygon points={`${-w / 2},0 ${-w / 4},${-h / 2} ${w / 4},${-h / 2} ${w / 2},0 ${w / 4},${h / 2} ${-w / 4},${h / 2}`} {...props} />;
-    case 'diamond': // losange
-      return <polygon points={`0,${-h / 2} ${w / 2},0 0,${h / 2} ${-w / 2},0`} {...props} />;
-    case 'star': { // étoile à 5 branches
-      const pts: string[] = [];
-      for (let i = 0; i < 10; i++) {
-        const ang = -Math.PI / 2 + (i * Math.PI) / 5;
-        const r = i % 2 === 0 ? 1 : 0.4;
-        pts.push(`${(Math.cos(ang) * (w / 2) * r).toFixed(2)},${(Math.sin(ang) * (h / 2) * r).toFixed(2)}`);
-      }
-      return <polygon points={pts.join(' ')} {...props} />;
-    }
-    case 'cross': { // croix / plus
-      const vx = w / 6, hy = h / 6, a = w / 2, b = h / 2;
-      return <polygon points={`${-vx},${-b} ${vx},${-b} ${vx},${-hy} ${a},${-hy} ${a},${hy} ${vx},${hy} ${vx},${b} ${-vx},${b} ${-vx},${hy} ${-a},${hy} ${-a},${-hy} ${-vx},${-hy}`} {...props} />;
-    }
-    case 'arrow': // flèche vers la droite
-      return <polygon points={`${-w / 2},${-h / 4} 0,${-h / 4} 0,${-h / 2} ${w / 2},0 0,${h / 2} 0,${h / 4} ${-w / 2},${h / 4}`} {...props} />;
-    default:
-      return null;
-  }
-};
-
-/** Convertit un hex (#rgb ou #rrggbb) en rgba() avec l'alpha donné. */
-const hexToRgba = (hex: string, a: number): string => {
-  let h = (hex || '').replace('#', '');
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-  if (h.length !== 6) return hex;
-  const n = parseInt(h, 16);
-  if (Number.isNaN(n)) return hex;
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
-};
-
-/**
- * Rayon du cercle support pour un texte courbé.
- * - mode « arc » : rayon dérivé de la courbure (10000/curve) — courbe douce → grand rayon.
- * - mode « circle » (360°) : rayon calculé d'après la LONGUEUR du texte pour qu'il fasse
- *   exactement le tour sans étirement ni débordement (la circonférence ≈ largeur du mot).
- */
-const curveRadius = (el: CompositionElement): number => {
-  if (el.type !== 'text' || !el.curve) return 10;
-  if (el.curveType === 'circle') {
-    const est =
-      Math.max(el.text.length, 1) * el.fontSize * 0.6 * ((el.fontWidth ?? 100) / 100) +
-      el.text.length * (el.letterSpacing ?? 0);
-    return Math.max(est / (2 * Math.PI), el.fontSize * 0.7);
-  }
-  return Math.max(Math.abs(10000 / el.curve), 10);
-};
-
-/** Rend un `<text>` aux glyphes nus (sans décor/contour), réutilisé pour le masque de
- *  découpe (knockout) et la cible de mesure invisible. */
-const glyphText = (el: TextElement, fill: string, extra: React.SVGProps<SVGTextElement> = {}) => (
-  <text
-    x="0"
-    y="0"
-    fontSize={el.fontSize}
-    fontFamily={el.fontFamily}
-    fontWeight={el.fontWeight}
-    fontStyle={el.italic ? 'italic' : 'normal'}
-    letterSpacing={el.letterSpacing ?? 0}
-    wordSpacing={el.wordSpacing ?? 0}
-    textAnchor={el.textAlign ?? 'middle'}
-    dominantBaseline="middle"
-    fill={fill}
-    style={{
-      textTransform: el.textTransform ?? 'none',
-      fontVariant: el.fontVariant ?? 'normal',
-      fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`,
-    }}
-    {...extra}
-  >
-    {el.text}
-  </text>
-);
-
 export const Canvas: React.FC<CanvasProps> = ({
   elements,
   selectedIds,
@@ -185,7 +87,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [initialSize, setInitialSize] = useState({ width: 0, height: 0, scaleX: 1, scaleY: 1 });
   const [activeGuides, setActiveGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] });
-  const [measurements, setMeasurements] = useState<{ x1: number, y1: number, x2: number, y2: number, value: number, kind: 'spacing' | 'equal' }[]>([]);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false });
@@ -291,7 +193,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedIds, onRemoveSelection, onNudge, onBeginHistory]);
 
-  const getPositionFromClient = (clientX: number, clientY: number) => {
+  // Stables (ne dépendent que de svgRef) : permet de les lister dans les deps des effets
+  // sans provoquer de réabonnement à chaque render.
+  const getPositionFromClient = useCallback((clientX: number, clientY: number) => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const CTM = svgRef.current.getScreenCTM();
     if (!CTM) return { x: 0, y: 0 };
@@ -299,17 +203,17 @@ export const Canvas: React.FC<CanvasProps> = ({
       x: (clientX - CTM.e) / CTM.a,
       y: (clientY - CTM.f) / CTM.d,
     };
-  };
+  }, []);
 
-  const getMousePosition = (e: React.MouseEvent | MouseEvent) => {
+  const getMousePosition = useCallback((e: React.MouseEvent | MouseEvent) => {
     return getPositionFromClient(e.clientX, e.clientY);
-  };
+  }, [getPositionFromClient]);
 
-  const getTouchPosition = (e: React.TouchEvent | TouchEvent) => {
+  const getTouchPosition = useCallback((e: React.TouchEvent | TouchEvent) => {
     const touch = e.touches[0] || e.changedTouches[0];
     if (!touch) return { x: 0, y: 0 };
     return getPositionFromClient(touch.clientX, touch.clientY);
-  };
+  }, [getPositionFromClient]);
 
   // Démarre un cadre de sélection sur le fond du canvas
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
@@ -374,7 +278,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
     };
-  }, [marqueeActive, elements, bboxes, onSelect, onSelectMany]);
+  }, [marqueeActive, elements, bboxes, onSelect, onSelectMany, getMousePosition]);
 
   // Mesure fraîche des boîtes englobantes (getBBox) de tous les éléments, à la demande.
   const measureBounds = useCallback((): { [key: string]: DOMRect } => {
@@ -438,8 +342,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('touchmove', tmove);
       window.removeEventListener('touchend', tend);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guideDrag, onGuidesChange, width, height]);
+  }, [guideDrag, onGuidesChange, width, height, getPositionFromClient]);
 
   const handleMouseDown = (e: React.MouseEvent, el: CompositionElement) => {
     e.stopPropagation();
@@ -562,193 +465,17 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
 
       if (dragMode === 'move') {
-        const mouseX = pos.x - dragOffset.x;
-        const mouseY = pos.y - dragOffset.y;
-
-        // Référentiel de l'élément (ou du groupe) déplacé
-        const currentBbox = singleSelected ? (bboxes[activeId] || FALLBACK_BBOX) : groupAABB;
-        if (!currentBbox) return;
-        const halfW = (currentBbox.width / 2) * (singleSelected ? el?.scaleX || 1 : 1);
-        const halfH = (currentBbox.height / 2) * (singleSelected ? el?.scaleY || 1 : 1);
-        const currentX = singleSelected ? el!.x : groupAABB!.cx;
-        const currentY = singleSelected ? el!.y : groupAABB!.cy;
-
-        // Décalage entre l'origine (x,y) et le CENTRE VISUEL de la boîte.
-        // ≈ 0 pour les formes / le texte centré et pour les groupes ; non nul pour un texte
-        // ancré à gauche/droite (textAlign start/end), afin que l'aimantation reste juste.
-        const cxOff = singleSelected ? (currentBbox.x + currentBbox.width / 2) * (el?.scaleX || 1) : 0;
-        const cyOff = singleSelected ? (currentBbox.y + currentBbox.height / 2) * (el?.scaleY || 1) : 0;
-        const currentCx = currentX + cxOff;
-        const currentCy = currentY + cyOff;
-        const mouseCx = mouseX + cxOff;
-        const mouseCy = mouseY + cyOff;
-
-        let newCx = mouseCx;
-        let newCy = mouseCy;
-
-        // Aimantation à la grille : on cale le bord haut-gauche de la boîte sur la grille
-        // (prioritaire sur les smart guides, qui sont désactivés dans ce mode).
-        if (snapToGrid && gridSize > 0) {
-          const gLeft = Math.round((mouseCx - halfW) / gridSize) * gridSize;
-          const gTop = Math.round((mouseCy - halfH) / gridSize) * gridSize;
-          setActiveGuides({ x: [], y: [] });
-          setMeasurements([]);
-          onNudge(Math.round(gLeft + halfW - currentCx), Math.round(gTop + halfH - currentCy), selectedIds);
-          return;
-        }
-
-        // Boîtes absolues des autres éléments (non sélectionnés), en tenant compte de leur ancre
-        const selectedSet = new Set(selectedIds);
-        const others = elements
-          .filter((o) => !selectedSet.has(o.id))
-          .map((o) => {
-            const ob = bboxes[o.id] || FALLBACK_BBOX;
-            const left = o.x + ob.x * o.scaleX;
-            const right = left + ob.width * o.scaleX;
-            const top = o.y + ob.y * o.scaleY;
-            const bottom = top + ob.height * o.scaleY;
-            return { left, right, cx: (left + right) / 2, top, bottom, cy: (top + bottom) / 2 };
-          });
-
-        // --- 1. Aimantation d'alignement ---
-        const xTargets = [0, width / 2, width, ...(guides?.x ?? []), ...others.flatMap((o) => [o.left, o.cx, o.right])];
-        const yTargets = [0, height / 2, height, ...(guides?.y ?? []), ...others.flatMap((o) => [o.top, o.cy, o.bottom])];
-
-        let bestX = SNAP_DISTANCE;
-        for (const t of xTargets) {
-          for (const anchor of [-halfW, 0, halfW]) {
-            const d = Math.abs(mouseCx + anchor - t);
-            if (d < bestX) { bestX = d; newCx = t - anchor; }
-          }
-        }
-        let bestY = SNAP_DISTANCE;
-        for (const t of yTargets) {
-          for (const anchor of [-halfH, 0, halfH]) {
-            const d = Math.abs(mouseCy + anchor - t);
-            if (d < bestY) { bestY = d; newCy = t - anchor; }
-          }
-        }
-        const xSnapped = bestX < SNAP_DISTANCE;
-        const ySnapped = bestY < SNAP_DISTANCE;
-
-        const box = () => ({ left: newCx - halfW, right: newCx + halfW, cx: newCx, top: newCy - halfH, bottom: newCy + halfH, cy: newCy });
-        let D = box();
-        const EQ = SNAP_DISTANCE * 1.5;
-
-        // --- 2. Espacement égal HORIZONTAL ---
-        let equalH = false;
-        const equalSegH: { a: number; b: number }[] = [];
-        let valueH = 0;
-        {
-          const hOverlap = others.filter((o) => o.top < D.bottom && o.bottom > D.top);
-          const row = [
-            ...hOverlap.map((o) => ({ left: o.left, right: o.right, cx: o.cx, isD: false })),
-            { left: D.left, right: D.right, cx: D.cx, isD: true },
-          ].sort((a, b) => a.cx - b.cx);
-          const di = row.findIndex((r) => r.isD);
-          const L = row[di - 1], R = row[di + 1], LL = row[di - 2], RR = row[di + 2];
-          const gL = L ? D.left - L.right : Infinity;
-          const gR = R ? R.left - D.right : Infinity;
-
-          if (!xSnapped && L && R && gL > 0 && gR > 0 && Math.abs(gL - gR) <= EQ) {
-            newCx = (L.right + R.left) / 2; D = box();
-            valueH = Math.round(D.left - L.right);
-            equalSegH.push({ a: L.right, b: D.left }, { a: D.right, b: R.left });
-            equalH = true;
-          } else if (!xSnapped && L && LL) {
-            const ref = L.left - LL.right;
-            if (ref > 0 && Math.abs(gL - ref) <= EQ) {
-              newCx = L.right + ref + halfW; D = box();
-              valueH = Math.round(ref);
-              equalSegH.push({ a: LL.right, b: L.left }, { a: L.right, b: D.left });
-              equalH = true;
-            }
-          }
-          if (!equalH && !xSnapped && R && RR) {
-            const ref = RR.left - R.right;
-            if (ref > 0 && Math.abs(gR - ref) <= EQ) {
-              newCx = R.left - ref - halfW; D = box();
-              valueH = Math.round(ref);
-              equalSegH.push({ a: D.right, b: R.left }, { a: R.right, b: RR.left });
-              equalH = true;
-            }
-          }
-        }
-
-        // --- 3. Espacement égal VERTICAL ---
-        let equalV = false;
-        const equalSegV: { a: number; b: number }[] = [];
-        let valueV = 0;
-        {
-          const vOverlap = others.filter((o) => o.left < D.right && o.right > D.left);
-          const row = [
-            ...vOverlap.map((o) => ({ top: o.top, bottom: o.bottom, cy: o.cy, isD: false })),
-            { top: D.top, bottom: D.bottom, cy: D.cy, isD: true },
-          ].sort((a, b) => a.cy - b.cy);
-          const di = row.findIndex((r) => r.isD);
-          const T = row[di - 1], B = row[di + 1], TT = row[di - 2], BB = row[di + 2];
-          const gT = T ? D.top - T.bottom : Infinity;
-          const gB = B ? B.top - D.bottom : Infinity;
-
-          if (!ySnapped && T && B && gT > 0 && gB > 0 && Math.abs(gT - gB) <= EQ) {
-            newCy = (T.bottom + B.top) / 2; D = box();
-            valueV = Math.round(D.top - T.bottom);
-            equalSegV.push({ a: T.bottom, b: D.top }, { a: D.bottom, b: B.top });
-            equalV = true;
-          } else if (!ySnapped && T && TT) {
-            const ref = T.top - TT.bottom;
-            if (ref > 0 && Math.abs(gT - ref) <= EQ) {
-              newCy = T.bottom + ref + halfH; D = box();
-              valueV = Math.round(ref);
-              equalSegV.push({ a: TT.bottom, b: T.top }, { a: T.bottom, b: D.top });
-              equalV = true;
-            }
-          }
-          if (!equalV && !ySnapped && B && BB) {
-            const ref = BB.top - B.bottom;
-            if (ref > 0 && Math.abs(gB - ref) <= EQ) {
-              newCy = B.top - ref - halfH; D = box();
-              valueV = Math.round(ref);
-              equalSegV.push({ a: D.bottom, b: B.top }, { a: B.bottom, b: BB.top });
-              equalV = true;
-            }
-          }
-        }
-
-        // --- 4. Voisins finaux ---
-        const hOverlap = others.filter((o) => o.top < D.bottom && o.bottom > D.top);
-        const vOverlap = others.filter((o) => o.left < D.right && o.right > D.left);
-        const leftN = hOverlap.filter((o) => o.right <= D.left + 0.5).sort((a, b) => b.right - a.right)[0];
-        const rightN = hOverlap.filter((o) => o.left >= D.right - 0.5).sort((a, b) => a.left - b.left)[0];
-        const topN = vOverlap.filter((o) => o.bottom <= D.top + 0.5).sort((a, b) => b.bottom - a.bottom)[0];
-        const bottomN = vOverlap.filter((o) => o.top >= D.bottom - 0.5).sort((a, b) => a.top - b.top)[0];
-
-        const guideX = new Set<number>();
-        const guideY = new Set<number>();
-        for (const t of xTargets) { if (Math.abs(D.left - t) < 0.5 || Math.abs(D.cx - t) < 0.5 || Math.abs(D.right - t) < 0.5) guideX.add(t); }
-        for (const t of yTargets) { if (Math.abs(D.top - t) < 0.5 || Math.abs(D.cy - t) < 0.5 || Math.abs(D.bottom - t) < 0.5) guideY.add(t); }
-        setActiveGuides({ x: [...guideX], y: [...guideY] });
-
-        const m: typeof measurements = [];
-        if (equalH) {
-          equalSegH.forEach((s) => m.push({ x1: s.a, y1: D.cy, x2: s.b, y2: D.cy, value: valueH, kind: 'equal' }));
-        } else {
-          const gapL = Math.round(D.left - (leftN ? leftN.right : 0));
-          const gapR = Math.round((rightN ? rightN.left : width) - D.right);
-          if (gapL > 0) m.push({ x1: leftN ? leftN.right : 0, y1: D.cy, x2: D.left, y2: D.cy, value: gapL, kind: 'spacing' });
-          if (gapR > 0) m.push({ x1: D.right, y1: D.cy, x2: rightN ? rightN.left : width, y2: D.cy, value: gapR, kind: 'spacing' });
-        }
-        if (equalV) {
-          equalSegV.forEach((s) => m.push({ x1: D.cx, y1: s.a, x2: D.cx, y2: s.b, value: valueV, kind: 'equal' }));
-        } else {
-          const gapT = Math.round(D.top - (topN ? topN.bottom : 0));
-          const gapB = Math.round((bottomN ? bottomN.top : height) - D.bottom);
-          if (gapT > 0) m.push({ x1: D.cx, y1: topN ? topN.bottom : 0, x2: D.cx, y2: D.top, value: gapT, kind: 'spacing' });
-          if (gapB > 0) m.push({ x1: D.cx, y1: D.bottom, x2: D.cx, y2: bottomN ? bottomN.top : height, value: gapB, kind: 'spacing' });
-        }
-
-        setMeasurements(m);
-        onNudge(Math.round(newCx - currentCx), Math.round(newCy - currentCy), selectedIds);
+        // Calcul de l'aimantation (smart guides) délégué à un module pur.
+        const res = computeMoveSnap({
+          mouseX: pos.x - dragOffset.x,
+          mouseY: pos.y - dragOffset.y,
+          singleSelected, el, activeId, groupAABB,
+          elements, bboxes, selectedIds, width, height, guides, snapToGrid, gridSize,
+        });
+        if (!res) return;
+        setActiveGuides({ x: res.guidesX, y: res.guidesY });
+        setMeasurements(res.measurements);
+        onNudge(res.dx, res.dy, selectedIds);
       }
  else {
         // Redimensionnement
@@ -852,19 +579,14 @@ export const Canvas: React.FC<CanvasProps> = ({
 
           const bulkUpdates: Record<string, Partial<CompositionElement>> = {};
           initialElements.forEach((initEl) => {
-            const updates: Partial<CompositionElement> = {
+            const base = {
               x: gcx + (initEl.x - gcx) * ratioX,
               y: gcy + (initEl.y - gcy) * ratioY,
             };
-
-            if (initEl.type === 'text') {
-              updates.scaleX = initEl.scaleX * ratioX;
-              updates.scaleY = initEl.scaleY * ratioY;
-            } else {
-              (updates as any).width = (initEl as any).width * ratioX;
-              (updates as any).height = (initEl as any).height * ratioY;
-            }
-            bulkUpdates[initEl.id] = updates;
+            // Le texte se redimensionne via scale ; les formes/images via width & height.
+            bulkUpdates[initEl.id] = initEl.type === 'text'
+              ? { ...base, scaleX: initEl.scaleX * ratioX, scaleY: initEl.scaleY * ratioY }
+              : { ...base, width: initEl.width * ratioX, height: initEl.height * ratioY };
           });
           onUpdateElementsLive(bulkUpdates);
         }
@@ -907,7 +629,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements, snapToGrid, gridSize, guides]);
+  }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements, snapToGrid, gridSize, guides, getMousePosition, groupAABB]);
 
   return (
     <div className="w-full h-full overflow-auto relative bg-transparent flex p-4 md:p-12" style={{ touchAction: 'none' }}>
@@ -950,137 +672,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               <path d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`} fill="none" stroke="#3b82f6" strokeWidth={1 / zoom} opacity={0.45} />
             </pattern>
           )}
-          {elements.map((el) => {
-            const defs: React.ReactNode[] = [];
-            
-            // Filtre d'ombre
-            if (el.shadowBlur !== 0 || el.shadowOpacity !== 0) {
-              defs.push(
-                <filter key={`shadow-${el.id}`} id={`filter-shadow-${el.id}`} x="-100%" y="-100%" width="300%" height="300%">
-                  <feGaussianBlur in="SourceAlpha" stdDeviation={el.shadowBlur ?? 0} />
-                  <feOffset dx={el.shadowOffsetX ?? 0} dy={el.shadowOffsetY ?? 0} result="offsetblur" />
-                  <feFlood floodColor={el.shadowColor ?? '#000000'} floodOpacity={el.shadowOpacity ?? 0.5} />
-                  <feComposite in2="offsetblur" operator="in" />
-                  <feMerge>
-                    <feMergeNode />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              );
-            }
-
-            // Dégradé
-            if (el.gradient) {
-              const { type, colors, rotation } = el.gradient;
-              const id = `gradient-${el.id}`;
-              if (type === 'linear') {
-                const rad = (rotation * Math.PI) / 180;
-                const x1 = 50 - Math.cos(rad) * 50;
-                const y1 = 50 - Math.sin(rad) * 50;
-                const x2 = 50 + Math.cos(rad) * 50;
-                const y2 = 50 + Math.sin(rad) * 50;
-                defs.push(
-                  <linearGradient key={id} id={id} x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}>
-                    {colors.map((c, i) => <stop key={i} offset={`${c.offset * 100}%`} stopColor={c.color} stopOpacity={c.opacity} />)}
-                  </linearGradient>
-                );
-              } else {
-                defs.push(
-                  <radialGradient key={id} id={id}>
-                    {colors.map((c, i) => <stop key={i} offset={`${c.offset * 100}%`} stopColor={c.color} stopOpacity={c.opacity} />)}
-                  </radialGradient>
-                );
-              }
-            }
-
-            // Motif (rayures / points / grille / damier)
-            if (el.pattern) {
-              const { type, color, background, scale, angle } = el.pattern;
-              const s = Math.max(4, 24 * (scale || 1));
-              const t = s / 6; // épaisseur des traits
-              const id = `pattern-${el.id}`;
-              const bg = background && background !== 'transparent'
-                ? <rect width={s} height={s} fill={background} />
-                : null;
-              let motif: React.ReactNode;
-              if (type === 'stripes') {
-                motif = <rect width={s} height={s / 2} fill={color} />;
-              } else if (type === 'dots') {
-                motif = <circle cx={s / 2} cy={s / 2} r={s / 4} fill={color} />;
-              } else if (type === 'grid') {
-                motif = <><rect width={s} height={t} fill={color} /><rect width={t} height={s} fill={color} /></>;
-              } else { // checker
-                motif = <><rect width={s / 2} height={s / 2} fill={color} /><rect x={s / 2} y={s / 2} width={s / 2} height={s / 2} fill={color} /></>;
-              }
-              defs.push(
-                <pattern key={id} id={id} patternUnits="userSpaceOnUse" width={s} height={s} patternTransform={`rotate(${angle || 0})`}>
-                  {bg}
-                  {motif}
-                </pattern>
-              );
-            }
-
-            // Alignement du contour (formes) : clip pour l'intérieur, masque pour l'extérieur
-            if (el.type !== 'text' && el.type !== 'image' && (el.strokeWidth ?? 0) > 0 && el.strokeAlign && el.strokeAlign !== 'center') {
-              if (el.strokeAlign === 'inside') {
-                defs.push(
-                  <clipPath key={`sc-${el.id}`} id={`shapeclip-${el.id}`}>
-                    {shapeGeom(el, {})}
-                  </clipPath>
-                );
-              } else {
-                const m = Math.max(el.width, el.height) + (el.strokeWidth ?? 0) * 4 + 20;
-                defs.push(
-                  <mask key={`sm-${el.id}`} id={`shapemask-${el.id}`} maskUnits="userSpaceOnUse" x={-m} y={-m} width={2 * m} height={2 * m}>
-                    <rect x={-m} y={-m} width={2 * m} height={2 * m} fill="white" />
-                    {shapeGeom(el, { fill: 'black' })}
-                  </mask>
-                );
-              }
-            }
-
-            // Masque de découpe (knockout) : plaque pleine, lettres en trou
-            if (el.type === 'text' && el.knockout && !el.curve) {
-              const b = bboxes[el.id] || FALLBACK_BBOX;
-              const pad = el.bgPadding ?? 16;
-              defs.push(
-                <mask
-                  key={`ko-${el.id}`}
-                  id={`knockout-${el.id}`}
-                  maskUnits="userSpaceOnUse"
-                  x={b.x - pad - 8}
-                  y={b.y - pad - 8}
-                  width={b.width + pad * 2 + 16}
-                  height={b.height + pad * 2 + 16}
-                >
-                  <rect x={b.x - pad} y={b.y - pad} width={b.width + pad * 2} height={b.height + pad * 2} rx={el.bgRadius ?? 0} fill="white" />
-                  {glyphText(el, 'black')}
-                </mask>
-              );
-            }
-
-            // Path pour texte courbé (arc de cercle ou cercle complet)
-            if (el.type === 'text' && el.curve && el.curve !== 0) {
-              const curve = el.curve;
-              const r = curveRadius(el);
-              const sweep = (curve > 0) !== !!el.curveInvert ? 1 : 0;
-              
-              // On crée systématiquement un cercle complet dont l'apex (le sommet ou le creux) est exactement à (0,0).
-              // Cela évite de devoir calculer la largeur du texte (w) et empêche tout rognage (clipping) !
-              // startOffset="50%" de <textPath> placera toujours le centre du texte à (0,0).
-              let pathData = '';
-              if (sweep) {
-                // Sourire (curve > 0) : Centre à (0, r). Apex haut à (0,0). Départ en bas à (0, 2r).
-                pathData = `M 0,${2 * r} A ${r},${r} 0 0,1 0,0 A ${r},${r} 0 0,1 0,${2 * r}`;
-              } else {
-                // Triste (curve < 0) : Centre à (0, -r). Apex bas à (0,0). Départ en haut à (0, -2r).
-                pathData = `M 0,${-2 * r} A ${r},${r} 0 0,0 0,0 A ${r},${r} 0 0,0 0,${-2 * r}`;
-              }
-              defs.push(<path key={`path-${el.id}`} id={`path-${el.id}`} d={pathData} />);
-            }
-
-            return defs;
-          })}
+          {elements.map((el) => buildElementDefs(el, bboxes))}
         </defs>
 
         {/* Fond en dégradé (sous tous les éléments) — transparent aux clics pour
@@ -1186,11 +778,11 @@ export const Canvas: React.FC<CanvasProps> = ({
                         WebkitTextFillColor: el.gradient ? 'transparent' : 'initial',
                         fontSize: el.fontSize,
                         fontFamily: el.fontFamily,
-                        fontWeight: el.fontWeight as any,
+                        fontWeight: el.fontWeight as React.CSSProperties['fontWeight'],
                         fontStyle: el.italic ? 'italic' : 'normal',
                         lineHeight: el.lineHeight ?? 1.2,
                         letterSpacing: (el.letterSpacing ?? 0) + 'px',
-                        textAlign: (el.textAlign === 'middle' ? 'center' : el.textAlign === 'end' ? 'right' : 'left') as any,
+                        textAlign: (el.textAlign === 'middle' ? 'center' : el.textAlign === 'end' ? 'right' : 'left') as React.CSSProperties['textAlign'],
                         textTransform: el.textTransform ?? 'none',
                         fontVariant: el.fontVariant ?? 'normal',
                         wordSpacing: (el.wordSpacing ?? 0) + 'px',
@@ -1512,65 +1104,27 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       {/* Menu Contextuel (Clic droit) */}
       {contextMenu.visible && (
-        <div 
-          className="fixed z-[9999] bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden py-1.5 w-52 flex flex-col font-sans"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {selectionCount > 0 ? (
-            <>
-              <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase border-b border-gray-100 mb-1">Sélection ({selectionCount})</div>
-              {selectionCount >= 2 && (
-                <button onClick={() => { onGroup(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                  <Copy size={14} className="opacity-60" /> Grouper <span className="ml-auto text-[10px] opacity-40">Ctrl+G</span>
-                </button>
-              )}
-              {selectedIds.some(id => elements.find(e => e.id === id)?.groupId) && (
-                <button onClick={() => { onUngroup(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                  <LayoutTemplate size={14} className="opacity-60" /> Dégrouper <span className="ml-auto text-[10px] opacity-40">Ctrl+Maj+G</span>
-                </button>
-              )}
-              <div className="h-px bg-gray-100 my-1 mx-2" />
-              <button onClick={() => { onDuplicate(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                <Copy size={14} className="opacity-60" /> Dupliquer <span className="ml-auto text-[10px] opacity-40">Ctrl+D</span>
-              </button>
-              <button onClick={() => { onCopy(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                <Copy size={14} className="opacity-60" /> Copier <span className="ml-auto text-[10px] opacity-40">Ctrl+C</span>
-              </button>
-              {selectionCount === 1 && (
-                <button onClick={() => { onCopyStyle(selectedIds[0]); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                  <Copy size={14} className="opacity-60" /> Copier la mise en forme <span className="ml-auto text-[10px] opacity-40">Ctrl+Alt+C</span>
-                </button>
-              )}
-              {hasCopiedStyle && (
-                <button onClick={() => { onPasteStyle(selectedIds); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                  <Download size={14} className="opacity-60" /> Coller la mise en forme <span className="ml-auto text-[10px] opacity-40">Ctrl+Alt+V</span>
-                </button>
-              )}
-              <div className="h-px bg-gray-100 my-1 mx-2" />
-              <button onClick={() => { onBringToFront(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                <ArrowUp size={14} className="opacity-60" /> Tout devant
-              </button>
-              <button onClick={() => { onBringForward(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                <ChevronUp size={14} className="opacity-60" /> Avancer
-              </button>
-              <button onClick={() => { onSendBackward(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                <ChevronDown size={14} className="opacity-60" /> Reculer
-              </button>
-              <button onClick={() => { onSendToBack(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-                <ArrowDown size={14} className="opacity-60" /> Tout derrière
-              </button>
-              <div className="h-px bg-gray-100 my-1 mx-2" />
-              <button onClick={() => { onRemoveSelection(selectedIds); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-red-50 hover:text-red-700 text-xs text-red-600 font-medium transition-colors">
-                <Trash2 size={14} className="opacity-60" /> Supprimer <span className="ml-auto text-[10px] opacity-40">Suppr</span>
-              </button>
-            </>
-          ) : (
-            <button onClick={() => { onPaste(); closeContextMenu(); }} className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 hover:text-blue-700 text-xs text-gray-700 font-medium transition-colors">
-              <Download size={14} className="opacity-60" /> Coller ici <span className="ml-auto text-[10px] opacity-40">Ctrl+V</span>
-            </button>
-          )}
-        </div>
+        <CanvasContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          selectionCount={selectionCount}
+          selectedIds={selectedIds}
+          elements={elements}
+          hasCopiedStyle={hasCopiedStyle}
+          onClose={closeContextMenu}
+          onGroup={onGroup}
+          onUngroup={onUngroup}
+          onDuplicate={onDuplicate}
+          onCopy={onCopy}
+          onCopyStyle={onCopyStyle}
+          onPasteStyle={onPasteStyle}
+          onBringToFront={onBringToFront}
+          onBringForward={onBringForward}
+          onSendBackward={onSendBackward}
+          onSendToBack={onSendToBack}
+          onRemoveSelection={onRemoveSelection}
+          onPaste={onPaste}
+        />
       )}
     </div>
   );
