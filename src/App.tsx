@@ -4,6 +4,7 @@ import { useIsMobile } from './hooks/useIsMobile';
 import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
 import { LayersPanel } from './components/LayersPanel';
+import { ShortcutsHelp } from './components/ShortcutsHelp';
 import { Plus, Minus, Menu, Layers, X, Type, Square, Circle, Triangle, Undo2, Redo2, Trash2, Download } from 'lucide-react';
 import type { ElementBounds, AlignDirection, DistributeAxis, ElementType } from './types';
 
@@ -94,6 +95,7 @@ function App() {
   const [layersOpen, setLayersOpen] = useState(false);
   const [mobileAddOpen, setMobileAddOpen] = useState(false);
   const [isInteracting, setIsInteracting] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const [zoom, setZoom] = useState(1);
 
@@ -129,6 +131,7 @@ function App() {
 
       if (!mod) {
         if (e.key === 'Escape') selectElement(null);
+        if (e.key === '?' && !typing) { e.preventDefault(); setHelpOpen((v) => !v); }
         return;
       }
       switch (e.key.toLowerCase()) {
@@ -450,13 +453,22 @@ function App() {
               <a href="https://github.com/mytil67/bauhausgen" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500">@mytil</a>
             </div>
           </div>
-          <button
-            onClick={() => { setLayersOpen(true); setSidebarOpen(false); }}
-            className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 text-gray-700"
-            title="Calques"
-          >
-            <Layers size={22} />
-          </button>
+          <div className="flex items-center">
+            <button
+              onClick={() => setHelpOpen(true)}
+              className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 active:bg-gray-200 text-gray-700 font-bold"
+              title="Raccourcis"
+            >
+              ?
+            </button>
+            <button
+              onClick={() => { setLayersOpen(true); setSidebarOpen(false); }}
+              className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 text-gray-700"
+              title="Calques"
+            >
+              <Layers size={22} />
+            </button>
+          </div>
         </header>
 
         {/* Zone canvas */}
@@ -562,6 +574,8 @@ function App() {
             </button>
           </div>
         </div>
+
+        {helpOpen && <ShortcutsHelp onClose={() => setHelpOpen(false)} />}
       </div>
     );
   }
@@ -577,6 +591,8 @@ function App() {
           <button onClick={() => setZoom(z => Math.max(0.1, z - 0.25))} className="p-1 hover:bg-gray-100 rounded" title="Dézoomer (Ctrl + -)"><Minus size={14} /></button>
           <span className="w-12 text-center cursor-pointer hover:bg-gray-100 rounded" onClick={() => setZoom(1)} title="Taille réelle (Ctrl + 0)">{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} className="p-1 hover:bg-gray-100 rounded" title="Zoomer (Ctrl + +)"><Plus size={14} /></button>
+          <span className="w-px h-3.5 bg-gray-200" />
+          <button onClick={() => setHelpOpen(true)} className="w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full font-bold" title="Raccourcis clavier (?)">?</button>
         </div>
 
         {/* Status Bar & Credits */}
@@ -603,6 +619,7 @@ function App() {
       </main>
 
       <LayersPanel {...layersPanelProps} />
+      {helpOpen && <ShortcutsHelp onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }
