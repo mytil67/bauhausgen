@@ -910,7 +910,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           })()}
           {showGrid && gridSize > 0 && (
             <pattern id="editor-grid" width={gridSize} height={gridSize} patternUnits="userSpaceOnUse">
-              <path d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`} fill="none" stroke="#3b82f6" strokeWidth={0.5} opacity={0.35} />
+              <path d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`} fill="none" stroke="#3b82f6" strokeWidth={1 / zoom} opacity={0.45} />
             </pattern>
           )}
           {elements.map((el) => {
