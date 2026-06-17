@@ -5,8 +5,9 @@ import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
 import { LayersPanel } from './components/LayersPanel';
 import { ShortcutsHelp } from './components/ShortcutsHelp';
-import { Plus, Minus, Menu, Layers, X, Type, Square, Circle, Triangle, Undo2, Redo2, Trash2, Download, Copy, ChevronUp, ChevronDown, SlidersHorizontal } from 'lucide-react';
-import type { ElementBounds, AlignDirection, DistributeAxis, ElementType } from './types';
+import { MobileToolbar } from './components/MobileToolbar';
+import { Plus, Minus, Menu, Layers, X } from 'lucide-react';
+import type { ElementBounds, AlignDirection, DistributeAxis } from './types';
 
 // Polices Google utilisées dans l'éditeur (pour tentative d'embarquement à l'export)
 const GOOGLE_FONTS_CSS =
@@ -93,7 +94,6 @@ function App() {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
-  const [mobileAddOpen, setMobileAddOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const [zoom, setZoom] = useState(1);
@@ -328,10 +328,6 @@ function App() {
     setCanvasSize(w, h);
   }, [setCanvasSize]);
 
-  const handleMobileAdd = (type: ElementType) => {
-    addElement(type);
-    setMobileAddOpen(false);
-  };
 
   const sidebarProps = {
     elements,
@@ -470,7 +466,7 @@ function App() {
         </header>
 
         {/* Zone canvas */}
-        <main ref={mainRef} className="flex-1 relative overflow-hidden flex items-center justify-center">
+        <main ref={mainRef} className="flex-1 relative overflow-hidden flex items-center justify-center" style={{ paddingBottom: 'calc(62px + env(safe-area-inset-bottom))' }}>
           {canvasJsx}
 
           {/* Zoom mobile */}
@@ -481,60 +477,36 @@ function App() {
           </div>
         </main>
 
-        {/* Barre contextuelle flottante (élément sélectionné) */}
-        {selectedIds.length > 0 && !mobileAddOpen && (
-          <div
-            className="fixed left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 px-1.5 py-1.5 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-full shadow-2xl max-w-[94vw] overflow-x-auto"
-            style={{ bottom: 'calc(5.25rem + env(safe-area-inset-bottom))' }}
-          >
-            <button onClick={() => setSidebarOpen(true)} className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-blue-500 text-white text-xs font-bold active:bg-blue-600 shrink-0" title="Options de l'élément">
-              <SlidersHorizontal size={16} /> Options
-            </button>
-            <button onClick={() => duplicateSelection(selectedIds)} className="p-2.5 rounded-full active:bg-gray-100 text-gray-600 shrink-0" title="Dupliquer"><Copy size={18} /></button>
-            <button onClick={() => bringForward(selectedIds)} className="p-2.5 rounded-full active:bg-gray-100 text-gray-600 shrink-0" title="Avancer"><ChevronUp size={18} /></button>
-            <button onClick={() => sendBackward(selectedIds)} className="p-2.5 rounded-full active:bg-gray-100 text-gray-600 shrink-0" title="Reculer"><ChevronDown size={18} /></button>
-            <button onClick={() => removeSelection(selectedIds)} className="p-2.5 rounded-full active:bg-red-50 text-red-500 shrink-0" title="Supprimer"><Trash2 size={18} /></button>
-          </div>
+        {/* Barre d'outils mobile contextuelle (style Canva) */}
+        {!sidebarOpen && !layersOpen && (
+          <MobileToolbar
+            selectedElement={selectedElement}
+            selectedIds={selectedIds}
+            customColors={customColors}
+            customFonts={customFonts}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUpdateElement={updateElement}
+            onUpdateElementLive={updateElementLive}
+            onBeginHistory={beginHistory}
+            onApplyColor={(color) => applyColor(color, selectedIds)}
+            onAddElement={addElement}
+            onImportImage={handleImportImage}
+            onBringToFront={() => bringToFront(selectedIds)}
+            onSendToBack={() => sendToBack(selectedIds)}
+            onBringForward={() => bringForward(selectedIds)}
+            onSendBackward={() => sendBackward(selectedIds)}
+            onFlip={flipSelection}
+            onAlign={handleAlign}
+            onDuplicate={() => duplicateSelection(selectedIds)}
+            onRemove={() => removeSelection(selectedIds)}
+            onUndo={undo}
+            onRedo={redo}
+            onExport={() => handleExport('png')}
+            onOpenLayers={() => setLayersOpen(true)}
+            onOpenFull={() => setSidebarOpen(true)}
+          />
         )}
-
-        {/* Barre d'actions principale (flottante) */}
-        <nav
-          className="fixed left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 px-1.5 py-1.5 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-full shadow-2xl"
-          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
-        >
-          <button onClick={undo} disabled={!canUndo} className="p-2.5 rounded-full active:bg-gray-100 disabled:opacity-30 text-gray-600" title="Annuler"><Undo2 size={20} /></button>
-          <button onClick={redo} disabled={!canRedo} className="p-2.5 rounded-full active:bg-gray-100 disabled:opacity-30 text-gray-600" title="Rétablir"><Redo2 size={20} /></button>
-
-          {/* Bouton ajouter central */}
-          <div className="relative">
-            <button
-              onClick={() => setMobileAddOpen(!mobileAddOpen)}
-              className={`p-3 rounded-full shadow-lg transition-colors mx-0.5 ${mobileAddOpen ? 'bg-gray-900 text-white' : 'bg-blue-500 text-white active:bg-blue-600'}`}
-              title="Ajouter un élément"
-            >
-              {mobileAddOpen ? <X size={22} /> : <Plus size={22} />}
-            </button>
-            {/* Menu d'ajout rapide */}
-            {mobileAddOpen && (
-              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-2xl border border-gray-200 p-3 flex gap-2 z-50">
-                <button onClick={() => handleMobileAdd('text')} className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 text-gray-700" title="Texte">
-                  <Type size={20} /><span className="text-[9px]">Texte</span>
-                </button>
-                <button onClick={() => handleMobileAdd('rect')} className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 text-gray-700" title="Rectangle">
-                  <Square size={20} /><span className="text-[9px]">Rect</span>
-                </button>
-                <button onClick={() => handleMobileAdd('circle')} className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 text-gray-700" title="Cercle">
-                  <Circle size={20} /><span className="text-[9px]">Cercle</span>
-                </button>
-                <button onClick={() => handleMobileAdd('triangle')} className="flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 text-gray-700" title="Triangle">
-                  <Triangle size={20} /><span className="text-[9px]">Triangle</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          <button onClick={() => handleExport('png')} className="p-2.5 rounded-full active:bg-gray-100 text-gray-600" title="Exporter en PNG"><Download size={20} /></button>
-        </nav>
 
         {/* Backdrop léger : le design reste visible au-dessus du bottom sheet ; tap pour fermer */}
         {(sidebarOpen || layersOpen) && (
