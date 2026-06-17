@@ -43,6 +43,7 @@ const getBox = (el: CompositionElement, bounds: ElementBounds) => {
 };
 
 const emptyDoc = (): DocState => ({
+  name: '',
   elements: [],
   backgroundColor: '#ffffff',
   canvasWidth: DEFAULT_WIDTH,
@@ -87,6 +88,7 @@ const loadInitial = (): { doc: DocState; selectedIds: string[] } => {
           typeof f === 'object' && f !== null && 'data' in f)
       : [];
     const doc: DocState = {
+      name: parsed.name ?? '',
       elements: parsed.elements ?? [],
       backgroundColor: parsed.backgroundColor ?? '#ffffff',
       canvasWidth: parsed.canvasWidth ?? DEFAULT_WIDTH,
@@ -289,6 +291,7 @@ export const useComposition = () => {
       } catch { /* données invalides */ }
     });
     commit(() => ({
+      name: incoming.name ?? '',
       elements: Array.isArray(incoming.elements) ? incoming.elements : [],
       backgroundColor: incoming.backgroundColor ?? '#ffffff',
       canvasWidth: incoming.canvasWidth ?? DEFAULT_WIDTH,
@@ -298,6 +301,11 @@ export const useComposition = () => {
     }));
     setSelectedIds([]);
   }, [commit]);
+
+  /** Renomme le projet (sans historique, comme la taille du canvas). */
+  const setProjectName = useCallback((name: string) => {
+    live((prev) => ({ ...prev, name }));
+  }, [live]);
 
   const updateElement = useCallback((id: string, updates: Partial<CompositionElement>) => {
     commit((prev) => ({
@@ -752,6 +760,7 @@ export const useComposition = () => {
     addElement,
     addImage,
     loadProject,
+    setProjectName,
     updateElement,
     updateElementLive,
     updateElementsLive,

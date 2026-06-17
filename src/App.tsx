@@ -13,6 +13,7 @@ const GOOGLE_FONTS_CSS =
 
 function App() {
   const {
+    name: projectName,
     elements,
     selectedIds,
     backgroundColor,
@@ -22,6 +23,7 @@ function App() {
     customFonts,
     canUndo,
     canRedo,
+    setProjectName,
     addElement,
     addImage,
     loadProject,
@@ -211,6 +213,10 @@ function App() {
     document.body.removeChild(link);
   };
 
+  // Nom de fichier basé sur le titre du projet (caractères interdits retirés).
+  const fileBase = (fallback: string) =>
+    projectName.trim().replace(/[\\/:*?"<>|]+/g, '').trim() || fallback;
+
   // Sauvegarde du projet : JSON portable (polices embarquées en data URL).
   const handleExportProject = () => {
     const data = JSON.stringify({
@@ -219,7 +225,7 @@ function App() {
     });
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    downloadUrl(url, 'bauhaus-projet.json');
+    downloadUrl(url, `${fileBase('bauhaus-projet')}.json`);
     URL.revokeObjectURL(url);
   };
 
@@ -256,7 +262,7 @@ function App() {
     if (format === 'svg') {
       const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
-      downloadUrl(url, 'bauhaus-composition.svg');
+      downloadUrl(url, `${fileBase('bauhaus-composition')}.svg`);
       URL.revokeObjectURL(url);
       return;
     }
@@ -282,7 +288,7 @@ function App() {
       ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
       const dataUrl = canvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 1.0);
-      downloadUrl(dataUrl, `bauhaus-composition.${format}`);
+      downloadUrl(dataUrl, `${fileBase('bauhaus-composition')}.${format}`);
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
@@ -348,6 +354,8 @@ function App() {
     onBringForward: () => bringForward(selectedIds),
     onSendBackward: () => sendBackward(selectedIds),
     onFlip: flipSelection,
+    projectName,
+    onSetProjectName: setProjectName,
     onExport: handleExport,
     onExportProject: handleExportProject,
     onImportProject: handleImportProject,

@@ -99,6 +99,7 @@ export interface CustomFont {
 
 /** Partie « document » de l'état : c'est elle qui est historisée (undo/redo). */
 export interface DocState {
+  name: string; // Nom du projet (sert de nom de fichier à l'export)
   elements: CompositionElement[];
   backgroundColor: string;
   canvasWidth: number;

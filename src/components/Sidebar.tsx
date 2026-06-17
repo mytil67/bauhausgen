@@ -66,6 +66,8 @@ interface SidebarProps {
   onBringForward: () => void;
   onSendBackward: () => void;
   onFlip: (axis: 'horizontal' | 'vertical', ids: string[]) => void;
+  projectName: string;
+  onSetProjectName: (name: string) => void;
   onExport: (format: 'svg' | 'png' | 'jpg') => void;
   onExportProject: () => void;
   onImportProject: (file: File) => void;
@@ -194,6 +196,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onBringForward,
   onSendBackward,
   onFlip,
+  projectName,
+  onSetProjectName,
   onExport,
   onExportProject,
   onImportProject,
@@ -858,6 +862,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
             {openSections.export && (
               <div className="space-y-2 animate-in fade-in duration-200">
+                <div className="mb-1">
+                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Nom du projet</label>
+                  <input
+                    type="text"
+                    value={projectName}
+                    onChange={(e) => onSetProjectName(e.target.value)}
+                    placeholder="Sans titre"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-400 outline-none"
+                  />
+                  <p className="text-[8px] text-gray-300 mt-1 italic">Utilisé comme nom de fichier (PNG, SVG, JSON).</p>
+                </div>
                 <button onClick={() => onExport('svg')} className="w-full py-2 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-black transition-all shadow-sm">Exporter en SVG</button>
                 <div className="grid grid-cols-2 gap-2"><button onClick={() => onExport('png')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">PNG</button><button onClick={() => onExport('jpg')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">JPG</button></div>
 
