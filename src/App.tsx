@@ -490,6 +490,7 @@ function App() {
             onUpdateElementLive={updateElementLive}
             onBeginHistory={beginHistory}
             onApplyColor={(color) => applyColor(color, selectedIds)}
+            onSaveColor={saveColor}
             onAddElement={addElement}
             onImportImage={handleImportImage}
             onBringToFront={() => bringToFront(selectedIds)}

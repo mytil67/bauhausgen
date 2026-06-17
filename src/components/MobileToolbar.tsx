@@ -7,6 +7,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, Bold, Italic, Plus, MoreHorizontal, Droplet,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal, Undo2, Redo2, Download,
+  Underline, Strikethrough,
 } from 'lucide-react';
 
 // Constantes locales (compactes pour le mobile)
@@ -39,6 +40,7 @@ interface MobileToolbarProps {
   onUpdateElementLive: (id: string, u: Partial<CompositionElement>) => void;
   onBeginHistory: () => void;
   onApplyColor: (color: string) => void;
+  onSaveColor: (color: string) => void;
   onAddElement: (type: ElementType) => void;
   onImportImage: (file: File) => void;
   onBringToFront: () => void;
@@ -137,16 +139,57 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
                     <input type="color" value={ensureHex(el.color)} onChange={(e) => updLive({ color: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)]" />
                   </div>
                   <input value={el.color} onChange={(e) => { let v = e.target.value.trim(); if (v && !v.startsWith('#')) v = '#' + v; if (v === '' || /^#[0-9A-Fa-f]{0,6}$/.test(v)) updLive({ color: v }); }} placeholder="#000000" className="flex-1 px-3 py-2.5 text-base font-mono uppercase border border-gray-200 rounded-xl bg-gray-50" />
+                  <button onClick={() => p.onSaveColor(el.color)} className="px-3 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold active:bg-gray-200 shrink-0">Mém.</button>
+                </div>
+
+                {/* Dégradé */}
+                <div className="mt-4">
+                  {!el.gradient ? (
+                    <button onClick={() => upd({ gradient: { type: 'linear', rotation: 0, colors: [{ offset: 0, color: el.color, opacity: 1 }, { offset: 1, color: '#ffffff', opacity: 1 }] } })} className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 text-sm font-bold active:border-blue-300 active:text-blue-500">+ Dégradé</button>
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-1.5">
+                          <Seg active={el.gradient.type === 'linear'} onClick={() => upd({ gradient: { ...el.gradient!, type: 'linear' } })}><span className="text-xs font-bold px-2">Linéaire</span></Seg>
+                          <Seg active={el.gradient.type === 'radial'} onClick={() => upd({ gradient: { ...el.gradient!, type: 'radial' } })}><span className="text-xs font-bold px-2">Radial</span></Seg>
+                        </div>
+                        <button onClick={() => upd({ gradient: undefined })} className="text-xs text-red-500 font-bold uppercase px-2">Retirer</button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {el.gradient.colors.map((c, i) => (
+                          <div key={i} className="relative w-10 h-10 rounded-xl overflow-hidden border border-gray-200">
+                            <input type="color" value={ensureHex(c.color)} onChange={(e) => { const nc = [...el.gradient!.colors]; nc[i] = { ...nc[i], color: e.target.value }; updLive({ gradient: { ...el.gradient!, colors: nc } }); }} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)]" />
+                          </div>
+                        ))}
+                        <button onClick={() => upd({ gradient: { ...el.gradient!, colors: [...el.gradient!.colors, { offset: 1, color: '#000000', opacity: 1 }] } })} className="w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-400 text-xl active:bg-gray-100">+</button>
+                      </div>
+                      {el.gradient.type === 'linear' && (
+                        <Slider label="Angle" min={0} max={360} step={1} value={el.gradient.rotation} onBegin={p.onBeginHistory} onChange={(v) => updLive({ gradient: { ...el.gradient!, rotation: v } })} />
+                      )}
+                    </div>
+                  )}
                 </div>
               </Section>
             )}
 
-            {isText && panel === 'font' && (
+            {isText && el.type === 'text' && panel === 'font' && (
               <Section title="Police">
+                {/* Graisse + style */}
+                <div className="flex gap-1.5 mb-2">
+                  {([['Light', '300'], ['Normal', 'normal'], ['Gras', 'bold'], ['Black', '900']] as const).map(([lbl, v]) => (
+                    <Seg key={v} active={el.fontWeight === v} onClick={() => upd({ fontWeight: v })}><span className="text-[11px] font-bold">{lbl}</span></Seg>
+                  ))}
+                </div>
+                <div className="flex gap-1.5 mb-3">
+                  <Seg active={!!el.italic} onClick={() => upd({ italic: !el.italic })}><Italic size={18} /></Seg>
+                  <Seg active={el.fontVariant === 'small-caps'} onClick={() => upd({ fontVariant: el.fontVariant === 'small-caps' ? 'normal' : 'small-caps' })}><span className="text-xs font-bold">Pᴇᴛɪᴛᴇs ᴄᴀᴘs</span></Seg>
+                </div>
+                <div className="mb-3"><Slider label="Étirement (largeur)" min={50} max={200} step={1} value={el.fontWidth ?? 100} onBegin={p.onBeginHistory} onChange={(v) => updLive({ fontWidth: v })} /></div>
+                {/* Liste des polices */}
                 <div className="space-y-1.5">
                   {[...FONTS.map((f) => ({ v: f, n: f.split(',')[0].replace(/['"]/g, '') })), ...p.customFonts.map((f) => ({ v: f.name, n: f.name }))].map((f) => (
                     <button key={f.v} onClick={() => upd({ fontFamily: f.v })} style={{ fontFamily: f.v }}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-lg active:bg-blue-50 ${(el as { fontFamily: string }).fontFamily === f.v ? 'bg-blue-50 text-blue-600 font-bold' : 'bg-gray-50'}`}>{f.n}</button>
+                      className={`w-full text-left px-4 py-3 rounded-xl text-lg active:bg-blue-50 ${el.fontFamily === f.v ? 'bg-blue-50 text-blue-600 font-bold' : 'bg-gray-50'}`}>{f.n}</button>
                   ))}
                 </div>
               </Section>
@@ -160,6 +203,7 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
                   <StepBtn label="+" onClick={() => updLive({ fontSize: el.fontSize + 2 })} />
                 </div>
                 <input type="range" min="8" max="400" value={el.fontSize} onMouseDown={p.onBeginHistory} onTouchStart={p.onBeginHistory} onChange={(e) => updLive({ fontSize: Number(e.target.value) })} className="w-full mt-4 h-2 bg-gray-200 rounded-lg appearance-none accent-blue-500" />
+                <div className="mt-4"><Slider label="Interligne" min={0.5} max={3} step={0.1} value={el.lineHeight ?? 1.2} onBegin={p.onBeginHistory} onChange={(v) => updLive({ lineHeight: v })} /></div>
               </Section>
             )}
 
@@ -175,7 +219,27 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
                   <Seg active={!!el.italic} onClick={() => upd({ italic: !el.italic })}><Italic size={18} /></Seg>
                   <Seg active={el.textTransform === 'uppercase'} onClick={() => upd({ textTransform: el.textTransform === 'uppercase' ? 'none' : 'uppercase' })}><span className="text-xs font-bold">AA</span></Seg>
                 </div>
-                <Slider label="Interlettrage" min={-10} max={50} step={0.5} value={el.letterSpacing ?? 0} onBegin={p.onBeginHistory} onChange={(v) => updLive({ letterSpacing: v })} />
+                <div className="space-y-3">
+                  <Slider label="Interlettrage" min={-10} max={50} step={0.5} value={el.letterSpacing ?? 0} onBegin={p.onBeginHistory} onChange={(v) => updLive({ letterSpacing: v })} />
+                  <Slider label="Espacement des mots" min={-10} max={50} step={0.5} value={el.wordSpacing ?? 0} onBegin={p.onBeginHistory} onChange={(v) => updLive({ wordSpacing: v })} />
+                  <Slider label="Interligne" min={0.5} max={3} step={0.1} value={el.lineHeight ?? 1.2} onBegin={p.onBeginHistory} onChange={(v) => updLive({ lineHeight: v })} />
+                </div>
+                {/* Décoration & sens */}
+                <div className="flex gap-1.5 mt-3">
+                  <Seg active={el.textDecoration === 'underline'} onClick={() => upd({ textDecoration: el.textDecoration === 'underline' ? 'none' : 'underline' })}><Underline size={18} /></Seg>
+                  <Seg active={el.textDecoration === 'line-through'} onClick={() => upd({ textDecoration: el.textDecoration === 'line-through' ? 'none' : 'line-through' })}><Strikethrough size={18} /></Seg>
+                  <Seg active={el.textDecoration === 'overline'} onClick={() => upd({ textDecoration: el.textDecoration === 'overline' ? 'none' : 'overline' })}><span className="text-sm font-bold" style={{ textDecoration: 'overline' }}>O</span></Seg>
+                  <Seg active={el.writingMode === 'vertical'} onClick={() => upd({ writingMode: el.writingMode === 'vertical' ? 'horizontal' : 'vertical' })}><span className="text-sm font-bold" style={{ writingMode: 'vertical-rl' as React.CSSProperties['writingMode'] }}>A</span></Seg>
+                </div>
+                {/* Courbure */}
+                <div className="mt-3"><Slider label="Courbure" min={-100} max={100} step={1} value={el.curve ?? 0} onBegin={p.onBeginHistory} onChange={(v) => updLive({ curve: v })} /></div>
+                {Math.abs(el.curve ?? 0) > 0 && (
+                  <div className="flex gap-1.5 mt-2">
+                    <Seg active={(el.curveType ?? 'arc') === 'arc'} onClick={() => upd({ curveType: 'arc' })}><span className="text-[11px] font-bold">Arc</span></Seg>
+                    <Seg active={el.curveType === 'circle'} onClick={() => upd({ curveType: 'circle' })}><span className="text-[11px] font-bold">Cercle 360°</span></Seg>
+                    <Seg active={!!el.curveInvert} onClick={() => upd({ curveInvert: !el.curveInvert })}><span className="text-[11px] font-bold">Inverser</span></Seg>
+                  </div>
+                )}
               </Section>
             )}
 
@@ -239,6 +303,16 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
             {el && panel === 'fx' && (
               <Section title="Effets">
                 <Slider label="Opacité" min={0} max={1} step={0.01} value={el.opacity} onBegin={p.onBeginHistory} onChange={(v) => updLive({ opacity: v })} pct />
+                <div className="mt-3">
+                  <div className="text-xs font-bold text-gray-400 uppercase mb-1">Mode de fusion</div>
+                  <select value={el.blendMode ?? 'normal'} onChange={(e) => upd({ blendMode: e.target.value as CompositionElement['blendMode'] })} className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm">
+                    <option value="normal">Normal</option><option value="multiply">Produit</option><option value="screen">Superposition</option><option value="overlay">Incrustation</option><option value="darken">Obscurcir</option><option value="lighten">Éclaircir</option><option value="difference">Différence</option><option value="exclusion">Exclusion</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <Slider label="Inclinaison X" min={-45} max={45} step={1} value={el.skewX ?? 0} onBegin={p.onBeginHistory} onChange={(v) => updLive({ skewX: v })} />
+                  <Slider label="Inclinaison Y" min={-45} max={45} step={1} value={el.skewY ?? 0} onBegin={p.onBeginHistory} onChange={(v) => updLive({ skewY: v })} />
+                </div>
                 <div className="mt-4 p-3 bg-gray-50 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-gray-600">Ombre portée</span>
@@ -257,6 +331,10 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
 
             {el && panel === 'pos' && (
               <Section title="Position">
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="bg-gray-50 rounded-xl px-3 py-2"><label className="text-[9px] font-bold text-gray-400 uppercase block">X</label><input type="number" value={Math.round(el.x)} onFocus={p.onBeginHistory} onChange={(e) => updLive({ x: Number(e.target.value) })} className="w-full bg-transparent text-base font-mono outline-none" /></div>
+                  <div className="bg-gray-50 rounded-xl px-3 py-2"><label className="text-[9px] font-bold text-gray-400 uppercase block">Y</label><input type="number" value={Math.round(el.y)} onFocus={p.onBeginHistory} onChange={(e) => updLive({ y: Number(e.target.value) })} className="w-full bg-transparent text-base font-mono outline-none" /></div>
+                </div>
                 <div className="grid grid-cols-4 gap-1.5 mb-3">
                   <Seg onClick={p.onBringToFront}><ArrowUp size={18} /></Seg>
                   <Seg onClick={p.onBringForward}><ChevronUp size={18} /></Seg>
@@ -277,6 +355,10 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
                   <Seg onClick={() => p.onAlign('bottom', true)}><AlignEndHorizontal size={16} /></Seg>
                 </div>
                 <Slider label="Rotation" min={0} max={360} step={1} value={el.rotation} onBegin={p.onBeginHistory} onChange={(v) => updLive({ rotation: v })} />
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <Slider label="Échelle X" min={0.1} max={4} step={0.05} value={el.scaleX} onBegin={p.onBeginHistory} onChange={(v) => updLive({ scaleX: v })} />
+                  <Slider label="Échelle Y" min={0.1} max={4} step={0.05} value={el.scaleY} onBegin={p.onBeginHistory} onChange={(v) => updLive({ scaleY: v })} />
+                </div>
               </Section>
             )}
           </div>
