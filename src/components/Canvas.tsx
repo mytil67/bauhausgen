@@ -3,7 +3,7 @@ import {
   Trash2, Copy, LayoutTemplate, ArrowUp, ArrowDown, Download,
   ChevronUp, ChevronDown
 } from 'lucide-react';
-import type { CompositionElement, TextElement, ElementBounds } from '../types';
+import type { CompositionElement, TextElement, ShapeElement, ElementBounds } from '../types';
 
 interface CanvasProps {
   elements: CompositionElement[];
@@ -41,6 +41,29 @@ type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 type DragMode = 'move' | 'rotate' | ResizeHandle | null;
 
 const FALLBACK_BBOX = { x: -50, y: -25, width: 100, height: 50 } as DOMRect;
+
+/** Géométrie nue d'une forme, réutilisée pour le rendu, les clips et les masques
+ *  (afin d'émuler l'alignement du contour intérieur/extérieur). */
+const shapeGeom = (el: ShapeElement, props: React.SVGAttributes<SVGElement>): React.ReactNode => {
+  const w = el.width, h = el.height;
+  switch (el.type) {
+    case 'rect':
+    case 'line':
+      return <rect x={-w / 2} y={-h / 2} width={w} height={h} {...props} />;
+    case 'circle':
+      return <circle cx="0" cy="0" r={w / 2} {...props} />;
+    case 'triangle':
+      return <polygon points={`0,${-h / 2} ${w / 2},${h / 2} ${-w / 2},${h / 2}`} {...props} />;
+    case 'semicircle':
+      return <path d={`M ${-w / 2},${h / 2} A ${w / 2} ${h} 0 0 1 ${w / 2} ${h / 2} Z`} {...props} />;
+    case 'quarter':
+      return <path d={`M ${-w / 2},${h / 2} L ${w / 2},${h / 2} A ${w} ${h} 0 0 0 ${-w / 2},${-h / 2} Z`} {...props} />;
+    case 'ring':
+      return <path fillRule="evenodd" d={`M ${-w / 2},0 A ${w / 2} ${h / 2} 0 1 0 ${w / 2} 0 A ${w / 2} ${h / 2} 0 1 0 ${-w / 2} 0 Z M ${-w / 4},0 A ${w / 4} ${h / 4} 0 1 1 ${w / 4} 0 A ${w / 4} ${h / 4} 0 1 1 ${-w / 4} 0 Z`} {...props} />;
+    default:
+      return null;
+  }
+};
 
 /** Convertit un hex (#rgb ou #rrggbb) en rgba() avec l'alpha donné. */
 const hexToRgba = (hex: string, a: number): string => {
@@ -846,6 +869,25 @@ export const Canvas: React.FC<CanvasProps> = ({
               );
             }
 
+            // Alignement du contour (formes) : clip pour l'intérieur, masque pour l'extérieur
+            if (el.type !== 'text' && (el.strokeWidth ?? 0) > 0 && el.strokeAlign && el.strokeAlign !== 'center') {
+              if (el.strokeAlign === 'inside') {
+                defs.push(
+                  <clipPath key={`sc-${el.id}`} id={`shapeclip-${el.id}`}>
+                    {shapeGeom(el, {})}
+                  </clipPath>
+                );
+              } else {
+                const m = Math.max(el.width, el.height) + (el.strokeWidth ?? 0) * 4 + 20;
+                defs.push(
+                  <mask key={`sm-${el.id}`} id={`shapemask-${el.id}`} maskUnits="userSpaceOnUse" x={-m} y={-m} width={2 * m} height={2 * m}>
+                    <rect x={-m} y={-m} width={2 * m} height={2 * m} fill="white" />
+                    {shapeGeom(el, { fill: 'black' })}
+                  </mask>
+                );
+              }
+            }
+
             // Masque de découpe (knockout) : plaque pleine, lettres en trou
             if (el.type === 'text' && el.knockout && !el.curve) {
               const b = bboxes[el.id] || FALLBACK_BBOX;
@@ -916,10 +958,6 @@ export const Canvas: React.FC<CanvasProps> = ({
             ? `url(#pattern-${el.id})`
             : el.gradient ? `url(#gradient-${el.id})` : el.color;
 
-          // Contour des formes (le texte gère son propre stroke)
-          const shapeStroke = el.strokeWidth && el.strokeWidth > 0
-            ? { stroke: el.strokeColor ?? '#000000', strokeWidth: el.strokeWidth, strokeLinejoin: 'round' as const }
-            : {};
 
           // Ombres de texte multiples (CSS text-shadow), distinct du filtre drop-shadow
           const textShadowCss = el.type === 'text' && el.textShadows && el.textShadows.length
@@ -1092,12 +1130,27 @@ export const Canvas: React.FC<CanvasProps> = ({
                     </foreignObject>
                   );
                 })()}
-                {(el.type === 'rect' || el.type === 'line') && <rect x={-el.width / 2} y={-el.height / 2} width={el.width} height={el.height} fill={fill} {...shapeStroke} />}
-                {el.type === 'circle' && <circle cx="0" cy="0" r={el.width / 2} fill={fill} {...shapeStroke} />}
-                {el.type === 'triangle' && <polygon points={`0,${-el.height / 2} ${el.width / 2},${el.height / 2} ${-el.width / 2},${el.height / 2}`} fill={fill} {...shapeStroke} />}
-                {el.type === 'semicircle' && <path d={`M ${-el.width / 2},${el.height / 2} A ${el.width / 2} ${el.height} 0 0 1 ${el.width / 2} ${el.height / 2} Z`} fill={fill} {...shapeStroke} />}
-                {el.type === 'quarter' && <path d={`M ${-el.width / 2},${el.height / 2} L ${el.width / 2},${el.height / 2} A ${el.width} ${el.height} 0 0 0 ${-el.width / 2},${-el.height / 2} Z`} fill={fill} {...shapeStroke} />}
-                {el.type === 'ring' && <path fillRule="evenodd" d={`M ${-el.width / 2},0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${el.width / 2} 0 A ${el.width / 2} ${el.height / 2} 0 1 0 ${-el.width / 2} 0 Z M ${-el.width / 4},0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${el.width / 4} 0 A ${el.width / 4} ${el.height / 4} 0 1 1 ${-el.width / 4} 0 Z`} fill={fill} {...shapeStroke} />}
+                {el.type !== 'text' && (() => {
+                  const w = el.strokeWidth ?? 0;
+                  const align = el.strokeAlign ?? 'center';
+                  const strokeProps = w > 0
+                    ? { stroke: el.strokeColor ?? '#000000', strokeWidth: align === 'center' ? w : w * 2, strokeLinejoin: 'round' as const }
+                    : null;
+                  // Pas de contour, ou contour centré : un seul tracé suffit
+                  if (!strokeProps || align === 'center') {
+                    return shapeGeom(el, { fill, ...(strokeProps ?? {}) });
+                  }
+                  // Intérieur / extérieur : fond + contour double largeur clippé/masqué
+                  const clipMask = align === 'inside'
+                    ? { clipPath: `url(#shapeclip-${el.id})` }
+                    : { mask: `url(#shapemask-${el.id})` };
+                  return (
+                    <>
+                      {shapeGeom(el, { fill })}
+                      {shapeGeom(el, { fill: 'none', ...strokeProps, ...clipMask })}
+                    </>
+                  );
+                })()}
               </g>
 
               {/* Contour de sélection (toujours visible si sélectionné) */}

@@ -27,6 +27,7 @@ export interface BaseElement {
   shadowOpacity?: number;
   strokeColor?: string;
   strokeWidth?: number;
+  strokeAlign?: 'center' | 'inside' | 'outside'; // Alignement du contour (formes)
   noFill?: boolean; // Remplissage transparent (forme/texte évidé, contour seul)
   gradient?: {
     type: 'linear' | 'radial';
