@@ -50,6 +50,23 @@ const emptyDoc = (): DocState => ({
   customFonts: [],
 });
 
+/** Propriétés de « mise en forme » communes à tous les éléments. */
+const COMMON_STYLE_PROPS = [
+  'color', 'opacity', 'blendMode',
+  'shadowColor', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'shadowOpacity',
+  'gradient', 'pattern', 'strokeColor', 'strokeWidth', 'strokeAlign', 'noFill',
+] as const;
+
+/** Propriétés de mise en forme spécifiques au texte (scale inclus = taille visuelle). */
+const TEXT_STYLE_PROPS = [
+  'scaleX', 'scaleY',
+  'fontSize', 'fontFamily', 'fontWeight', 'fontWidth', 'letterSpacing', 'lineHeight',
+  'textAlign', 'textTransform', 'italic', 'curve', 'maxWidth',
+  'writingMode', 'fontVariant', 'textDecoration', 'textDecorationStyle', 'textDecorationColor', 'wordSpacing',
+  'curveType', 'curveInvert', 'bgEnabled', 'bgColor', 'bgPadding', 'bgRadius',
+  'knockout', 'textShadows',
+] as const;
+
 interface PersistedShape extends DocState {
   selectedIds?: string[];
   // rétrocompat avec l'ancien format
@@ -630,28 +647,17 @@ export const useComposition = () => {
     setDoc((prev) => {
       const el = prev.elements.find((e) => e.id === id);
       if (el) {
-        const styleProps = [
-          'color', 'opacity', 'blendMode',
-          'shadowColor', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'shadowOpacity',
-          'gradient', 'pattern', 'strokeColor', 'strokeWidth', 'strokeAlign', 'noFill',
-          'fontSize', 'fontFamily', 'fontWeight', 'fontWidth', 'letterSpacing', 'lineHeight', 'textAlign', 'textTransform', 'italic', 'curve', 'maxWidth',
-          'writingMode', 'fontVariant', 'textDecoration', 'textDecorationStyle', 'textDecorationColor', 'wordSpacing',
-          'curveType', 'curveInvert', 'bgEnabled', 'bgColor', 'bgPadding', 'bgRadius',
-          'knockout', 'textShadows'
-        ] as const;
-        const style: Partial<CompositionElement> = {};
-        styleProps.forEach((prop) => {
-          if (prop in el) {
-            (style as any)[prop] = (el as any)[prop];
-          }
-        });
-        // Taille visuelle d'un texte redimensionné aux poignées (= scale). Copiée
-        // uniquement depuis un texte (les formes se dimensionnent via largeur/hauteur).
-        if (el.type === 'text') {
-          style.scaleX = el.scaleX;
-          style.scaleY = el.scaleY;
-        }
-        copiedStyleRef.current = style;
+        // Les props texte ne sont copiées que depuis un texte (les formes se
+        // dimensionnent via largeur/hauteur et n'ont pas de typo).
+        const props = el.type === 'text'
+          ? [...COMMON_STYLE_PROPS, ...TEXT_STYLE_PROPS]
+          : COMMON_STYLE_PROPS;
+        const style: Record<string, unknown> = {};
+        // On copie la valeur MÊME absente (undefined) : coller doit réinitialiser
+        // la cible (ex. source sans knockout -> knockout retiré de la cible).
+        const src = el as unknown as Record<string, unknown>;
+        props.forEach((prop) => { style[prop] = src[prop]; });
+        copiedStyleRef.current = style as Partial<CompositionElement>;
         setHasCopiedStyle(true);
       }
       return prev;
