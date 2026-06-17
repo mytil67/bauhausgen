@@ -940,13 +940,20 @@ export const Canvas: React.FC<CanvasProps> = ({
           const innerTransform = `scale(${el.scaleX}, ${el.scaleY})`;
           const bbox = bboxes[el.id] || FALLBACK_BBOX;
 
-          // La boîte de sélection englobe la plaque (badge ou découpe) si active (texte sans courbure)
+          // La boîte de sélection englobe la plaque (badge/découpe) ET la partie du contour
+          // qui dépasse de la géométrie (getBBox ignore le stroke), pour que les poignées
+          // entourent toujours le rendu complet — sans manip manuelle.
           const plateActive = el.type === 'text' && !el.curve && (el.bgEnabled || el.knockout);
           const bgPad = plateActive ? (el.bgPadding ?? (el.type === 'text' && el.knockout ? 16 : 10)) : 0;
-          const sw = (bbox.width + bgPad * 2) * el.scaleX;
-          const sh = (bbox.height + bgPad * 2) * el.scaleY;
-          const sx = (bbox.x - bgPad) * el.scaleX;
-          const sy = (bbox.y - bgPad) * el.scaleY;
+          const strokeW = el.strokeWidth ?? 0;
+          const strokeMargin = strokeW > 0
+            ? (el.strokeAlign === 'outside' ? strokeW : el.strokeAlign === 'inside' ? 0 : strokeW / 2)
+            : 0;
+          const selPad = Math.max(bgPad, strokeMargin);
+          const sw = (bbox.width + selPad * 2) * el.scaleX;
+          const sh = (bbox.height + selPad * 2) * el.scaleY;
+          const sx = (bbox.x - selPad) * el.scaleX;
+          const sy = (bbox.y - selPad) * el.scaleY;
 
           const filterUrl = (el.shadowBlur && el.shadowBlur > 0) || (el.shadowOpacity && el.shadowOpacity > 0)
             ? `url(#filter-shadow-${el.id})`
