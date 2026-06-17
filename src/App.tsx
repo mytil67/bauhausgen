@@ -23,6 +23,8 @@ function App() {
     canUndo,
     canRedo,
     addElement,
+    addImage,
+    loadProject,
     updateElement,
     updateElementLive,
     updateElementsLive,
@@ -209,6 +211,44 @@ function App() {
     document.body.removeChild(link);
   };
 
+  // Sauvegarde du projet : JSON portable (polices embarquées en data URL).
+  const handleExportProject = () => {
+    const data = JSON.stringify({
+      version: 1,
+      elements, backgroundColor, canvasWidth, canvasHeight, customColors, customFonts,
+    });
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    downloadUrl(url, 'bauhaus-projet.json');
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportProject = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target?.result as string);
+        loadProject(parsed);
+        setAutoCanvasSize(false);
+      } catch {
+        alert('Fichier projet invalide.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportImage = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const href = e.target?.result as string;
+      const img = new Image();
+      img.onload = () => addImage(href, img.naturalWidth || 300, img.naturalHeight || 300);
+      img.onerror = () => alert("Impossible de charger cette image.");
+      img.src = href;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleExport = async (format: 'svg' | 'png' | 'jpg') => {
     const svgData = await buildExportSvg();
     if (!svgData) return;
@@ -309,6 +349,9 @@ function App() {
     onSendBackward: () => sendBackward(selectedIds),
     onFlip: flipSelection,
     onExport: handleExport,
+    onExportProject: handleExportProject,
+    onImportProject: handleImportProject,
+    onImportImage: handleImportImage,
     onClearCanvas: clearCanvas,
     onAlign: handleAlign,
     onDistribute: handleDistribute,

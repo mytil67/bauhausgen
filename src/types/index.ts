@@ -1,5 +1,5 @@
 export type ShapeType = 'rect' | 'circle' | 'triangle' | 'semicircle' | 'quarter' | 'ring' | 'line';
-export type ElementType = 'text' | ShapeType;
+export type ElementType = 'text' | ShapeType | 'image';
 
 export interface BaseElement {
   id: string;
@@ -81,7 +81,15 @@ export interface ShapeElement extends BaseElement {
   height: number;
 }
 
-export type CompositionElement = TextElement | ShapeElement;
+/** Image importée (PNG/JPG/SVG) — `href` est un data URL embarqué. */
+export interface ImageElement extends BaseElement {
+  type: 'image';
+  href: string;
+  width: number;
+  height: number;
+}
+
+export type CompositionElement = TextElement | ShapeElement | ImageElement;
 
 /** Police importée par l'utilisateur. `data` est un data URL base64 (persistable). */
 export interface CustomFont {

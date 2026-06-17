@@ -32,6 +32,9 @@ import {
   Strikethrough,
   Pipette,
   Brush,
+  Image as ImageIcon,
+  Save,
+  FolderOpen,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -64,6 +67,9 @@ interface SidebarProps {
   onSendBackward: () => void;
   onFlip: (axis: 'horizontal' | 'vertical', ids: string[]) => void;
   onExport: (format: 'svg' | 'png' | 'jpg') => void;
+  onExportProject: () => void;
+  onImportProject: (file: File) => void;
+  onImportImage: (file: File) => void;
   onClearCanvas: () => void;
   onAlign: (direction: AlignDirection, toPage: boolean) => void;
   onDistribute: (axis: DistributeAxis) => void;
@@ -189,6 +195,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSendBackward,
   onFlip,
   onExport,
+  onExportProject,
+  onImportProject,
+  onImportImage,
   onClearCanvas,
   onAlign,
   onDistribute,
@@ -204,6 +213,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLoadTemplate,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const projectInputRef = useRef<HTMLInputElement>(null);
   const [alignToPage, setAlignToPage] = useState(false);
   const [isFontPickerOpen, setIsFontPickerOpen] = useState(false);
   
@@ -271,8 +282,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className="w-full md:w-[360px] h-full bg-white border-r border-gray-100 flex shadow-2xl z-10 overflow-hidden shrink-0">
-      {/* Input fichier (toujours monté, partagé par tous les boutons d'import) */}
+      {/* Inputs fichier (toujours montés, partagés par les boutons d'import) */}
       <input type="file" ref={fileInputRef} onChange={handleFontUpload} accept=".ttf,.otf,.woff,.woff2" className="hidden" />
+      <input type="file" ref={imageInputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportImage(f); e.target.value = ''; }} accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" className="hidden" />
+      <input type="file" ref={projectInputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportProject(f); e.target.value = ''; }} accept="application/json,.json" className="hidden" />
       {/* 1. TOOL STRIP (Fixe à gauche) */}
       <aside className="w-14 h-full bg-gray-50 border-r border-gray-100 flex flex-col items-center py-4 gap-4 shrink-0">
         <div className="w-8 h-8 bg-gray-900 rounded flex items-center justify-center text-[10px] font-black text-white mb-2">B</div>
@@ -292,6 +305,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <ShapeIcon type={type} />
             </button>
           ))}
+          <div className="h-px bg-gray-200 my-1 mx-2" />
+          <button onClick={() => imageInputRef.current?.click()} title="Importer une image (PNG/SVG)" className="w-full aspect-square flex items-center justify-center rounded hover:bg-blue-50 hover:text-blue-600 text-gray-500 transition-colors">
+            <ImageIcon size={20} />
+          </button>
         </div>
 
         <div className="mt-auto flex flex-col gap-1 w-full px-2">
@@ -843,6 +860,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="space-y-2 animate-in fade-in duration-200">
                 <button onClick={() => onExport('svg')} className="w-full py-2 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-black transition-all shadow-sm">Exporter en SVG</button>
                 <div className="grid grid-cols-2 gap-2"><button onClick={() => onExport('png')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">PNG</button><button onClick={() => onExport('jpg')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">JPG</button></div>
+
+                {/* Projet (sauvegarde/chargement portable .json) */}
+                <div className="pt-2 mt-1 border-t border-gray-100">
+                  <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Projet (réutilisable)</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={onExportProject} title="Télécharge le projet en .json (polices incluses)" className="flex items-center justify-center gap-1.5 py-2 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold uppercase tracking-wider rounded hover:bg-blue-100 transition-all"><Save size={13} /> Enregistrer</button>
+                    <button onClick={() => projectInputRef.current?.click()} title="Charge un projet .json" className="flex items-center justify-center gap-1.5 py-2 bg-gray-50 text-gray-600 border border-gray-200 text-[10px] font-bold uppercase tracking-wider rounded hover:bg-white transition-all"><FolderOpen size={13} /> Charger</button>
+                  </div>
+                </div>
+
                 <button onClick={onClearCanvas} className="w-full mt-4 py-2 text-red-400 hover:text-red-600 text-[9px] font-bold uppercase tracking-widest transition-colors">Vider le canvas</button>
               </div>
             )}

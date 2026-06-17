@@ -346,7 +346,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     elements.forEach((el) => {
       const ref = elementRefs.current[el.id];
       if (ref) {
-        const content = (ref.querySelector('.measure-target') || ref.querySelector('text, rect, circle, polygon, path')) as SVGGraphicsElement;
+        const content = (ref.querySelector('.measure-target') || ref.querySelector('text, rect, circle, polygon, path, image')) as SVGGraphicsElement;
         if (content) {
           newBboxes[el.id] = content.getBBox();
         }
@@ -870,7 +870,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             }
 
             // Alignement du contour (formes) : clip pour l'intérieur, masque pour l'extérieur
-            if (el.type !== 'text' && (el.strokeWidth ?? 0) > 0 && el.strokeAlign && el.strokeAlign !== 'center') {
+            if (el.type !== 'text' && el.type !== 'image' && (el.strokeWidth ?? 0) > 0 && el.strokeAlign && el.strokeAlign !== 'center') {
               if (el.strokeAlign === 'inside') {
                 defs.push(
                   <clipPath key={`sc-${el.id}`} id={`shapeclip-${el.id}`}>
@@ -1138,7 +1138,17 @@ export const Canvas: React.FC<CanvasProps> = ({
                     </foreignObject>
                   );
                 })()}
-                {el.type !== 'text' && (() => {
+                {el.type === 'image' && (
+                  <image
+                    href={el.href}
+                    x={-el.width / 2}
+                    y={-el.height / 2}
+                    width={el.width}
+                    height={el.height}
+                    preserveAspectRatio="none"
+                  />
+                )}
+                {el.type !== 'text' && el.type !== 'image' && (() => {
                   const w = el.strokeWidth ?? 0;
                   const align = el.strokeAlign ?? 'center';
                   const strokeProps = w > 0

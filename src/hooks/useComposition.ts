@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type {
   CompositionElement,
+  ImageElement,
   DocState,
   ElementType,
   AlignDirection,
@@ -232,11 +233,11 @@ export const useComposition = () => {
     const size = type === 'line' ? { width: 240, height: 8 } : { width: 120, height: 120 };
     return {
       ...base,
-      type,
+      type: type as Exclude<typeof type, 'image'>, // les images passent par addImage, jamais ici
       name: names[type] ?? 'Forme',
       color: '#e63946',
       ...size,
-    };
+    } as CompositionElement;
   };
 
   const addElement = useCallback((type: ElementType) => {
@@ -247,6 +248,55 @@ export const useComposition = () => {
       return { ...prev, elements: [...prev.elements, el] };
     });
     setSelectedIds(newId ? [newId] : []);
+  }, [commit]);
+
+  /** Ajoute une image importée (data URL). Dimensions initiales = nature, réduites pour tenir. */
+  const addImage = useCallback((href: string, natW: number, natH: number) => {
+    let newId = '';
+    commit((prev) => {
+      const maxW = prev.canvasWidth * 0.6;
+      const maxH = prev.canvasHeight * 0.6;
+      const fit = Math.min(maxW / natW, maxH / natH, 1) || 1;
+      const el: ImageElement = {
+        id: uuidv4(),
+        type: 'image',
+        href,
+        width: Math.max(8, Math.round(natW * fit)),
+        height: Math.max(8, Math.round(natH * fit)),
+        x: prev.canvasWidth / 2,
+        y: prev.canvasHeight / 2,
+        rotation: 0, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0,
+        opacity: 1, blendMode: 'normal', visible: true, locked: false, name: 'Image',
+        color: '#000000',
+        shadowColor: '#000000', shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0, shadowOpacity: 0.5,
+      };
+      newId = el.id;
+      return { ...prev, elements: [...prev.elements, el] };
+    });
+    if (newId) setSelectedIds([newId]);
+  }, [commit]);
+
+  /** Charge un projet importé (.json) : remplace le document et ré-enregistre les polices. */
+  const loadProject = useCallback((incoming: Partial<DocState>) => {
+    const customFonts = Array.isArray(incoming.customFonts)
+      ? incoming.customFonts.filter((f): f is { name: string; data: string } =>
+          typeof f === 'object' && f !== null && 'data' in f)
+      : [];
+    customFonts.forEach((font) => {
+      if (Array.from(document.fonts).some((f) => f.family === font.name)) return;
+      try {
+        new FontFace(font.name, `url(${font.data})`).load().then((l) => document.fonts.add(l)).catch(() => {});
+      } catch { /* données invalides */ }
+    });
+    commit(() => ({
+      elements: Array.isArray(incoming.elements) ? incoming.elements : [],
+      backgroundColor: incoming.backgroundColor ?? '#ffffff',
+      canvasWidth: incoming.canvasWidth ?? DEFAULT_WIDTH,
+      canvasHeight: incoming.canvasHeight ?? DEFAULT_HEIGHT,
+      customColors: incoming.customColors ?? [],
+      customFonts,
+    }));
+    setSelectedIds([]);
   }, [commit]);
 
   const updateElement = useCallback((id: string, updates: Partial<CompositionElement>) => {
@@ -700,6 +750,8 @@ export const useComposition = () => {
     canRedo: future.length > 0,
     hasCopiedStyle,
     addElement,
+    addImage,
+    loadProject,
     updateElement,
     updateElementLive,
     updateElementsLive,
