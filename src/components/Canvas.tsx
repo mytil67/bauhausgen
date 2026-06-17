@@ -9,6 +9,7 @@ interface CanvasProps {
   elements: CompositionElement[];
   selectedIds: string[];
   backgroundColor: string;
+  backgroundGradient?: { type: 'linear' | 'radial'; colors: { offset: number; color: string; opacity: number }[]; rotation: number };
   width: number;
   height: number;
   onSelect: (id: string | null, additive?: boolean) => void;
@@ -122,6 +123,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   elements,
   selectedIds,
   backgroundColor,
+  backgroundGradient,
   width,
   height,
   onSelect,
@@ -829,6 +831,22 @@ export const Canvas: React.FC<CanvasProps> = ({
           onClick={closeContextMenu}
         >
         <defs>
+          {backgroundGradient && (() => {
+            const { type, colors, rotation } = backgroundGradient;
+            if (type === 'linear') {
+              const rad = (rotation * Math.PI) / 180;
+              return (
+                <linearGradient id="bg-gradient" x1={`${50 - Math.cos(rad) * 50}%`} y1={`${50 - Math.sin(rad) * 50}%`} x2={`${50 + Math.cos(rad) * 50}%`} y2={`${50 + Math.sin(rad) * 50}%`}>
+                  {colors.map((c, i) => <stop key={i} offset={`${c.offset * 100}%`} stopColor={c.color} stopOpacity={c.opacity} />)}
+                </linearGradient>
+              );
+            }
+            return (
+              <radialGradient id="bg-gradient">
+                {colors.map((c, i) => <stop key={i} offset={`${c.offset * 100}%`} stopColor={c.color} stopOpacity={c.opacity} />)}
+              </radialGradient>
+            );
+          })()}
           {elements.map((el) => {
             const defs: React.ReactNode[] = [];
             
@@ -961,6 +979,11 @@ export const Canvas: React.FC<CanvasProps> = ({
             return defs;
           })}
         </defs>
+
+        {/* Fond en dégradé (sous tous les éléments) */}
+        {backgroundGradient && (
+          <rect x="0" y="0" width={width} height={height} fill="url(#bg-gradient)" />
+        )}
 
         {elements.map((el) => {
           if (el.visible === false) return null;

@@ -91,6 +91,7 @@ const loadInitial = (): { doc: DocState; selectedIds: string[] } => {
       name: parsed.name ?? '',
       elements: parsed.elements ?? [],
       backgroundColor: parsed.backgroundColor ?? '#ffffff',
+      backgroundGradient: parsed.backgroundGradient,
       canvasWidth: parsed.canvasWidth ?? DEFAULT_WIDTH,
       canvasHeight: parsed.canvasHeight ?? DEFAULT_HEIGHT,
       customColors: parsed.customColors ?? [],
@@ -294,6 +295,7 @@ export const useComposition = () => {
       name: incoming.name ?? '',
       elements: Array.isArray(incoming.elements) ? incoming.elements : [],
       backgroundColor: incoming.backgroundColor ?? '#ffffff',
+      backgroundGradient: incoming.backgroundGradient,
       canvasWidth: incoming.canvasWidth ?? DEFAULT_WIDTH,
       canvasHeight: incoming.canvasHeight ?? DEFAULT_HEIGHT,
       customColors: incoming.customColors ?? [],
@@ -501,6 +503,14 @@ export const useComposition = () => {
   const setBackgroundColor = useCallback((color: string) => {
     commit((prev) => ({ ...prev, backgroundColor: color }));
   }, [commit]);
+
+  const setBackgroundGradient = useCallback((gradient: DocState['backgroundGradient']) => {
+    commit((prev) => ({ ...prev, backgroundGradient: gradient }));
+  }, [commit]);
+
+  const setBackgroundGradientLive = useCallback((gradient: DocState['backgroundGradient']) => {
+    live((prev) => ({ ...prev, backgroundGradient: gradient }));
+  }, [live]);
 
   /** Applique une couleur à la sélection, ou au fond si rien n'est sélectionné. */
   const applyColor = useCallback((color: string, ids: string[]) => {
@@ -783,6 +793,8 @@ export const useComposition = () => {
     setCanvasSize,
     loadTemplate,
     setBackgroundColor,
+    setBackgroundGradient,
+    setBackgroundGradientLive,
     applyColor,
     saveColor,
     addCustomFont,

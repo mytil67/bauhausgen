@@ -102,6 +102,12 @@ export interface DocState {
   name: string; // Nom du projet (sert de nom de fichier à l'export)
   elements: CompositionElement[];
   backgroundColor: string;
+  /** Dégradé de fond (prioritaire sur backgroundColor s'il est défini). */
+  backgroundGradient?: {
+    type: 'linear' | 'radial';
+    colors: { offset: number; color: string; opacity: number }[];
+    rotation: number;
+  };
   canvasWidth: number;
   canvasHeight: number;
   customColors: string[];

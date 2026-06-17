@@ -17,6 +17,7 @@ function App() {
     elements,
     selectedIds,
     backgroundColor,
+    backgroundGradient,
     canvasWidth,
     canvasHeight,
     customColors,
@@ -50,6 +51,8 @@ function App() {
     setCanvasSize,
     loadTemplate,
     setBackgroundColor,
+    setBackgroundGradient,
+    setBackgroundGradientLive,
     applyColor,
     saveColor,
     addCustomFont,
@@ -346,7 +349,10 @@ function App() {
     onBeginHistory: beginHistory,
     onRemoveElement: (id: string) => removeSelection([id]),
     onDuplicate: () => duplicateSelection(selectedIds),
+    backgroundGradient,
     onUpdateBackground: setBackgroundColor,
+    onSetBackgroundGradient: setBackgroundGradient,
+    onSetBackgroundGradientLive: setBackgroundGradientLive,
     onSaveColor: saveColor,
     onAddCustomFont: addCustomFont,
     onBringToFront: () => bringToFront(selectedIds),
@@ -392,6 +398,7 @@ function App() {
       elements={elements}
       selectedIds={selectedIds}
       backgroundColor={backgroundColor}
+      backgroundGradient={backgroundGradient}
       width={canvasWidth}
       height={canvasHeight}
       onSelect={selectElement}
