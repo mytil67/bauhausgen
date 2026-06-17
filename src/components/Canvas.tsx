@@ -356,7 +356,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
     setBboxes(newBboxes);
     onBoundsChange(newBboxes);
-  }, [elements, selectedIds, onBoundsChange]);
+    // Les bbox ne dépendent que de la géométrie : on NE remesure PAS à chaque
+    // changement de sélection (évite un reflow getBBox coûteux à chaque clic).
+  }, [elements, onBoundsChange]);
 
   const handleMouseDown = (e: React.MouseEvent, el: CompositionElement) => {
     e.stopPropagation();
@@ -980,9 +982,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           })}
         </defs>
 
-        {/* Fond en dégradé (sous tous les éléments) */}
+        {/* Fond en dégradé (sous tous les éléments) — transparent aux clics pour
+            ne pas casser le cadre de sélection (marquee) ni la désélection au clic. */}
         {backgroundGradient && (
-          <rect x="0" y="0" width={width} height={height} fill="url(#bg-gradient)" />
+          <rect x="0" y="0" width={width} height={height} fill="url(#bg-gradient)" pointerEvents="none" />
         )}
 
         {elements.map((el) => {
