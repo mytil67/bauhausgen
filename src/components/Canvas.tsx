@@ -447,9 +447,6 @@ export const Canvas: React.FC<CanvasProps> = ({
         const mouseX = pos.x - dragOffset.x;
         const mouseY = pos.y - dragOffset.y;
 
-        let newX = mouseX;
-        let newY = mouseY;
-
         // Référentiel de l'élément (ou du groupe) déplacé
         const currentBbox = singleSelected ? (bboxes[activeId] || FALLBACK_BBOX) : groupAABB;
         if (!currentBbox) return;
@@ -458,15 +455,30 @@ export const Canvas: React.FC<CanvasProps> = ({
         const currentX = singleSelected ? el!.x : groupAABB!.cx;
         const currentY = singleSelected ? el!.y : groupAABB!.cy;
 
-        // Boîtes absolues des autres éléments (non sélectionnés)
+        // Décalage entre l'origine (x,y) et le CENTRE VISUEL de la boîte.
+        // ≈ 0 pour les formes / le texte centré et pour les groupes ; non nul pour un texte
+        // ancré à gauche/droite (textAlign start/end), afin que l'aimantation reste juste.
+        const cxOff = singleSelected ? (currentBbox.x + currentBbox.width / 2) * (el?.scaleX || 1) : 0;
+        const cyOff = singleSelected ? (currentBbox.y + currentBbox.height / 2) * (el?.scaleY || 1) : 0;
+        const currentCx = currentX + cxOff;
+        const currentCy = currentY + cyOff;
+        const mouseCx = mouseX + cxOff;
+        const mouseCy = mouseY + cyOff;
+
+        let newCx = mouseCx;
+        let newCy = mouseCy;
+
+        // Boîtes absolues des autres éléments (non sélectionnés), en tenant compte de leur ancre
         const selectedSet = new Set(selectedIds);
         const others = elements
           .filter((o) => !selectedSet.has(o.id))
           .map((o) => {
             const ob = bboxes[o.id] || FALLBACK_BBOX;
-            const ohw = (ob.width / 2) * o.scaleX;
-            const ohh = (ob.height / 2) * o.scaleY;
-            return { left: o.x - ohw, right: o.x + ohw, cx: o.x, top: o.y - ohh, bottom: o.y + ohh, cy: o.y };
+            const left = o.x + ob.x * o.scaleX;
+            const right = left + ob.width * o.scaleX;
+            const top = o.y + ob.y * o.scaleY;
+            const bottom = top + ob.height * o.scaleY;
+            return { left, right, cx: (left + right) / 2, top, bottom, cy: (top + bottom) / 2 };
           });
 
         // --- 1. Aimantation d'alignement ---
@@ -476,21 +488,21 @@ export const Canvas: React.FC<CanvasProps> = ({
         let bestX = SNAP_DISTANCE;
         for (const t of xTargets) {
           for (const anchor of [-halfW, 0, halfW]) {
-            const d = Math.abs(mouseX + anchor - t);
-            if (d < bestX) { bestX = d; newX = t - anchor; }
+            const d = Math.abs(mouseCx + anchor - t);
+            if (d < bestX) { bestX = d; newCx = t - anchor; }
           }
         }
         let bestY = SNAP_DISTANCE;
         for (const t of yTargets) {
           for (const anchor of [-halfH, 0, halfH]) {
-            const d = Math.abs(mouseY + anchor - t);
-            if (d < bestY) { bestY = d; newY = t - anchor; }
+            const d = Math.abs(mouseCy + anchor - t);
+            if (d < bestY) { bestY = d; newCy = t - anchor; }
           }
         }
         const xSnapped = bestX < SNAP_DISTANCE;
         const ySnapped = bestY < SNAP_DISTANCE;
 
-        const box = () => ({ left: newX - halfW, right: newX + halfW, cx: newX, top: newY - halfH, bottom: newY + halfH, cy: newY });
+        const box = () => ({ left: newCx - halfW, right: newCx + halfW, cx: newCx, top: newCy - halfH, bottom: newCy + halfH, cy: newCy });
         let D = box();
         const EQ = SNAP_DISTANCE * 1.5;
 
@@ -510,14 +522,14 @@ export const Canvas: React.FC<CanvasProps> = ({
           const gR = R ? R.left - D.right : Infinity;
 
           if (!xSnapped && L && R && gL > 0 && gR > 0 && Math.abs(gL - gR) <= EQ) {
-            newX = (L.right + R.left) / 2; D = box();
+            newCx = (L.right + R.left) / 2; D = box();
             valueH = Math.round(D.left - L.right);
             equalSegH.push({ a: L.right, b: D.left }, { a: D.right, b: R.left });
             equalH = true;
           } else if (!xSnapped && L && LL) {
             const ref = L.left - LL.right;
             if (ref > 0 && Math.abs(gL - ref) <= EQ) {
-              newX = L.right + ref + halfW; D = box();
+              newCx = L.right + ref + halfW; D = box();
               valueH = Math.round(ref);
               equalSegH.push({ a: LL.right, b: L.left }, { a: L.right, b: D.left });
               equalH = true;
@@ -526,7 +538,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           if (!equalH && !xSnapped && R && RR) {
             const ref = RR.left - R.right;
             if (ref > 0 && Math.abs(gR - ref) <= EQ) {
-              newX = R.left - ref - halfW; D = box();
+              newCx = R.left - ref - halfW; D = box();
               valueH = Math.round(ref);
               equalSegH.push({ a: D.right, b: R.left }, { a: R.right, b: RR.left });
               equalH = true;
@@ -550,14 +562,14 @@ export const Canvas: React.FC<CanvasProps> = ({
           const gB = B ? B.top - D.bottom : Infinity;
 
           if (!ySnapped && T && B && gT > 0 && gB > 0 && Math.abs(gT - gB) <= EQ) {
-            newY = (T.bottom + B.top) / 2; D = box();
+            newCy = (T.bottom + B.top) / 2; D = box();
             valueV = Math.round(D.top - T.bottom);
             equalSegV.push({ a: T.bottom, b: D.top }, { a: D.bottom, b: B.top });
             equalV = true;
           } else if (!ySnapped && T && TT) {
             const ref = T.top - TT.bottom;
             if (ref > 0 && Math.abs(gT - ref) <= EQ) {
-              newY = T.bottom + ref + halfH; D = box();
+              newCy = T.bottom + ref + halfH; D = box();
               valueV = Math.round(ref);
               equalSegV.push({ a: TT.bottom, b: T.top }, { a: T.bottom, b: D.top });
               equalV = true;
@@ -566,7 +578,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           if (!equalV && !ySnapped && B && BB) {
             const ref = BB.top - B.bottom;
             if (ref > 0 && Math.abs(gB - ref) <= EQ) {
-              newY = B.top - ref - halfH; D = box();
+              newCy = B.top - ref - halfH; D = box();
               valueV = Math.round(ref);
               equalSegV.push({ a: D.bottom, b: B.top }, { a: B.bottom, b: BB.top });
               equalV = true;
@@ -607,7 +619,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         }
 
         setMeasurements(m);
-        onNudge(Math.round(newX) - currentX, Math.round(newY) - currentY, selectedIds);
+        onNudge(Math.round(newCx - currentCx), Math.round(newCy - currentCy), selectedIds);
       }
  else {
         // Redimensionnement
@@ -1109,9 +1121,9 @@ export const Canvas: React.FC<CanvasProps> = ({
               width={groupAABB.width + hz}
               height={groupAABB.height + hz}
               fill="none"
-              stroke="#3b82f6"
-              strokeWidth={strokeZ}
-              strokeDasharray="4"
+              stroke="#ec4899"
+              strokeWidth={2 / zoom}
+              strokeDasharray={`${6 / zoom} ${4 / zoom}`}
               className="pointer-events-none"
             />
             {/* Coins */}
@@ -1214,10 +1226,10 @@ export const Canvas: React.FC<CanvasProps> = ({
             y={Math.min(marquee.y1, marquee.y2)}
             width={Math.abs(marquee.x2 - marquee.x1)}
             height={Math.abs(marquee.y2 - marquee.y1)}
-            fill="rgba(59, 130, 246, 0.06)"
-            stroke="#3b82f6"
-            strokeWidth={0.5 / zoom}
-            strokeDasharray="3 3"
+            fill="rgba(236, 72, 153, 0.10)"
+            stroke="#ec4899"
+            strokeWidth={2 / zoom}
+            strokeDasharray={`${6 / zoom} ${4 / zoom}`}
             className="pointer-events-none export-ignore"
           />
         )}

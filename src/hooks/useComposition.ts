@@ -552,10 +552,21 @@ export const useComposition = () => {
           elements: prev.elements.map((el) => {
             if (!moveSet.has(el.id)) return el;
             const b = getBox(el, bounds);
+            // Pour un texte mono-ligne, l'alignement horizontal pose AUSSI l'ancre du texte
+            // sur le bord aligné (start/middle/end) : l'origine (x) coïncide alors avec ce bord,
+            // si bien qu'un étirement ultérieur de la police ne décale plus l'alignement.
+            const singleLineText =
+              el.type === 'text' && !el.maxWidth && !(el.text && el.text.includes('\n'));
             switch (direction) {
-              case 'left': return { ...el, x: el.x + (ref.left - b.left) };
-              case 'right': return { ...el, x: el.x + (ref.right - b.right) };
-              case 'center': return { ...el, x: el.x + (refCx - b.cx) };
+              case 'left':
+                if (singleLineText) return { ...el, textAlign: 'start', x: ref.left };
+                return { ...el, x: el.x + (ref.left - b.left) };
+              case 'right':
+                if (singleLineText) return { ...el, textAlign: 'end', x: ref.right };
+                return { ...el, x: el.x + (ref.right - b.right) };
+              case 'center':
+                if (singleLineText) return { ...el, textAlign: 'middle', x: refCx };
+                return { ...el, x: el.x + (refCx - b.cx) };
               case 'top': return { ...el, y: el.y + (ref.top - b.top) };
               case 'bottom': return { ...el, y: el.y + (ref.bottom - b.bottom) };
               case 'middle': return { ...el, y: el.y + (refCy - b.cy) };
