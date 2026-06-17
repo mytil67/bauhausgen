@@ -37,6 +37,8 @@ interface CanvasProps {
   showGrid?: boolean;
   gridSize?: number;
   snapToGrid?: boolean;
+  guides?: { x: number[]; y: number[] };
+  onGuidesChange?: React.Dispatch<React.SetStateAction<{ x: number[]; y: number[] }>>;
   zoom: number;
 }
 
@@ -174,6 +176,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   showGrid,
   gridSize = 20,
   snapToGrid,
+  guides,
+  onGuidesChange,
   zoom,
 }) => {
   const [dragMode, setDragMode] = useState<DragMode>(null);
@@ -185,6 +189,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [marquee, setMarquee] = useState<Marquee | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false });
+  const [guideDrag, setGuideDrag] = useState<{ axis: 'x' | 'y'; index: number } | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const elementRefs = useRef<{ [key: string]: SVGGElement | null }>({});
@@ -404,6 +409,38 @@ export const Canvas: React.FC<CanvasProps> = ({
     // changement de sélection (évite un reflow getBBox coûteux à chaque clic).
   }, [elements, onBoundsChange]);
 
+  // Déplacement d'un repère (guide) : maj live ; sorti du canvas au relâcher = supprimé.
+  useEffect(() => {
+    if (!guideDrag || !onGuidesChange) return;
+    const apply = (clientX: number, clientY: number, finalize: boolean) => {
+      const pos = getPositionFromClient(clientX, clientY);
+      const { axis, index } = guideDrag;
+      const val = axis === 'x' ? pos.x : pos.y;
+      const lim = axis === 'x' ? width : height;
+      onGuidesChange((prev) => {
+        const arr = [...prev[axis]];
+        if (finalize && (val < -4 || val > lim + 4)) arr.splice(index, 1);
+        else arr[index] = Math.round(Math.max(0, Math.min(lim, val)));
+        return { ...prev, [axis]: arr };
+      });
+    };
+    const move = (e: MouseEvent) => apply(e.clientX, e.clientY, false);
+    const up = (e: MouseEvent) => { apply(e.clientX, e.clientY, true); setGuideDrag(null); };
+    const tmove = (e: TouchEvent) => { const t = e.touches[0]; if (t) { e.preventDefault(); apply(t.clientX, t.clientY, false); } };
+    const tend = (e: TouchEvent) => { const t = e.changedTouches[0]; if (t) apply(t.clientX, t.clientY, true); setGuideDrag(null); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', tmove, { passive: false });
+    window.addEventListener('touchend', tend);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', tmove);
+      window.removeEventListener('touchend', tend);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guideDrag, onGuidesChange, width, height]);
+
   const handleMouseDown = (e: React.MouseEvent, el: CompositionElement) => {
     e.stopPropagation();
     if (el.locked) return;
@@ -574,8 +611,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           });
 
         // --- 1. Aimantation d'alignement ---
-        const xTargets = [0, width / 2, width, ...others.flatMap((o) => [o.left, o.cx, o.right])];
-        const yTargets = [0, height / 2, height, ...others.flatMap((o) => [o.top, o.cy, o.bottom])];
+        const xTargets = [0, width / 2, width, ...(guides?.x ?? []), ...others.flatMap((o) => [o.left, o.cx, o.right])];
+        const yTargets = [0, height / 2, height, ...(guides?.y ?? []), ...others.flatMap((o) => [o.top, o.cy, o.bottom])];
 
         let bestX = SNAP_DISTANCE;
         for (const t of xTargets) {
@@ -870,7 +907,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements, snapToGrid, gridSize]);
+  }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements, snapToGrid, gridSize, guides]);
 
   return (
     <div className="w-full h-full overflow-auto relative bg-transparent flex p-4 md:p-12" style={{ touchAction: 'none' }}>
@@ -1431,6 +1468,30 @@ export const Canvas: React.FC<CanvasProps> = ({
             );
           })}
         </g>
+
+        {/* Repères manuels (guides) — déplaçables, sortir du canvas = supprimer */}
+        {guides && (guides.x.length > 0 || guides.y.length > 0) && (
+          <g className="export-ignore">
+            {guides.x.map((gx, i) => (
+              <React.Fragment key={`guide-x-${i}`}>
+                <line x1={gx} y1={0} x2={gx} y2={height} stroke="#14b8a6" strokeWidth={strokeGuide} className="pointer-events-none" />
+                <line x1={gx} y1={0} x2={gx} y2={height} stroke="#14b8a6" strokeOpacity={0} strokeWidth={14 / zoom}
+                  style={{ cursor: 'ew-resize', pointerEvents: 'stroke' }}
+                  onMouseDown={(e) => { e.stopPropagation(); setGuideDrag({ axis: 'x', index: i }); }}
+                  onTouchStart={(e) => { e.stopPropagation(); setGuideDrag({ axis: 'x', index: i }); }} />
+              </React.Fragment>
+            ))}
+            {guides.y.map((gy, i) => (
+              <React.Fragment key={`guide-y-${i}`}>
+                <line x1={0} y1={gy} x2={width} y2={gy} stroke="#14b8a6" strokeWidth={strokeGuide} className="pointer-events-none" />
+                <line x1={0} y1={gy} x2={width} y2={gy} stroke="#14b8a6" strokeOpacity={0} strokeWidth={14 / zoom}
+                  style={{ cursor: 'ns-resize', pointerEvents: 'stroke' }}
+                  onMouseDown={(e) => { e.stopPropagation(); setGuideDrag({ axis: 'y', index: i }); }}
+                  onTouchStart={(e) => { e.stopPropagation(); setGuideDrag({ axis: 'y', index: i }); }} />
+              </React.Fragment>
+            ))}
+          </g>
+        )}
 
         {/* Cadre de sélection (rubber-band) — très discret */}
         {marquee && (

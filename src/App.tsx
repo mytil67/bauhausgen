@@ -106,6 +106,16 @@ function App() {
   });
   useEffect(() => { localStorage.setItem('bauhaus-grid', JSON.stringify(grid)); }, [grid]);
 
+  // Repères manuels (guides) : positions en coordonnées canvas
+  const [guides, setGuides] = useState<{ x: number[]; y: number[] }>(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('bauhaus-guides') || 'null');
+      if (s && Array.isArray(s.x) && Array.isArray(s.y)) return s;
+    } catch { /* ignore */ }
+    return { x: [], y: [] };
+  });
+  useEffect(() => { localStorage.setItem('bauhaus-guides', JSON.stringify(guides)); }, [guides]);
+
   const [zoom, setZoom] = useState(1);
 
   // Zoom avec la molette
@@ -423,6 +433,8 @@ function App() {
       showGrid={grid.show}
       gridSize={grid.size}
       snapToGrid={grid.snap}
+      guides={guides}
+      onGuidesChange={setGuides}
       onDuplicate={() => duplicateSelection(selectedIds)}
       onCopy={() => copySelection(selectedIds)}
       onPaste={pasteClipboard}
@@ -521,6 +533,9 @@ function App() {
             onOpenFull={() => setSidebarOpen(true)}
             grid={grid}
             onSetGrid={(g) => setGrid(g)}
+            hasGuides={guides.x.length > 0 || guides.y.length > 0}
+            onAddGuide={(axis) => setGuides(g => axis === 'x' ? { ...g, x: [...g.x, Math.round(canvasWidth / 2)] } : { ...g, y: [...g.y, Math.round(canvasHeight / 2)] })}
+            onClearGuides={() => setGuides({ x: [], y: [] })}
           />
         )}
 
@@ -595,6 +610,16 @@ function App() {
               <span className="w-9 text-center">{grid.size}px</span>
               <button onClick={() => setGrid(g => ({ ...g, size: Math.min(200, g.size + 5) }))} className="p-1 hover:bg-gray-100 rounded" title="Agrandir la grille"><Plus size={12} /></button>
             </>
+          )}
+          <span className="w-px h-3.5 bg-gray-200" />
+          <button onClick={() => setGuides(g => ({ ...g, x: [...g.x, Math.round(canvasWidth / 2)] }))} className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500" title="Ajouter un repère vertical">
+            <svg width="14" height="14"><line x1="7" y1="1" x2="7" y2="13" stroke="currentColor" strokeWidth="1.5" /></svg>
+          </button>
+          <button onClick={() => setGuides(g => ({ ...g, y: [...g.y, Math.round(canvasHeight / 2)] }))} className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500" title="Ajouter un repère horizontal">
+            <svg width="14" height="14"><line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.5" /></svg>
+          </button>
+          {(guides.x.length > 0 || guides.y.length > 0) && (
+            <button onClick={() => setGuides({ x: [], y: [] })} className="px-1.5 text-[10px] font-bold text-gray-400 hover:text-red-500" title="Effacer les repères">✕</button>
           )}
         </div>
 

@@ -58,6 +58,9 @@ interface MobileToolbarProps {
   onOpenFull: () => void;
   grid: { show: boolean; snap: boolean; size: number };
   onSetGrid: (g: { show: boolean; snap: boolean; size: number }) => void;
+  hasGuides: boolean;
+  onAddGuide: (axis: 'x' | 'y') => void;
+  onClearGuides: () => void;
 }
 
 type Cat = { id: string; label: string; icon: React.ReactNode };
@@ -141,6 +144,14 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
                   <Seg active={p.grid.snap} onClick={() => p.onSetGrid({ ...p.grid, snap: !p.grid.snap })}><span className="flex items-center gap-1.5 text-sm font-bold"><Magnet size={16} /> Aimanter</span></Seg>
                 </div>
                 <Slider label="Taille de la grille" min={5} max={100} step={5} value={p.grid.size} onBegin={() => undefined} onChange={(v) => p.onSetGrid({ ...p.grid, size: v })} />
+                <div className="mt-4">
+                  <div className="text-xs font-bold text-gray-400 uppercase mb-2">Repères</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => p.onAddGuide('x')} className="py-3 rounded-xl bg-gray-50 text-gray-600 text-sm font-bold active:bg-gray-100">+ Vertical</button>
+                    <button onClick={() => p.onAddGuide('y')} className="py-3 rounded-xl bg-gray-50 text-gray-600 text-sm font-bold active:bg-gray-100">+ Horizontal</button>
+                  </div>
+                  {p.hasGuides && <button onClick={p.onClearGuides} className="mt-2 w-full py-2.5 rounded-xl text-red-500 text-sm font-bold active:bg-red-50">Effacer les repères</button>}
+                </div>
               </Section>
             )}
 
