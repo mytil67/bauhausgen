@@ -94,7 +94,6 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [mobileAddOpen, setMobileAddOpen] = useState(false);
-  const [isInteracting, setIsInteracting] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const [zoom, setZoom] = useState(1);
@@ -385,7 +384,6 @@ function App() {
     hasCopiedStyle,
     onSetCanvasSize: handleSetCanvasSize,
     onLoadTemplate: (tpl: Parameters<typeof loadTemplate>[0]) => { setAutoCanvasSize(false); loadTemplate(tpl); },
-    onInteractionChange: setIsInteracting,
   };
 
   const layersPanelProps = {
@@ -538,37 +536,43 @@ function App() {
           <button onClick={() => handleExport('png')} className="p-2.5 rounded-full active:bg-gray-100 text-gray-600" title="Exporter en PNG"><Download size={20} /></button>
         </nav>
 
-        {/* Overlay backdrop pour drawers */}
+        {/* Backdrop léger : le design reste visible au-dessus du bottom sheet ; tap pour fermer */}
         {(sidebarOpen || layersOpen) && (
           <div
-            className={`fixed inset-0 z-40 transition-colors duration-200 ${isInteracting ? 'bg-transparent pointer-events-none' : 'bg-black/30'}`}
+            className="fixed inset-0 z-40 bg-black/10"
             onClick={() => { setSidebarOpen(false); setLayersOpen(false); }}
           />
         )}
 
-        {/* Drawer Sidebar (gauche) */}
-        <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-[360px] max-w-[90vw] transform transition-all duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isInteracting ? 'opacity-20' : 'opacity-100'}`}>
-          <div className="h-full relative">
-            <Sidebar {...sidebarProps} />
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="absolute top-3 right-3 p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 z-10 shadow-sm"
-            >
-              <X size={16} />
-            </button>
+        {/* Bottom sheet — Réglages (le canvas reste visible, aperçu en direct) */}
+        <div
+          className={`fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-y-0' : 'translate-y-full'}`}
+          style={{ height: '62vh' }}
+        >
+          <div className="h-full bg-white rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden">
+            <div className="relative shrink-0 pt-2.5 pb-2 flex items-center justify-center border-b border-gray-100">
+              <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+              <button onClick={() => setSidebarOpen(false)} className="absolute right-3 top-2 p-1.5 rounded-full bg-gray-100 active:bg-gray-200 text-gray-500"><X size={16} /></button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <Sidebar {...sidebarProps} />
+            </div>
           </div>
         </div>
 
-        {/* Drawer Calques (droite) */}
-        <div className={`fixed inset-y-0 right-0 z-50 w-72 max-w-[85vw] transform transition-transform duration-300 ease-out ${layersOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="h-full relative">
-            <LayersPanel {...layersPanelProps} />
-            <button
-              onClick={() => setLayersOpen(false)}
-              className="absolute top-3 left-3 p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 z-10"
-            >
-              <X size={16} />
-            </button>
+        {/* Bottom sheet — Calques */}
+        <div
+          className={`fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-out ${layersOpen ? 'translate-y-0' : 'translate-y-full'}`}
+          style={{ height: '55vh' }}
+        >
+          <div className="h-full bg-white rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden">
+            <div className="relative shrink-0 pt-2.5 pb-2 flex items-center justify-center border-b border-gray-100">
+              <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+              <button onClick={() => setLayersOpen(false)} className="absolute right-3 top-2 p-1.5 rounded-full bg-gray-100 active:bg-gray-200 text-gray-500"><X size={16} /></button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <LayersPanel {...layersPanelProps} />
+            </div>
           </div>
         </div>
 

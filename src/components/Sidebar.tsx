@@ -332,11 +332,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <input type="file" ref={imageInputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportImage(f); e.target.value = ''; }} accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" className="hidden" />
       <input type="file" ref={projectInputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportProject(f); e.target.value = ''; }} accept="application/json,.json" className="hidden" />
       {/* 1. TOOL STRIP (Fixe à gauche) */}
-      <aside className="w-14 h-full bg-gray-50 border-r border-gray-100 flex flex-col items-center py-4 gap-4 shrink-0">
-        <div className="w-8 h-8 bg-gray-900 rounded flex items-center justify-center text-[10px] font-black text-white mb-2">B</div>
+      <aside className="w-14 h-full bg-gray-50 border-r border-gray-100 flex flex-col items-center py-4 gap-4 shrink-0 overflow-y-auto custom-scrollbar">
+        <div className="w-8 h-8 bg-gray-900 rounded flex items-center justify-center text-[10px] font-black text-white mb-2 shrink-0">B</div>
         
         <div className="flex flex-col gap-1 w-full px-2">
-          <button onClick={() => onAddElement('text')} title="Texte" className="w-full aspect-square flex items-center justify-center rounded hover:bg-blue-50 hover:text-blue-600 text-gray-500 transition-colors">
+          <button onClick={() => onAddElement('text')} title="Texte" className="w-full aspect-square shrink-0 flex items-center justify-center rounded hover:bg-blue-50 hover:text-blue-600 text-gray-500 transition-colors">
             <Type size={20} />
           </button>
           <div className="h-px bg-gray-200 my-1 mx-2" />
@@ -345,22 +345,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={type}
               onClick={() => onAddElement(type)}
               title={label}
-              className="w-full aspect-square flex items-center justify-center rounded hover:bg-blue-50 hover:text-blue-600 text-gray-500 transition-colors"
+              className="w-full aspect-square shrink-0 flex items-center justify-center rounded hover:bg-blue-50 hover:text-blue-600 text-gray-500 transition-colors"
             >
               <ShapeIcon type={type} />
             </button>
           ))}
           <div className="h-px bg-gray-200 my-1 mx-2" />
-          <button onClick={() => imageInputRef.current?.click()} title="Importer une image (PNG/SVG)" className="w-full aspect-square flex items-center justify-center rounded hover:bg-blue-50 hover:text-blue-600 text-gray-500 transition-colors">
+          <button onClick={() => imageInputRef.current?.click()} title="Importer une image (PNG/SVG)" className="w-full aspect-square shrink-0 flex items-center justify-center rounded hover:bg-blue-50 hover:text-blue-600 text-gray-500 transition-colors">
             <ImageIcon size={20} />
           </button>
         </div>
 
         <div className="mt-auto flex flex-col gap-1 w-full px-2">
-          <button onClick={onUndo} disabled={!canUndo} title="Annuler" className="w-full aspect-square flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
+          <button onClick={onUndo} disabled={!canUndo} title="Annuler" className="w-full aspect-square shrink-0 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
             <Undo2 size={18} />
           </button>
-          <button onClick={onRedo} disabled={!canRedo} title="Rétablir" className="w-full aspect-square flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
+          <button onClick={onRedo} disabled={!canRedo} title="Rétablir" className="w-full aspect-square shrink-0 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
             <Redo2 size={18} />
           </button>
         </div>
