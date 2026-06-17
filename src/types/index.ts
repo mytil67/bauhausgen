@@ -63,7 +63,7 @@ export interface TextElement extends BaseElement {
   bgPadding?: number;
   bgRadius?: number;
   knockout?: boolean; // Lot 3: texte découpé (les lettres laissent voir le fond)
-  textShadows?: { x: number; y: number; blur: number; color: string }[]; // Lot 2: ombres multiples
+  textShadows?: { x: number; y: number; blur: number; color: string; opacity?: number }[]; // Lot 2: ombres multiples
   // --- Lot 1 typographie ---
   writingMode?: 'horizontal' | 'vertical'; // Sens d'écriture
   fontVariant?: 'normal' | 'small-caps'; // Petites capitales

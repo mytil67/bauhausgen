@@ -42,6 +42,16 @@ type DragMode = 'move' | 'rotate' | ResizeHandle | null;
 
 const FALLBACK_BBOX = { x: -50, y: -25, width: 100, height: 50 } as DOMRect;
 
+/** Convertit un hex (#rgb ou #rrggbb) en rgba() avec l'alpha donné. */
+const hexToRgba = (hex: string, a: number): string => {
+  let h = (hex || '').replace('#', '');
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  if (h.length !== 6) return hex;
+  const n = parseInt(h, 16);
+  if (Number.isNaN(n)) return hex;
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+};
+
 /**
  * Rayon du cercle support pour un texte courbé.
  * - mode « arc » : rayon dérivé de la courbure (10000/curve) — courbe douce → grand rayon.
@@ -906,7 +916,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
           // Ombres de texte multiples (CSS text-shadow), distinct du filtre drop-shadow
           const textShadowCss = el.type === 'text' && el.textShadows && el.textShadows.length
-            ? el.textShadows.map((s) => `${s.x}px ${s.y}px ${s.blur}px ${s.color}`).join(', ')
+            ? el.textShadows.map((s) => `${s.x}px ${s.y}px ${s.blur}px ${hexToRgba(s.color, s.opacity ?? 1)}`).join(', ')
             : undefined;
 
           return (

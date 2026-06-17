@@ -144,6 +144,16 @@ const GOOGLE_FONTS = [
   { label: 'Roboto Mono', value: "'Roboto Mono', monospace" },
 ];
 
+type Shadow = { x: number; y: number; blur: number; color: string; opacity: number };
+// Préréglages d'ombres de texte (stacks de text-shadow)
+const SHADOW_PRESETS: { label: string; shadows: Shadow[] }[] = [
+  { label: 'Douce', shadows: [{ x: 2, y: 3, blur: 6, color: '#000000', opacity: 0.4 }] },
+  { label: 'Dure', shadows: [{ x: 4, y: 4, blur: 0, color: '#000000', opacity: 1 }] },
+  { label: 'Longue', shadows: Array.from({ length: 16 }, (_, i) => ({ x: i + 1, y: i + 1, blur: 0, color: '#1a1a1a', opacity: 1 })) },
+  { label: 'Néon', shadows: [{ x: 0, y: 0, blur: 6, color: '#ec4899', opacity: 0.9 }, { x: 0, y: 0, blur: 16, color: '#ec4899', opacity: 0.7 }] },
+  { label: 'Contour', shadows: ([[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, -2], [-2, 2], [2, 2]] as const).map(([x, y]) => ({ x, y, blur: 0, color: '#000000', opacity: 1 })) },
+];
+
 export const Sidebar: React.FC<SidebarProps> = ({
   elements,
   selectedElement,
@@ -713,15 +723,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <div className="p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
                               <div className="flex justify-between items-center">
                                 <span className="text-[9px] font-bold text-gray-400 uppercase">Ombres de texte</span>
-                                <button onClick={() => onUpdateElement(selectedElement.id, { textShadows: [...(selectedElement.textShadows ?? []), { x: 3, y: 3, blur: 0, color: '#000000' }] })} className="text-[9px] font-bold text-blue-600 uppercase">+ Ajouter</button>
+                                <button onClick={() => onUpdateElement(selectedElement.id, { textShadows: [...(selectedElement.textShadows ?? []), { x: 3, y: 3, blur: 0, color: '#000000', opacity: 1 }] })} className="text-[9px] font-bold text-blue-600 uppercase">+ Ajouter</button>
                               </div>
+
+                              {/* Préréglages */}
+                              <div className="grid grid-cols-5 gap-1">
+                                {SHADOW_PRESETS.map((p) => (
+                                  <button key={p.label} onClick={() => onUpdateElement(selectedElement.id, { textShadows: p.shadows.map((s) => ({ ...s })) })} className="py-1 rounded border border-gray-200 bg-white text-[8px] font-bold uppercase text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors" title={`Préréglage : ${p.label}`}>{p.label}</button>
+                                ))}
+                              </div>
+
+                              {(selectedElement.textShadows ?? []).length === 0 && (
+                                <p className="text-[8px] text-gray-300 italic">Aucune ombre. Choisis un préréglage ou « + Ajouter ».</p>
+                              )}
+
+                              {/* Liste des ombres (champs explicites) */}
                               {(selectedElement.textShadows ?? []).map((s, i) => (
-                                <div key={i} className="flex gap-1 items-center">
-                                  <div className="relative w-6 h-6 rounded border border-gray-200 overflow-hidden bg-white shrink-0" title="Couleur"><input type="color" value={ensureFullHex(s.color)} onMouseDown={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], color: e.target.value }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
-                                  <input type="number" title="Décalage X" value={s.x} onFocus={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], x: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
-                                  <input type="number" title="Décalage Y" value={s.y} onFocus={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], y: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
-                                  <input type="number" title="Flou" min="0" value={s.blur} onFocus={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], blur: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full bg-white border border-gray-200 rounded px-1 py-0.5 text-[9px] font-mono outline-none" />
-                                  <button onClick={() => { const arr = (selectedElement.textShadows ?? []).filter((_, idx) => idx !== i); onUpdateElement(selectedElement.id, { textShadows: arr.length ? arr : undefined }); }} className="text-red-400 hover:text-red-600 shrink-0" title="Supprimer"><Trash2 size={11} /></button>
+                                <div key={i} className="p-2 bg-white rounded border border-gray-200 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="relative w-5 h-5 rounded border border-gray-200 overflow-hidden bg-white shrink-0" title="Couleur de l'ombre"><input type="color" value={ensureFullHex(s.color)} onMouseDown={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], color: e.target.value }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] cursor-pointer" /></div>
+                                      <span className="text-[9px] font-bold text-gray-500 uppercase">Ombre {i + 1}</span>
+                                    </div>
+                                    <button onClick={() => { const arr = (selectedElement.textShadows ?? []).filter((_, idx) => idx !== i); onUpdateElement(selectedElement.id, { textShadows: arr.length ? arr : undefined }); }} className="text-red-400 hover:text-red-600 shrink-0" title="Supprimer cette ombre"><Trash2 size={12} /></button>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-1.5">
+                                    <div>
+                                      <label className="text-[8px] font-bold text-gray-400 uppercase block mb-0.5">Décalage X</label>
+                                      <input type="number" value={s.x} onFocus={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], x: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 text-[10px] font-mono outline-none focus:border-blue-400" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[8px] font-bold text-gray-400 uppercase block mb-0.5">Décalage Y</label>
+                                      <input type="number" value={s.y} onFocus={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], y: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 text-[10px] font-mono outline-none focus:border-blue-400" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[8px] font-bold text-gray-400 uppercase block mb-0.5">Flou</label>
+                                      <input type="number" min="0" value={s.blur} onFocus={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], blur: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full bg-gray-50 border border-gray-200 rounded px-1 py-0.5 text-[10px] font-mono outline-none focus:border-blue-400" />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex justify-between items-center mb-0.5"><label className="text-[8px] font-bold text-gray-400 uppercase">Opacité</label><span className="text-[8px] font-mono text-gray-400">{Math.round((s.opacity ?? 1) * 100)}%</span></div>
+                                    <input type="range" min="0" max="1" step="0.01" value={s.opacity ?? 1} onMouseDown={onBeginHistory} onChange={(e) => { const arr = [...(selectedElement.textShadows ?? [])]; arr[i] = { ...arr[i], opacity: Number(e.target.value) }; onUpdateElementLive(selectedElement.id, { textShadows: arr }); }} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900" />
+                                  </div>
                                 </div>
                               ))}
                             </div>
