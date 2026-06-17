@@ -5,7 +5,7 @@ import { Canvas } from './components/Canvas';
 import { Sidebar } from './components/Sidebar';
 import { LayersPanel } from './components/LayersPanel';
 import { ShortcutsHelp } from './components/ShortcutsHelp';
-import { Plus, Minus, Menu, Layers, X, Type, Square, Circle, Triangle, Undo2, Redo2, Trash2, Download } from 'lucide-react';
+import { Plus, Minus, Menu, Layers, X, Type, Square, Circle, Triangle, Undo2, Redo2, Trash2, Download, Copy, ChevronUp, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import type { ElementBounds, AlignDirection, DistributeAxis, ElementType } from './types';
 
 // Polices Google utilisées dans l'éditeur (pour tentative d'embarquement à l'export)
@@ -483,22 +483,35 @@ function App() {
           </div>
         </main>
 
-        {/* Barre d'outils mobile en bas */}
-        <nav className="flex items-center justify-around px-2 py-2 bg-white/95 backdrop-blur-xl border-t border-gray-100 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-30 shrink-0 safe-area-bottom">
-          <button onClick={undo} disabled={!canUndo} className="flex flex-col items-center gap-0.5 p-2 rounded-lg active:bg-gray-100 disabled:opacity-30 text-gray-600" title="Annuler">
-            <Undo2 size={20} />
-            <span className="text-[9px]">Annuler</span>
-          </button>
-          <button onClick={redo} disabled={!canRedo} className="flex flex-col items-center gap-0.5 p-2 rounded-lg active:bg-gray-100 disabled:opacity-30 text-gray-600" title="Rétablir">
-            <Redo2 size={20} />
-            <span className="text-[9px]">Rétablir</span>
-          </button>
+        {/* Barre contextuelle flottante (élément sélectionné) */}
+        {selectedIds.length > 0 && !mobileAddOpen && (
+          <div
+            className="fixed left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 px-1.5 py-1.5 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-full shadow-2xl max-w-[94vw] overflow-x-auto"
+            style={{ bottom: 'calc(5.25rem + env(safe-area-inset-bottom))' }}
+          >
+            <button onClick={() => setSidebarOpen(true)} className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-blue-500 text-white text-xs font-bold active:bg-blue-600 shrink-0" title="Options de l'élément">
+              <SlidersHorizontal size={16} /> Options
+            </button>
+            <button onClick={() => duplicateSelection(selectedIds)} className="p-2.5 rounded-full active:bg-gray-100 text-gray-600 shrink-0" title="Dupliquer"><Copy size={18} /></button>
+            <button onClick={() => bringForward(selectedIds)} className="p-2.5 rounded-full active:bg-gray-100 text-gray-600 shrink-0" title="Avancer"><ChevronUp size={18} /></button>
+            <button onClick={() => sendBackward(selectedIds)} className="p-2.5 rounded-full active:bg-gray-100 text-gray-600 shrink-0" title="Reculer"><ChevronDown size={18} /></button>
+            <button onClick={() => removeSelection(selectedIds)} className="p-2.5 rounded-full active:bg-red-50 text-red-500 shrink-0" title="Supprimer"><Trash2 size={18} /></button>
+          </div>
+        )}
+
+        {/* Barre d'actions principale (flottante) */}
+        <nav
+          className="fixed left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 px-1.5 py-1.5 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-full shadow-2xl"
+          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        >
+          <button onClick={undo} disabled={!canUndo} className="p-2.5 rounded-full active:bg-gray-100 disabled:opacity-30 text-gray-600" title="Annuler"><Undo2 size={20} /></button>
+          <button onClick={redo} disabled={!canRedo} className="p-2.5 rounded-full active:bg-gray-100 disabled:opacity-30 text-gray-600" title="Rétablir"><Redo2 size={20} /></button>
 
           {/* Bouton ajouter central */}
           <div className="relative">
             <button
               onClick={() => setMobileAddOpen(!mobileAddOpen)}
-              className={`p-3 rounded-full shadow-lg transition-colors ${mobileAddOpen ? 'bg-gray-900 text-white' : 'bg-blue-500 text-white active:bg-blue-600'}`}
+              className={`p-3 rounded-full shadow-lg transition-colors mx-0.5 ${mobileAddOpen ? 'bg-gray-900 text-white' : 'bg-blue-500 text-white active:bg-blue-600'}`}
               title="Ajouter un élément"
             >
               {mobileAddOpen ? <X size={22} /> : <Plus size={22} />}
@@ -522,23 +535,7 @@ function App() {
             )}
           </div>
 
-          <button
-            onClick={() => removeSelection(selectedIds)}
-            disabled={selectedIds.length === 0}
-            className="flex flex-col items-center gap-0.5 p-2 rounded-lg active:bg-gray-100 disabled:opacity-30 text-gray-600"
-            title="Supprimer"
-          >
-            <Trash2 size={20} />
-            <span className="text-[9px]">Suppr.</span>
-          </button>
-          <button
-            onClick={() => handleExport('png')}
-            className="flex flex-col items-center gap-0.5 p-2 rounded-lg active:bg-gray-100 text-gray-600"
-            title="Exporter"
-          >
-            <Download size={20} />
-            <span className="text-[9px]">Export</span>
-          </button>
+          <button onClick={() => handleExport('png')} className="p-2.5 rounded-full active:bg-gray-100 text-gray-600" title="Exporter en PNG"><Download size={20} /></button>
         </nav>
 
         {/* Overlay backdrop pour drawers */}
