@@ -656,6 +656,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
  else {
         // Redimensionnement
+        const shift = e.shiftKey; // maintient les proportions (uniforme), façon Photoshop
         let mouseX = pos.x;
         let mouseY = pos.y;
         const snapX: number[] = [];
@@ -695,8 +696,17 @@ export const Canvas: React.FC<CanvasProps> = ({
             const ratioX = 1 + (dx * multX * 2) / Math.max(1, initialSize.width);
             const ratioY = 1 + (dy * multY * 2) / Math.max(1, initialSize.height);
             const updates: Partial<CompositionElement> = {};
-            if (multX !== 0) updates.scaleX = Math.max(0.1, initialSize.scaleX * ratioX);
-            if (multY !== 0) updates.scaleY = Math.max(0.1, initialSize.scaleY * ratioY);
+            if (shift) {
+              // Échelle uniforme : même ratio sur les deux axes
+              const r = (multX !== 0 && multY !== 0)
+                ? (Math.abs(ratioX) >= Math.abs(ratioY) ? ratioX : ratioY)
+                : (multX !== 0 ? ratioX : ratioY);
+              updates.scaleX = Math.max(0.1, initialSize.scaleX * r);
+              updates.scaleY = Math.max(0.1, initialSize.scaleY * r);
+            } else {
+              if (multX !== 0) updates.scaleX = Math.max(0.1, initialSize.scaleX * ratioX);
+              if (multY !== 0) updates.scaleY = Math.max(0.1, initialSize.scaleY * ratioY);
+            }
             onUpdateLive(activeId, updates);
           } else if (el.type === 'circle') {
             const delta = Math.max(dx * multX, dy * multY);
@@ -705,16 +715,36 @@ export const Canvas: React.FC<CanvasProps> = ({
               onUpdateLive(activeId, { width: size, height: size });
             }
           } else {
+            // Rectangle / image / autres formes : largeur & hauteur
+            const aspect = initialSize.width / Math.max(1, initialSize.height);
+            let newW = multX !== 0 ? Math.max(10, initialSize.width + dx * multX * 2) : initialSize.width;
+            let newH = multY !== 0 ? Math.max(10, initialSize.height + dy * multY * 2) : initialSize.height;
+            if (shift) {
+              // Verrouille le ratio largeur/hauteur initial
+              if (multX !== 0 && multY !== 0) {
+                if (newW / initialSize.width >= newH / initialSize.height) newH = newW / aspect;
+                else newW = newH * aspect;
+              } else if (multX !== 0) {
+                newH = newW / aspect;
+              } else if (multY !== 0) {
+                newW = newH * aspect;
+              }
+            }
             const updates: { width?: number; height?: number } = {};
-            if (multX !== 0) updates.width = Math.max(10, initialSize.width + dx * multX * 2);
-            if (multY !== 0) updates.height = Math.max(10, initialSize.height + dy * multY * 2);
+            if (shift || multX !== 0) updates.width = Math.max(10, newW);
+            if (shift || multY !== 0) updates.height = Math.max(10, newH);
             onUpdateLive(activeId, updates);
           }
         } else {
           // Redimensionnement de groupe
           const g = initialSize;
-          const ratioX = multX !== 0 ? Math.max(0.01, 1 + (dx * multX * 2) / Math.max(1, g.width)) : 1;
-          const ratioY = multY !== 0 ? Math.max(0.01, 1 + (dy * multY * 2) / Math.max(1, g.height)) : 1;
+          let ratioX = multX !== 0 ? Math.max(0.01, 1 + (dx * multX * 2) / Math.max(1, g.width)) : 1;
+          let ratioY = multY !== 0 ? Math.max(0.01, 1 + (dy * multY * 2) / Math.max(1, g.height)) : 1;
+          // Shift sur une poignée d'angle : échelle uniforme du groupe
+          if (shift && multX !== 0 && multY !== 0) {
+            const r = Math.abs(ratioX) >= Math.abs(ratioY) ? ratioX : ratioY;
+            ratioX = r; ratioY = r;
+          }
 
           // Centre du groupe au début du drag
           const gcx = dragOffset.x - (multX * g.width) / 2;
