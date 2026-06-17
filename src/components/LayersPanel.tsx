@@ -3,6 +3,7 @@ import type { CompositionElement } from '../types';
 import {
   Eye, EyeOff, Lock, Unlock, Trash2, GripVertical,
   Type, Square, Circle, Triangle, Minus, Layers, Image as ImageIcon,
+  Hexagon, Diamond, Star, Plus, ArrowRight,
 } from 'lucide-react';
 
 interface LayersPanelProps {
@@ -26,6 +27,11 @@ const typeIcon = (type: CompositionElement['type']) => {
     case 'semicircle':
     case 'quarter': return <Triangle size={13} />;
     case 'line': return <Minus size={13} />;
+    case 'hexagon': return <Hexagon size={13} />;
+    case 'diamond': return <Diamond size={13} />;
+    case 'star': return <Star size={13} />;
+    case 'cross': return <Plus size={13} />;
+    case 'arrow': return <ArrowRight size={13} />;
     case 'image': return <ImageIcon size={13} />;
     default: return <Square size={13} />;
   }

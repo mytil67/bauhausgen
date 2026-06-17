@@ -232,6 +232,7 @@ export const useComposition = () => {
     const names: Record<string, string> = {
       rect: 'Rectangle', circle: 'Cercle', triangle: 'Triangle',
       semicircle: 'Demi-cercle', quarter: 'Quart de cercle', ring: 'Anneau', line: 'Ligne',
+      hexagon: 'Hexagone', diamond: 'Losange', star: 'Étoile', cross: 'Croix', arrow: 'Flèche',
     };
     const size = type === 'line' ? { width: 240, height: 8 } : { width: 120, height: 120 };
     return {

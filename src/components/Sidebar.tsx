@@ -146,6 +146,11 @@ const ShapeIcon: React.FC<{ type: ShapeType }> = ({ type }) => {
       {type === 'quarter' && <path d="M4,16 L16,16 A12,12 0 0 0 4,4 Z" />}
       {type === 'ring' && <circle cx="10" cy="10" r="6" fill="none" stroke={c} strokeWidth="3" />}
       {type === 'line' && <rect x="3" y="9" width="14" height="2" />}
+      {type === 'hexagon' && <polygon points="3,10 6.5,3.5 13.5,3.5 17,10 13.5,16.5 6.5,16.5" />}
+      {type === 'diamond' && <polygon points="10,2 18,10 10,18 2,10" />}
+      {type === 'star' && <polygon points="10,2 12.2,7.6 18,7.9 13.5,11.6 15,17.2 10,14 5,17.2 6.5,11.6 2,7.9 7.8,7.6" />}
+      {type === 'cross' && <polygon points="7.5,2 12.5,2 12.5,7.5 18,7.5 18,12.5 12.5,12.5 12.5,18 7.5,18 7.5,12.5 2,12.5 2,7.5 7.5,7.5" />}
+      {type === 'arrow' && <polygon points="2,7 10,7 10,4 18,10 10,16 10,13 2,13" />}
     </svg>
   );
 };
@@ -158,6 +163,11 @@ const SHAPES: { type: ShapeType; label: string }[] = [
   { type: 'quarter', label: 'Quart' },
   { type: 'ring', label: 'Anneau' },
   { type: 'line', label: 'Ligne' },
+  { type: 'hexagon', label: 'Hexagone' },
+  { type: 'diamond', label: 'Losange' },
+  { type: 'star', label: 'Étoile' },
+  { type: 'cross', label: 'Croix' },
+  { type: 'arrow', label: 'Flèche' },
 ];
 
 const PALETTES: { name: string; colors: string[] }[] = [

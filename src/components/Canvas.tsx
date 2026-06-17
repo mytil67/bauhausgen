@@ -63,6 +63,25 @@ const shapeGeom = (el: ShapeElement, props: React.SVGAttributes<SVGElement>): Re
       return <path d={`M ${-w / 2},${h / 2} L ${w / 2},${h / 2} A ${w} ${h} 0 0 0 ${-w / 2},${-h / 2} Z`} {...props} />;
     case 'ring':
       return <path fillRule="evenodd" d={`M ${-w / 2},0 A ${w / 2} ${h / 2} 0 1 0 ${w / 2} 0 A ${w / 2} ${h / 2} 0 1 0 ${-w / 2} 0 Z M ${-w / 4},0 A ${w / 4} ${h / 4} 0 1 1 ${w / 4} 0 A ${w / 4} ${h / 4} 0 1 1 ${-w / 4} 0 Z`} {...props} />;
+    case 'hexagon': // hexagone plat-dessus
+      return <polygon points={`${-w / 2},0 ${-w / 4},${-h / 2} ${w / 4},${-h / 2} ${w / 2},0 ${w / 4},${h / 2} ${-w / 4},${h / 2}`} {...props} />;
+    case 'diamond': // losange
+      return <polygon points={`0,${-h / 2} ${w / 2},0 0,${h / 2} ${-w / 2},0`} {...props} />;
+    case 'star': { // étoile à 5 branches
+      const pts: string[] = [];
+      for (let i = 0; i < 10; i++) {
+        const ang = -Math.PI / 2 + (i * Math.PI) / 5;
+        const r = i % 2 === 0 ? 1 : 0.4;
+        pts.push(`${(Math.cos(ang) * (w / 2) * r).toFixed(2)},${(Math.sin(ang) * (h / 2) * r).toFixed(2)}`);
+      }
+      return <polygon points={pts.join(' ')} {...props} />;
+    }
+    case 'cross': { // croix / plus
+      const vx = w / 6, hy = h / 6, a = w / 2, b = h / 2;
+      return <polygon points={`${-vx},${-b} ${vx},${-b} ${vx},${-hy} ${a},${-hy} ${a},${hy} ${vx},${hy} ${vx},${b} ${-vx},${b} ${-vx},${hy} ${-a},${hy} ${-a},${-hy} ${-vx},${-hy}`} {...props} />;
+    }
+    case 'arrow': // flèche vers la droite
+      return <polygon points={`${-w / 2},${-h / 4} 0,${-h / 4} 0,${-h / 2} ${w / 2},0 0,${h / 2} 0,${h / 4} ${-w / 2},${h / 4}`} {...props} />;
     default:
       return null;
   }

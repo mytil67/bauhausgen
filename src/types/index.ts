@@ -1,4 +1,4 @@
-export type ShapeType = 'rect' | 'circle' | 'triangle' | 'semicircle' | 'quarter' | 'ring' | 'line';
+export type ShapeType = 'rect' | 'circle' | 'triangle' | 'semicircle' | 'quarter' | 'ring' | 'line' | 'hexagon' | 'diamond' | 'star' | 'cross' | 'arrow';
 export type ElementType = 'text' | ShapeType | 'image';
 
 export interface BaseElement {
