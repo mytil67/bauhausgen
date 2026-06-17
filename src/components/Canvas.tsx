@@ -1062,12 +1062,13 @@ export const Canvas: React.FC<CanvasProps> = ({
                         wordSpacing={el.wordSpacing ?? 0}
                         fill={fill}
                         stroke={el.strokeWidth && el.strokeWidth > 0 ? el.strokeColor : 'none'}
-                        strokeWidth={el.strokeWidth ?? 0}
+                        strokeWidth={el.strokeWidth && el.strokeWidth > 0 ? (el.strokeAlign === 'outside' ? el.strokeWidth * 2 : el.strokeWidth) : 0}
                         strokeLinejoin="round"
                         textAnchor={el.textAlign ?? 'middle'}
                         dominantBaseline="middle"
                         className="select-none measure-target"
                         style={{
+                          paintOrder: el.strokeAlign === 'outside' ? 'stroke' : undefined,
                           textTransform: el.textTransform ?? 'none',
                           fontVariant: el.fontVariant ?? 'normal',
                           writingMode: el.writingMode === 'vertical' ? 'vertical-rl' : 'horizontal-tb',
