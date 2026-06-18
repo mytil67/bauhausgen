@@ -235,3 +235,210 @@ export const glyphText = (el: TextElement, fill: string, extra: React.SVGProps<S
     {el.text}
   </text>
 );
+
+export interface ElementContentProps {
+  el: CompositionElement;
+  /** Remplissage résolu (couleur / url(#gradient) / url(#pattern) / 'none'). */
+  fill: string;
+  /** CSS text-shadow agrégé (ombres multiples), ou undefined. */
+  textShadowCss?: string;
+  bboxes: { [key: string]: DOMRect };
+  editingId: string | null;
+  onUpdateLive: (id: string, updates: Partial<CompositionElement>) => void;
+  setEditingId: (id: string | null) => void;
+  editInputRef: React.RefObject<HTMLInputElement | null>;
+}
+
+/**
+ * Rendu du CONTENU d'un élément (ce qui va dans le `<g>` scalé interne) : texte
+ * (knockout / enveloppé via foreignObject / normal & courbé), champ d'édition inline,
+ * image, ou forme (avec contour intérieur/extérieur). Ne gère ni le `<g>` externe
+ * (transform/rotation), ni les poignées de sélection — ceux-ci restent dans Canvas.
+ */
+export const renderElementContent = ({
+  el, fill, textShadowCss, bboxes, editingId, onUpdateLive, setEditingId, editInputRef,
+}: ElementContentProps): React.ReactNode => (
+  <>
+    {el.type === 'text' && editingId !== el.id && (
+      el.knockout && !el.curve ? (
+        <>
+          {/* Texte invisible pour la mesure (le bbox sert à dimensionner la plaque) */}
+          {glyphText(el, 'none', { className: 'measure-target', 'aria-hidden': true })}
+          {/* Plaque pleine, lettres découpées via le masque */}
+          <rect
+            x={(bboxes[el.id]?.x ?? 0) - (el.bgPadding ?? 16)}
+            y={(bboxes[el.id]?.y ?? 0) - (el.bgPadding ?? 16)}
+            width={(bboxes[el.id]?.width ?? 0) + (el.bgPadding ?? 16) * 2}
+            height={(bboxes[el.id]?.height ?? 0) + (el.bgPadding ?? 16) * 2}
+            rx={el.bgRadius ?? 0}
+            ry={el.bgRadius ?? 0}
+            fill={fill}
+            mask={`url(#knockout-${el.id})`}
+          />
+        </>
+      ) : el.maxWidth && el.maxWidth > 0 && (!el.curve || el.curve === 0) ? (
+        <foreignObject
+          x={-el.maxWidth / 2}
+          y={-(el.fontSize * (el.lineHeight ?? 1.2) * 2) / 2}
+          width={el.maxWidth}
+          height={1000}
+          className="select-none pointer-events-none"
+        >
+          <div style={{
+            color: el.color,
+            background: el.gradient ? (
+              el.gradient.type === 'linear'
+                ? `linear-gradient(${el.gradient.rotation}deg, ${el.gradient.colors.map(c => `${c.color} ${c.offset * 100}%`).join(', ')})`
+                : `radial-gradient(circle, ${el.gradient.colors.map(c => `${c.color} ${c.offset * 100}%`).join(', ')})`
+            ) : 'none',
+            WebkitBackgroundClip: el.gradient ? 'text' : 'none',
+            WebkitTextFillColor: el.gradient ? 'transparent' : 'initial',
+            fontSize: el.fontSize,
+            fontFamily: el.fontFamily,
+            fontWeight: el.fontWeight as React.CSSProperties['fontWeight'],
+            fontStyle: el.italic ? 'italic' : 'normal',
+            lineHeight: el.lineHeight ?? 1.2,
+            letterSpacing: (el.letterSpacing ?? 0) + 'px',
+            textAlign: (el.textAlign === 'middle' ? 'center' : el.textAlign === 'end' ? 'right' : 'left') as React.CSSProperties['textAlign'],
+            textTransform: el.textTransform ?? 'none',
+            fontVariant: el.fontVariant ?? 'normal',
+            wordSpacing: (el.wordSpacing ?? 0) + 'px',
+            writingMode: el.writingMode === 'vertical' ? 'vertical-rl' : 'horizontal-tb',
+            textDecoration: el.textDecoration && el.textDecoration !== 'none'
+              ? `${el.textDecoration} ${el.textDecorationStyle ?? 'solid'} ${el.textDecorationColor ?? el.color}`
+              : 'none',
+            WebkitTextStroke: el.strokeWidth && el.strokeWidth > 0 ? `${el.strokeWidth}px ${el.strokeColor}` : 'none',
+            textShadow: textShadowCss,
+            wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap',
+            fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
+          }}>
+            {el.text}
+          </div>
+        </foreignObject>
+      ) : (
+        <>
+          {el.bgEnabled && !el.curve && (
+            <rect
+              x={(bboxes[el.id]?.x ?? 0) - (el.bgPadding ?? 10)}
+              y={(bboxes[el.id]?.y ?? 0) - (el.bgPadding ?? 10)}
+              width={(bboxes[el.id]?.width ?? 0) + (el.bgPadding ?? 10) * 2}
+              height={(bboxes[el.id]?.height ?? 0) + (el.bgPadding ?? 10) * 2}
+              fill={el.bgColor ?? '#000000'}
+              rx={el.bgRadius ?? 0}
+              ry={el.bgRadius ?? 0}
+            />
+          )}
+          <text
+            x="0"
+            y="0"
+            fontSize={el.fontSize}
+            fontFamily={el.fontFamily}
+            fontWeight={el.fontWeight}
+            fontStyle={el.italic ? 'italic' : 'normal'}
+            letterSpacing={el.letterSpacing ?? 0}
+            wordSpacing={el.wordSpacing ?? 0}
+            fill={fill}
+            stroke={el.strokeWidth && el.strokeWidth > 0 ? el.strokeColor : 'none'}
+            strokeWidth={el.strokeWidth && el.strokeWidth > 0 ? (el.strokeAlign === 'outside' ? el.strokeWidth * 2 : el.strokeWidth) : 0}
+            strokeLinejoin="round"
+            textAnchor={el.textAlign ?? 'middle'}
+            dominantBaseline="middle"
+            className="select-none measure-target"
+            style={{
+              paintOrder: el.strokeAlign === 'outside' ? 'stroke' : undefined,
+              textTransform: el.textTransform ?? 'none',
+              fontVariant: el.fontVariant ?? 'normal',
+              writingMode: el.writingMode === 'vertical' ? 'vertical-rl' : 'horizontal-tb',
+              textDecoration: el.textDecoration && el.textDecoration !== 'none'
+                ? `${el.textDecoration} ${el.textDecorationStyle ?? 'solid'} ${el.textDecorationColor ?? el.color}`
+                : 'none',
+              textShadow: textShadowCss,
+              fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
+            }}
+          >
+            {el.curve && el.curve !== 0 && el.writingMode !== 'vertical' ? (
+              <textPath
+                href={`#path-${el.id}`}
+                startOffset="50%"
+                textAnchor="middle"
+                {...(el.curveType === 'circle' ? {
+                  textLength: Math.PI * 2 * curveRadius(el),
+                  lengthAdjust: "spacing"
+                } : {})}
+              >
+                {el.text}
+              </textPath>
+            ) : el.text}
+          </text>
+        </>
+      )
+    )}
+    {el.type === 'text' && editingId === el.id && (() => {
+      const w = Math.max((bboxes[el.id]?.width ?? 200) + 40, 60);
+      const h = el.fontSize * (el.lineHeight ?? 1.4);
+      return (
+        <foreignObject x={-w / 2} y={-h / 2} width={w} height={h} style={{ overflow: 'visible' }}>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <input
+              ref={editInputRef}
+              value={el.text}
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) => onUpdateLive(el.id, { text: e.target.value })}
+              onBlur={() => setEditingId(null)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); setEditingId(null); }
+              }}
+              style={{
+                width: '100%', textAlign: (el.textAlign === 'start' ? 'left' : el.textAlign === 'end' ? 'right' : 'center') as React.CSSProperties['textAlign'],
+                padding: 0, margin: 0,
+                border: 'none', outline: '1px dashed #3b82f6',
+                background: 'rgba(255,255,255,0.5)',
+                fontSize: el.fontSize,
+                fontFamily: el.fontFamily,
+                fontWeight: el.fontWeight as React.CSSProperties['fontWeight'],
+                fontStyle: el.italic ? 'italic' : 'normal',
+                letterSpacing: el.letterSpacing ?? 0,
+                textTransform: el.textTransform ?? 'none',
+                color: el.color,
+                lineHeight: el.lineHeight ?? 1.2,
+              }}
+            />
+          </div>
+        </foreignObject>
+      );
+    })()}
+    {el.type === 'image' && (
+      <image
+        href={el.href}
+        x={-el.width / 2}
+        y={-el.height / 2}
+        width={el.width}
+        height={el.height}
+        preserveAspectRatio="none"
+      />
+    )}
+    {el.type !== 'text' && el.type !== 'image' && (() => {
+      const w = el.strokeWidth ?? 0;
+      const align = el.strokeAlign ?? 'center';
+      const strokeProps = w > 0
+        ? { stroke: el.strokeColor ?? '#000000', strokeWidth: align === 'center' ? w : w * 2, strokeLinejoin: 'round' as const }
+        : null;
+      // Pas de contour, ou contour centré : un seul tracé suffit
+      if (!strokeProps || align === 'center') {
+        return shapeGeom(el, { fill, ...(strokeProps ?? {}) });
+      }
+      // Intérieur / extérieur : fond + contour double largeur clippé/masqué
+      const clipMask = align === 'inside'
+        ? { clipPath: `url(#shapeclip-${el.id})` }
+        : { mask: `url(#shapemask-${el.id})` };
+      return (
+        <>
+          {shapeGeom(el, { fill })}
+          {shapeGeom(el, { fill: 'none', ...strokeProps, ...clipMask })}
+        </>
+      );
+    })()}
+  </>
+);

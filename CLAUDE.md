@@ -33,8 +33,10 @@ npm run preview  # prévisualise le build
   Figma/Canva** pendant le drag. Le plus gros et le plus délicat des fichiers.
   Partiellement découpé dans `components/canvas/` (refactor 2026-06-17) :
   - `canvas/render.tsx` — helpers de rendu PURS : `shapeGeom` (géométrie de chaque forme),
-    `glyphText`, `hexToRgba`, `curveRadius`, `FALLBACK_BBOX`, et `buildElementDefs(el, bboxes)`
-    (filtre d'ombre, dégradé, motif, masques de contour/knockout, path de courbe).
+    `glyphText`, `hexToRgba`, `curveRadius`, `FALLBACK_BBOX`, `buildElementDefs(el, bboxes)`
+    (filtre d'ombre, dégradé, motif, masques de contour/knockout, path de courbe), et
+    `renderElementContent({...})` (rendu du contenu d'un élément : texte knockout/enveloppé/
+    normal+courbé, édition inline, image, forme avec contour intérieur/extérieur).
   - `canvas/smartGuides.ts` — `computeMoveSnap(...)` : fonction PURE qui calcule
     l'aimantation (alignement + espacement égal + voisins) et renvoie `{guidesX, guidesY,
     measurements, dx, dy}`. Le composant applique le résultat (états + `onNudge`).
@@ -42,9 +44,11 @@ npm run preview  # prévisualise le build
   - `canvas/SelectionHandles.tsx` — `ResizeRotateHandles` : les 8 poignées de
     redimensionnement + la rotation, partagées entre sélection unique et groupe (exporte
     aussi le type `ResizeHandle`). N'inclut pas le contour (bleu/rose gardé par l'appelant).
-  Reste inline dans `Canvas.tsx` (~1055 lignes) : le rendu des éléments (texte/forme/image
-  + poignées de sélection/groupe) et les gestionnaires de gestes. Candidat suivant au
-  découpage : un composant `ElementView` pour le rendu d'un élément.
+  Reste inline dans `Canvas.tsx` (~862 lignes) : la boucle `elements.map` (le `<g>` externe
+  transform/rotation, les calculs de boîte de sélection, l'aiguillage vers
+  `renderElementContent` et les poignées), et les gestionnaires de gestes (mouse/touch :
+  move/resize/rotate, marquee, drag de repères). Candidat suivant : isoler ces gestes dans
+  un hook `useCanvasGestures`.
 - `components/Sidebar.tsx` — panneau gauche : ajout d'éléments, alignement auto,
   upload de police, couleurs, propriétés de l'élément sélectionné, export.
 - `types/index.ts` — `CompositionElement = TextElement | ShapeElement`, `CompositionState`.
