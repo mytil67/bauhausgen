@@ -468,38 +468,66 @@ export const Canvas: React.FC<CanvasProps> = ({
         // depuis le centre (ancien comportement).
         const fromCenter = e.altKey;
         const grow = fromCenter ? 2 : 1;
-        let mouseX = pos.x;
-        let mouseY = pos.y;
+        let dx = pos.x - dragOffset.x;
+        let dy = pos.y - dragOffset.y;
         const snapX: number[] = [];
         const snapY: number[] = [];
-
-        // Aimantation uniquement en sélection unique (plus lisible)
-        if (singleSelected) {
-          const targetsX = new Set<number>([0, width / 2, width]);
-          const targetsY = new Set<number>([0, height / 2, height]);
-          elements.forEach((other) => {
-            if (other.id === activeId) return;
-            const otherBbox = bboxes[other.id] || FALLBACK_BBOX;
-            const oHalfW = (otherBbox.width / 2) * other.scaleX;
-            const oHalfH = (otherBbox.height / 2) * other.scaleY;
-            targetsX.add(other.x); targetsX.add(other.x - oHalfW); targetsX.add(other.x + oHalfW);
-            targetsY.add(other.y); targetsY.add(other.y - oHalfH); targetsY.add(other.y + oHalfH);
-          });
-          targetsX.forEach((tx) => { if (Math.abs(mouseX - tx) < SNAP_DISTANCE) { mouseX = tx; snapX.push(tx); } });
-          targetsY.forEach((ty) => { if (Math.abs(mouseY - ty) < SNAP_DISTANCE) { mouseY = ty; snapY.push(ty); } });
-        }
-
-        const dx = mouseX - dragOffset.x;
-        const dy = mouseY - dragOffset.y;
-
-        setActiveGuides({ x: snapX, y: snapY });
-        setMeasurements([]);
 
         let multX = 0; let multY = 0;
         if (dragMode.includes('e')) multX = 1;
         if (dragMode.includes('w')) multX = -1;
         if (dragMode.includes('s')) multY = 1;
         if (dragMode.includes('n')) multY = -1;
+
+        // Aimantation du BORD tiré (sélection unique, mode ancré) : on aligne le bord qui
+        // bouge — pas la souris — sur la grille, les bords/centres des autres éléments et
+        // les bords/centre du canvas. Le bord opposé étant fixe, le résultat reste net.
+        if (singleSelected && !fromCenter) {
+          const lb = bboxes[activeId] || FALLBACK_BBOX;
+          const sclX = initialSize.scaleX, sclY = initialSize.scaleY;
+          const leftAbs0 = initialSize.x + lb.x * sclX;
+          const rightAbs0 = initialSize.x + (lb.x + lb.width) * sclX;
+          const topAbs0 = initialSize.y + lb.y * sclY;
+          const bottomAbs0 = initialSize.y + (lb.y + lb.height) * sclY;
+
+          const xT = [0, width / 2, width];
+          const yT = [0, height / 2, height];
+          elements.forEach((o) => {
+            if (o.id === activeId) return;
+            const ob = bboxes[o.id] || FALLBACK_BBOX;
+            const ol = o.x + ob.x * o.scaleX, or = ol + ob.width * o.scaleX;
+            const ot = o.y + ob.y * o.scaleY, obm = ot + ob.height * o.scaleY;
+            xT.push(ol, (ol + or) / 2, or);
+            yT.push(ot, (ot + obm) / 2, obm);
+          });
+
+          // Aimante une valeur à la cible la plus proche, ou à la grille, sous le seuil.
+          const snap = (val: number, targets: number[]): number => {
+            let best = SNAP_DISTANCE, out = val;
+            for (const t of targets) { const d = Math.abs(val - t); if (d < best) { best = d; out = t; } }
+            if (snapToGrid && gridSize > 0) {
+              const g = Math.round(val / gridSize) * gridSize;
+              if (Math.abs(val - g) < best) out = g;
+            }
+            return out;
+          };
+
+          if (multX !== 0) {
+            const edge0 = multX > 0 ? rightAbs0 : leftAbs0;
+            const snapped = snap(edge0 + dx, xT);
+            if (snapped !== edge0 + dx) snapX.push(snapped);
+            dx = snapped - edge0;
+          }
+          if (multY !== 0) {
+            const edge0 = multY > 0 ? bottomAbs0 : topAbs0;
+            const snapped = snap(edge0 + dy, yT);
+            if (snapped !== edge0 + dy) snapY.push(snapped);
+            dy = snapped - edge0;
+          }
+        }
+
+        setActiveGuides({ x: snapX, y: snapY });
+        setMeasurements([]);
 
         if (singleSelected) {
           if (!el) return;
@@ -562,7 +590,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 newW = newH * aspect;
               }
             }
-            if (snapToGrid && gridSize > 0 && !shift) {
+            // En mode ancré, c'est le BORD qui est aimanté à la grille (plus haut) ; on
+            // n'arrondit la TAILLE que dans le mode symétrique (Alt), où il n'y a pas de
+            // bord fixe de référence.
+            if (fromCenter && snapToGrid && gridSize > 0 && !shift) {
               newW = Math.max(gridSize, Math.round(newW / gridSize) * gridSize);
               newH = Math.max(gridSize, Math.round(newH / gridSize) * gridSize);
             }

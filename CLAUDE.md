@@ -149,6 +149,13 @@ Multi-sélection = déplacement de groupe sans guides. Resize = aimantation simp
   (x,y) calculée depuis la boîte INITIALE (`initialSize.x/y` figés au mousedown, pour ne pas
   accumuler entre frames). Le texte compense via le bbox local (pré-scale) ; formes/cercle
   via la moitié de la variation × `el.scaleX/Y`. Le redimensionnement de GROUPE reste centré.
+- **Aimantation du bord tiré (resize ancré, sélection unique)** : on aimante le BORD qui
+  bouge (et non la souris) sur la grille (si `snapToGrid`), les bords/centres des autres
+  éléments et les bords/centre du canvas (seuil `SNAP_DISTANCE = 8`). On calcule le bord
+  absolu initial depuis la boîte locale + `initialSize`, on aimante `edge0 + d`, puis
+  `d = aimanté − edge0`. Le bord aimanté est dessiné en ligne rouge (`activeGuides`).
+  L'arrondi de la TAILLE à la grille n'est conservé que pour le mode symétrique (Alt),
+  qui n'a pas de bord fixe de référence.
 
 ## Ajouts (session du 2026-06-15, lot 2)
 - **Modèle** : `BaseElement` a `name?`, `visible?`, `locked?`. Nouveaux `ShapeType` :
