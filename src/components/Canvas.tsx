@@ -6,6 +6,7 @@ import { CanvasContextMenu } from './canvas/CanvasContextMenu';
 import { ResizeRotateHandles, type ResizeHandle } from './canvas/SelectionHandles';
 import { GuidesOverlay } from './canvas/GuidesOverlay';
 import { ManualGuides } from './canvas/ManualGuides';
+import { getGroupAABB } from './canvas/geometry';
 
 interface CanvasProps {
   elements: CompositionElement[];
@@ -118,27 +119,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (contextMenu.visible) setContextMenu({ ...contextMenu, visible: false });
   };
 
-  const getGroupAABB = () => {
-    if (selectedIds.length === 0) return null;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    let found = false;
-    selectedIds.forEach((id) => {
-      const el = elements.find((e) => e.id === id);
-      if (!el) return;
-      found = true;
-      const bbox = bboxes[id] || FALLBACK_BBOX;
-      const hw = (bbox.width / 2) * el.scaleX;
-      const hh = (bbox.height / 2) * el.scaleY;
-      minX = Math.min(minX, el.x - hw);
-      maxX = Math.max(maxX, el.x + hw);
-      minY = Math.min(minY, el.y - hh);
-      maxY = Math.max(maxY, el.y + hh);
-    });
-    if (!found) return null;
-    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
-  };
-
-  const groupAABB = getGroupAABB();
+  const groupAABB = getGroupAABB(selectedIds, elements, bboxes);
 
   // Focus + sélection du texte quand on entre en édition
   useEffect(() => {
@@ -399,7 +380,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       // Multi-sélection : on mémorise l'état de tous les éléments sélectionnés
       const selected = elements.filter(el => selectedIds.includes(el.id));
       setInitialElements(selected);
-      const g = getGroupAABB();
+      const g = getGroupAABB(selectedIds, elements, bboxes);
       if (g) setInitialSize({ width: g.width, height: g.height, scaleX: 1, scaleY: 1 });
       setActiveId('group');
     }

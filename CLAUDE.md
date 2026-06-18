@@ -49,6 +49,9 @@ npm run preview  # prévisualise le build
     seulement ce que `computeMoveSnap` a produit.
   - `canvas/ManualGuides.tsx` — repères manuels déplaçables (teal). Le drag/suppression
     reste géré par Canvas (effet `guideDrag`) via le callback `onStartDrag`.
+  - `canvas/geometry.ts` — `getGroupAABB(selectedIds, elements, bboxes)` : boîte
+    englobante de la sélection (rotation ignorée), fonction PURE. + helper
+    `computeElementVisuals(el, bbox)` côté `render.tsx` (boîte de sélection, fill, ombres).
   Reste inline dans `Canvas.tsx` (~800 lignes) : la boucle `elements.map` (le `<g>` externe
   transform/rotation, les calculs de boîte de sélection, l'aiguillage vers
   `renderElementContent` et les poignées), et les gestionnaires de gestes (mouse/touch :
