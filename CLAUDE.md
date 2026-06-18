@@ -264,7 +264,16 @@ Implémentation du « Lot 1 » de `TYPOGRAPHY_ROADMAP.md`. Nouvelles props sur `
 (underline/line-through/overline) + `textDecorationStyle` + `textDecorationColor`,
 `wordSpacing`. Rendues dans les **deux** chemins de `Canvas` (`<text>` et `foreignObject`),
 ajoutées à `copyStyle`, contrôlées dans la barre de style + sliders de la Sidebar. Le texte
-courbé (`curve`) est désactivé quand `writingMode === 'vertical'`. Prochain : Lot 2.
+courbé (`curve`) est désactivé quand `writingMode === 'vertical'`.
+
+## Typographie — Lot 2 (terminé 2026-06-18)
+Items 6/7/8 livrés plus tôt (texte sur cercle `curveType`/`curveInvert` ; ombres multiples
+`textShadows[]` + préréglages ; badge `bgEnabled`/`bgColor`/`bgPadding`/`bgRadius`). Items
+9 et 10 ajoutés : `opticalSizing?` (`font-optical-sizing`, défaut auto, toggle pour couper)
+et `opentypeFeatures?: Record<string, boolean>` (`font-feature-settings`, panel de toggles
+liga/dlig/tnum/onum/frac/swsh/ss01/ss02). Helpers `opticalSizingValue`/`featureSettingsValue`
+dans `render.tsx`, appliqués aux **3 chemins texte** (`<text>`, foreignObject, `glyphText`),
+inclus dans `TEXT_STYLE_PROPS` (copier-coller de style). UI dans la section texte de la Sidebar.
 
 ## Dette restante / idées (mis à jour 2026-06-18)
 - ~~Coalescing d'historique sur les inputs number/text~~ ✓ (beginHistory paresseux, 2026-06-18).

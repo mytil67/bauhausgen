@@ -53,34 +53,41 @@ copier-coller de style, contrôlées depuis la Sidebar (section texte).
 
 ---
 
-## Lot 2 — Moyen & fort impact
+## Lot 2 — Moyen & fort impact — ✅ RÉALISÉ
 
-### 6. Texte sur cercle complet
+Items 6, 7, 8 livrés plus tôt (curveType/curveInvert ; textShadows[] + préréglages ;
+bgEnabled/bgColor/bgPadding/bgRadius). Items 9 et 10 ajoutés le 2026-06-18 :
+`opticalSizing?` (`font-optical-sizing`, défaut auto, toggle pour désactiver) et
+`opentypeFeatures?: Record<string, boolean>` (`font-feature-settings`, panel de toggles
+liga/dlig/tnum/onum/frac/swsh/ss01/ss02). Rendus dans les 3 chemins texte
+(`<text>`, foreignObject, glyphText), inclus au copier-coller de style.
+
+### 6. Texte sur cercle complet — ✅
 - Extension du `curve` actuel : permettre un chemin circulaire 360°
 - Propriétés : `curveType?: 'arc' | 'circle'`, `curveRadius?: number`, `curveStartOffset?: number`
 - Le rayon et l'offset de départ permettent de positionner le texte autour d'un cercle
 - Intérêt : sceaux, logos, badges circulaires Bauhaus
 
-### 7. Ombre de texte multiple (text-shadow stack)
+### 7. Ombre de texte multiple (text-shadow stack) — ✅
 - Propriété : `textShadows?: Array<{ offsetX, offsetY, blur, color }>`
 - Distinct du drop shadow SVG actuel (qui est un filtre sur tout l'élément)
 - Permet d'empiler plusieurs ombres pour des effets rétro / 3D / longue ombre
 - UI : liste éditable d'ombres avec bouton « + »
 - Intérêt : effet poster vintage très tendance
 
-### 8. Texte avec fond (highlight / badge)
+### 8. Texte avec fond (highlight / badge) — ✅
 - Propriété : `textBackground?: { color, paddingX, paddingY, borderRadius }`
 - Implémentation : rectangle SVG auto-dimensionné derrière le texte (lié au bbox)
 - UI : toggle + couleur de fond + sliders padding/radius
 - Intérêt : étiquettes, mise en exergue, style éditorial
 
-### 9. Espacement optique (optical sizing)
+### 9. Espacement optique (optical sizing) — ✅
 - Propriété : `opticalSizing?: boolean`
 - Implémentation : `font-optical-sizing: auto` pour les polices variables (Inter, etc.)
 - UI : toggle simple
 - Note : subtil mais améliore la lisibilité à petites/grandes tailles
 
-### 10. Ligatures & features OpenType
+### 10. Ligatures & features OpenType — ✅
 - Propriété : `opentypeFeatures?: Record<string, boolean>`
 - Features utiles :
   - `liga` / `dlig` — ligatures standard / discrétionnaires

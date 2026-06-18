@@ -210,6 +210,18 @@ export const buildElementDefs = (
   return defs;
 };
 
+/** Lot 2 — espacement optique des polices variables (défaut auto, désactivable). */
+export const opticalSizingValue = (el: TextElement): React.CSSProperties['fontOpticalSizing'] =>
+  el.opticalSizing === false ? 'none' : 'auto';
+
+/** Lot 2 — `font-feature-settings` depuis la map de features OpenType (undefined si vide). */
+export const featureSettingsValue = (el: TextElement): string | undefined => {
+  const f = el.opentypeFeatures;
+  if (!f) return undefined;
+  const parts = Object.entries(f).map(([k, v]) => `"${k}" ${v ? 1 : 0}`);
+  return parts.length ? parts.join(', ') : undefined;
+};
+
 /** Rend un `<text>` aux glyphes nus (sans décor/contour), réutilisé pour le masque de
  *  découpe (knockout) et la cible de mesure invisible. */
 export const glyphText = (el: TextElement, fill: string, extra: React.SVGProps<SVGTextElement> = {}) => (
@@ -228,6 +240,8 @@ export const glyphText = (el: TextElement, fill: string, extra: React.SVGProps<S
     style={{
       textTransform: el.textTransform ?? 'none',
       fontVariant: el.fontVariant ?? 'normal',
+      fontOpticalSizing: opticalSizingValue(el),
+      fontFeatureSettings: featureSettingsValue(el),
       fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`,
     }}
     {...extra}
@@ -363,6 +377,8 @@ export const renderElementContent = ({
             textShadow: textShadowCss,
             wordBreak: 'break-word',
             whiteSpace: 'pre-wrap',
+            fontOpticalSizing: opticalSizingValue(el),
+            fontFeatureSettings: featureSettingsValue(el),
             fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
           }}>
             {el.text}
@@ -406,6 +422,8 @@ export const renderElementContent = ({
                 ? `${el.textDecoration} ${el.textDecorationStyle ?? 'solid'} ${el.textDecorationColor ?? el.color}`
                 : 'none',
               textShadow: textShadowCss,
+              fontOpticalSizing: opticalSizingValue(el),
+              fontFeatureSettings: featureSettingsValue(el),
               fontVariationSettings: `"wght" ${el.fontWeight === 'bold' ? 700 : el.fontWeight === 'normal' ? 400 : el.fontWeight}, "wdth" ${el.fontWidth ?? 100}`
             }}
           >

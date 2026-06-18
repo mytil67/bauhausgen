@@ -214,6 +214,18 @@ const SHADOW_PRESETS: { label: string; shadows: Shadow[] }[] = [
   { label: 'Contour', shadows: ([[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, -2], [-2, 2], [2, 2]] as const).map(([x, y]) => ({ x, y, blur: 0, color: '#000000', opacity: 1 })) },
 ];
 
+// Features OpenType proposées (dépendent de ce que supporte chaque police).
+const OPENTYPE_FEATURES: { key: string; label: string; title: string }[] = [
+  { key: 'liga', label: 'Liga', title: 'Ligatures standard' },
+  { key: 'dlig', label: 'Dlig', title: 'Ligatures discrétionnaires' },
+  { key: 'tnum', label: 'Tnum', title: 'Chiffres tabulaires (largeur fixe)' },
+  { key: 'onum', label: 'Onum', title: 'Chiffres bas-de-casse (old-style)' },
+  { key: 'frac', label: 'Frac', title: 'Fractions (1/2)' },
+  { key: 'swsh', label: 'Swsh', title: 'Fioritures (swash)' },
+  { key: 'ss01', label: 'SS01', title: 'Set stylistique 1' },
+  { key: 'ss02', label: 'SS02', title: 'Set stylistique 2' },
+];
+
 export const Sidebar: React.FC<SidebarProps> = ({
   elements,
   selectedElement,
@@ -867,6 +879,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   </div>
                                 </div>
                               ))}
+                            </div>
+
+                            {/* Espacement optique (polices variables) */}
+                            <div className="p-2 bg-gray-50 rounded border border-gray-100">
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" checked={selectedElement.opticalSizing !== false} onChange={(e) => onUpdateElement(selectedElement.id, { opticalSizing: e.target.checked })} className="accent-gray-900" />
+                                <span className="text-[9px] font-bold text-gray-400 uppercase">Espacement optique</span>
+                              </label>
+                              <p className="text-[8px] text-gray-300 italic mt-1">Ajuste finement le dessin des glyphes selon la taille (polices variables).</p>
+                            </div>
+
+                            {/* Features OpenType */}
+                            <div className="p-2 bg-gray-50 rounded border border-gray-100 space-y-2">
+                              <span className="text-[9px] font-bold text-gray-400 uppercase">OpenType</span>
+                              <div className="grid grid-cols-4 gap-1">
+                                {OPENTYPE_FEATURES.map((f) => {
+                                  const active = !!selectedElement.opentypeFeatures?.[f.key];
+                                  return (
+                                    <button
+                                      key={f.key}
+                                      title={f.title}
+                                      onClick={() => { const cur = selectedElement.opentypeFeatures ?? {}; onUpdateElement(selectedElement.id, { opentypeFeatures: { ...cur, [f.key]: !active } }); }}
+                                      className={`py-1 rounded border text-[8px] font-bold uppercase transition-colors ${active ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'}`}
+                                    >{f.label}</button>
+                                  );
+                                })}
+                              </div>
+                              <p className="text-[8px] text-gray-300 italic">Selon le support de la police (ligatures, chiffres, fractions, sets stylistiques).</p>
                             </div>
                           </div>
                         </div>

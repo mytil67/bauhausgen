@@ -73,6 +73,9 @@ export interface TextElement extends BaseElement {
   textDecorationStyle?: 'solid' | 'dashed' | 'dotted' | 'wavy'; // Style de la décoration
   textDecorationColor?: string; // Couleur de la décoration (défaut = couleur du texte)
   wordSpacing?: number; // Espacement des mots (px)
+  // --- Lot 2 typographie ---
+  opticalSizing?: boolean; // font-optical-sizing (polices variables) — défaut = auto, false = none
+  opentypeFeatures?: Record<string, boolean>; // features OpenType (liga, tnum, frac, ss01…)
 }
 
 export interface ShapeElement extends BaseElement {

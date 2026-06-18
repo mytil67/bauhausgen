@@ -66,7 +66,7 @@ const TEXT_STYLE_PROPS = [
   'textAlign', 'textTransform', 'italic', 'curve', 'maxWidth',
   'writingMode', 'fontVariant', 'textDecoration', 'textDecorationStyle', 'textDecorationColor', 'wordSpacing',
   'curveType', 'curveInvert', 'bgEnabled', 'bgColor', 'bgPadding', 'bgRadius',
-  'knockout', 'textShadows',
+  'knockout', 'textShadows', 'opticalSizing', 'opentypeFeatures',
 ] as const;
 
 interface PersistedShape extends DocState {
