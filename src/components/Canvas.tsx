@@ -88,7 +88,9 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [dragMode, setDragMode] = useState<DragMode>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [initialSize, setInitialSize] = useState({ width: 0, height: 0, scaleX: 1, scaleY: 1 });
+  // x/y = position de l'élément au début du geste (resize) → permet d'ancrer le bord
+  // opposé à la poignée sans accumuler les décalages entre deux frames.
+  const [initialSize, setInitialSize] = useState({ width: 0, height: 0, scaleX: 1, scaleY: 1, x: 0, y: 0 });
   const [activeGuides, setActiveGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] });
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
@@ -372,14 +374,14 @@ export const Canvas: React.FC<CanvasProps> = ({
       const el = elements.find(item => item.id === id);
       if (el) {
         const bbox = bboxes[el.id] || FALLBACK_BBOX;
-        setInitialSize({ width: bbox.width, height: bbox.height, scaleX: el.scaleX, scaleY: el.scaleY });
+        setInitialSize({ width: bbox.width, height: bbox.height, scaleX: el.scaleX, scaleY: el.scaleY, x: el.x, y: el.y });
       }
     } else {
       // Multi-sélection : on mémorise l'état de tous les éléments sélectionnés
       const selected = elements.filter(el => selectedIds.includes(el.id));
       setInitialElements(selected);
       const g = getGroupAABB(selectedIds, elements, bboxes);
-      if (g) setInitialSize({ width: g.width, height: g.height, scaleX: 1, scaleY: 1 });
+      if (g) setInitialSize({ width: g.width, height: g.height, scaleX: 1, scaleY: 1, x: 0, y: 0 });
       setActiveId('group');
     }
   };
@@ -397,7 +399,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     // On stocke l'angle initial de la souris et le centre de rotation
     const mouseAngle = Math.atan2(pos.y - center.y, pos.x - center.x) * (180 / Math.PI);
     setDragOffset({ x: mouseAngle, y: 0 });
-    setInitialSize({ width: center.x, height: center.y, scaleX: 0, scaleY: 0 });
+    setInitialSize({ width: center.x, height: center.y, scaleX: 0, scaleY: 0, x: 0, y: 0 });
     
     const selected = elements.filter(el => selectedIds.includes(el.id));
     setInitialElements(isGroup ? selected : (target ? [target] : []));
@@ -461,6 +463,11 @@ export const Canvas: React.FC<CanvasProps> = ({
  else {
         // Redimensionnement
         const shift = e.shiftKey; // maintient les proportions (uniforme), façon Photoshop
+        // Par défaut on ancre le bord OPPOSÉ à la poignée (façon Figma/Canva) : tirer la
+        // poignée droite ne déplace que le bord droit. Alt = redimensionnement symétrique
+        // depuis le centre (ancien comportement).
+        const fromCenter = e.altKey;
+        const grow = fromCenter ? 2 : 1;
         let mouseX = pos.x;
         let mouseY = pos.y;
         const snapX: number[] = [];
@@ -497,32 +504,53 @@ export const Canvas: React.FC<CanvasProps> = ({
         if (singleSelected) {
           if (!el) return;
           if (el.type === 'text') {
-            const ratioX = 1 + (dx * multX * 2) / Math.max(1, initialSize.width);
-            const ratioY = 1 + (dy * multY * 2) / Math.max(1, initialSize.height);
+            const ratioX = 1 + (dx * multX * grow) / Math.max(1, initialSize.width);
+            const ratioY = 1 + (dy * multY * grow) / Math.max(1, initialSize.height);
             const updates: Partial<CompositionElement> = {};
+            let nScaleX = initialSize.scaleX;
+            let nScaleY = initialSize.scaleY;
             if (shift) {
               // Échelle uniforme : même ratio sur les deux axes
               const r = (multX !== 0 && multY !== 0)
                 ? (Math.abs(ratioX) >= Math.abs(ratioY) ? ratioX : ratioY)
                 : (multX !== 0 ? ratioX : ratioY);
-              updates.scaleX = Math.max(0.1, initialSize.scaleX * r);
-              updates.scaleY = Math.max(0.1, initialSize.scaleY * r);
+              nScaleX = Math.max(0.1, initialSize.scaleX * r);
+              nScaleY = Math.max(0.1, initialSize.scaleY * r);
+              updates.scaleX = nScaleX;
+              updates.scaleY = nScaleY;
             } else {
-              if (multX !== 0) updates.scaleX = Math.max(0.1, initialSize.scaleX * ratioX);
-              if (multY !== 0) updates.scaleY = Math.max(0.1, initialSize.scaleY * ratioY);
+              if (multX !== 0) { nScaleX = Math.max(0.1, initialSize.scaleX * ratioX); updates.scaleX = nScaleX; }
+              if (multY !== 0) { nScaleY = Math.max(0.1, initialSize.scaleY * ratioY); updates.scaleY = nScaleY; }
+            }
+            // Ancrage du bord opposé : on compense l'origine (x,y) du décalage du bord
+            // fixe, calculé depuis la boîte locale (pré-scale, stable pendant le geste).
+            if (!fromCenter) {
+              const lb = bboxes[activeId] || FALLBACK_BBOX;
+              // coord locale du bord à garder fixe (gauche si on tire à droite, etc.)
+              const anchorLX = multX > 0 ? lb.x : lb.x + lb.width;
+              const anchorLY = multY > 0 ? lb.y : lb.y + lb.height;
+              if (multX !== 0) updates.x = initialSize.x + anchorLX * (initialSize.scaleX - nScaleX);
+              if (multY !== 0) updates.y = initialSize.y + anchorLY * (initialSize.scaleY - nScaleY);
             }
             onUpdateLive(activeId, updates);
           } else if (el.type === 'circle') {
             const delta = Math.max(dx * multX, dy * multY);
             if (multX !== 0 || multY !== 0) {
-              const size = Math.max(10, initialSize.width + delta * 2);
-              onUpdateLive(activeId, { width: size, height: size });
+              const size = Math.max(10, initialSize.width + delta * grow);
+              const updates: { width?: number; height?: number; x?: number; y?: number } = { width: size, height: size };
+              // Ancrage : décale le centre de la moitié de la variation, côté poignée.
+              if (!fromCenter) {
+                const dS = size - initialSize.width;
+                if (multX !== 0) updates.x = initialSize.x + (dS / 2) * multX * el.scaleX;
+                if (multY !== 0) updates.y = initialSize.y + (dS / 2) * multY * el.scaleY;
+              }
+              onUpdateLive(activeId, updates);
             }
           } else {
             // Rectangle / image / autres formes : largeur & hauteur
             const aspect = initialSize.width / Math.max(1, initialSize.height);
-            let newW = multX !== 0 ? Math.max(10, initialSize.width + dx * multX * 2) : initialSize.width;
-            let newH = multY !== 0 ? Math.max(10, initialSize.height + dy * multY * 2) : initialSize.height;
+            let newW = multX !== 0 ? Math.max(10, initialSize.width + dx * multX * grow) : initialSize.width;
+            let newH = multY !== 0 ? Math.max(10, initialSize.height + dy * multY * grow) : initialSize.height;
             if (shift) {
               // Verrouille le ratio largeur/hauteur initial
               if (multX !== 0 && multY !== 0) {
@@ -538,9 +566,21 @@ export const Canvas: React.FC<CanvasProps> = ({
               newW = Math.max(gridSize, Math.round(newW / gridSize) * gridSize);
               newH = Math.max(gridSize, Math.round(newH / gridSize) * gridSize);
             }
-            const updates: { width?: number; height?: number } = {};
-            if (shift || multX !== 0) updates.width = Math.max(10, newW);
-            if (shift || multY !== 0) updates.height = Math.max(10, newH);
+            const finalW = Math.max(10, newW);
+            const finalH = Math.max(10, newH);
+            const updates: { width?: number; height?: number; x?: number; y?: number } = {};
+            if (shift || multX !== 0) updates.width = finalW;
+            if (shift || multY !== 0) updates.height = finalH;
+            // Ancrage du bord opposé : on décale l'origine de la moitié de la variation,
+            // dans le sens de la poignée (le bord opposé reste donc immobile).
+            if (!fromCenter) {
+              const dW = finalW - initialSize.width;
+              const dH = finalH - initialSize.height;
+              // On n'ancre que l'axe réellement tiré ; l'autre dimension (cas Shift = ratio
+              // verrouillé) croît symétriquement autour de l'axe de la poignée.
+              if (multX !== 0) updates.x = initialSize.x + (dW / 2) * multX * el.scaleX;
+              if (multY !== 0) updates.y = initialSize.y + (dH / 2) * multY * el.scaleY;
+            }
             onUpdateLive(activeId, updates);
           }
         } else {

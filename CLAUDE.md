@@ -143,6 +143,12 @@ Multi-sélection = déplacement de groupe sans guides. Resize = aimantation simp
 - Les poignées de resize/rotation ne s'affichent qu'en **sélection unique**
   (`selectedIds.length === 1`). Le multi n'a que le contour + déplacement groupé.
 - Le déplacement de groupe désactive smart guides/mesures (seulement en sélection unique).
+- **Redimensionnement ancré (sélection unique)** : par défaut le bord OPPOSÉ à la poignée
+  reste fixe (façon Figma) — tirer la poignée droite ne déplace que le bord droit. Implémenté
+  via un facteur `grow` (1 = ancré, 2 = symétrique avec **Alt**) + compensation de l'origine
+  (x,y) calculée depuis la boîte INITIALE (`initialSize.x/y` figés au mousedown, pour ne pas
+  accumuler entre frames). Le texte compense via le bbox local (pré-scale) ; formes/cercle
+  via la moitié de la variation × `el.scaleX/Y`. Le redimensionnement de GROUPE reste centré.
 
 ## Ajouts (session du 2026-06-15, lot 2)
 - **Modèle** : `BaseElement` a `name?`, `visible?`, `locked?`. Nouveaux `ShapeType` :

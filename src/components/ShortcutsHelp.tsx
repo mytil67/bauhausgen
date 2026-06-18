@@ -51,6 +51,7 @@ const GROUPS: Group[] = [
     title: 'Souris',
     rows: [
       { keys: ['Maj', '+ redimensionner'], label: 'Conserver les proportions' },
+      { keys: ['Alt', '+ redimensionner'], label: 'Depuis le centre (sinon bord opposé fixe)' },
       { keys: ['Maj', '+ pivoter'], label: 'Rotation par pas de 15°' },
     ],
   },
