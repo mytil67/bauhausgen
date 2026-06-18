@@ -44,7 +44,10 @@ npm run preview  # prévisualise le build
   - `canvas/SelectionHandles.tsx` — `ResizeRotateHandles` : les 8 poignées de
     redimensionnement + la rotation, partagées entre sélection unique et groupe (exporte
     aussi le type `ResizeHandle`). N'inclut pas le contour (bleu/rose gardé par l'appelant).
-  Reste inline dans `Canvas.tsx` (~862 lignes) : la boucle `elements.map` (le `<g>` externe
+  - `canvas/GuidesOverlay.tsx` — overlay présentationnel des smart guides pendant le drag :
+    lignes d'alignement (rouge) + doubles flèches d'espacement à badge (rose). Affiche
+    seulement ce que `computeMoveSnap` a produit.
+  Reste inline dans `Canvas.tsx` (~800 lignes) : la boucle `elements.map` (le `<g>` externe
   transform/rotation, les calculs de boîte de sélection, l'aiguillage vers
   `renderElementContent` et les poignées), et les gestionnaires de gestes (mouse/touch :
   move/resize/rotate, marquee, drag de repères). Candidat suivant : isoler ces gestes dans
