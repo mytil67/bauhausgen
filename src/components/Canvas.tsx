@@ -479,6 +479,9 @@ export const Canvas: React.FC<CanvasProps> = ({
         if (dragMode.includes('s')) multY = 1;
         if (dragMode.includes('n')) multY = -1;
 
+        // Mesures de dimension (taille en px) affichées pendant le resize ancré.
+        const resizeMeasure: Measurement[] = [];
+
         // Aimantation du BORD tiré (sélection unique, mode ancré) : on aligne le bord qui
         // bouge — pas la souris — sur la grille, les bords/centres des autres éléments et
         // les bords/centre du canvas. Le bord opposé étant fixe, le résultat reste net.
@@ -524,10 +527,21 @@ export const Canvas: React.FC<CanvasProps> = ({
             if (snapped !== edge0 + dy) snapY.push(snapped);
             dy = snapped - edge0;
           }
+
+          // Boîte absolue résultante (bord opposé fixe + bord tiré déplacé de dx/dy) →
+          // double flèche de la largeur et/ou hauteur, avec la valeur en px.
+          const nLeft = multX < 0 ? leftAbs0 + dx : leftAbs0;
+          const nRight = multX > 0 ? rightAbs0 + dx : rightAbs0;
+          const nTop = multY < 0 ? topAbs0 + dy : topAbs0;
+          const nBottom = multY > 0 ? bottomAbs0 + dy : bottomAbs0;
+          // Largeur le long du bord bas, hauteur le long du bord droit : badges distincts
+          // (pas de superposition au centre lors d'un resize en coin).
+          if (multX !== 0) resizeMeasure.push({ x1: nLeft, y1: nBottom, x2: nRight, y2: nBottom, value: Math.round(nRight - nLeft), kind: 'spacing' });
+          if (multY !== 0) resizeMeasure.push({ x1: nRight, y1: nTop, x2: nRight, y2: nBottom, value: Math.round(nBottom - nTop), kind: 'spacing' });
         }
 
         setActiveGuides({ x: snapX, y: snapY });
-        setMeasurements([]);
+        setMeasurements(resizeMeasure);
 
         if (singleSelected) {
           if (!el) return;

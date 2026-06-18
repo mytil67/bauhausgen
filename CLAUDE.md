@@ -156,6 +156,11 @@ Multi-sélection = déplacement de groupe sans guides. Resize = aimantation simp
   `d = aimanté − edge0`. Le bord aimanté est dessiné en ligne rouge (`activeGuides`).
   L'arrondi de la TAILLE à la grille n'est conservé que pour le mode symétrique (Alt),
   qui n'a pas de bord fixe de référence.
+- **Mesures au resize** : pendant un resize ancré (sélection unique), on affiche la
+  largeur/hauteur en px via les `measurements` (mêmes doubles flèches roses que le
+  déplacement) — largeur le long du bord bas, hauteur le long du bord droit (badges
+  distincts en resize d'angle). Calculées depuis la boîte résultante (bord fixe + bord
+  déplacé). Pas de mesure en mode Alt.
 
 ## Ajouts (session du 2026-06-15, lot 2)
 - **Modèle** : `BaseElement` a `name?`, `visible?`, `locked?`. Nouveaux `ShapeType` :
