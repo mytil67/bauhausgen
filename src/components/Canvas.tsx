@@ -495,6 +495,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
           const xT = [0, width / 2, width];
           const yT = [0, height / 2, height];
+          const others: { left: number; right: number; top: number; bottom: number }[] = [];
           elements.forEach((o) => {
             if (o.id === activeId) return;
             const ob = bboxes[o.id] || FALLBACK_BBOX;
@@ -502,6 +503,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             const ot = o.y + ob.y * o.scaleY, obm = ot + ob.height * o.scaleY;
             xT.push(ol, (ol + or) / 2, or);
             yT.push(ot, (ot + obm) / 2, obm);
+            others.push({ left: ol, right: or, top: ot, bottom: obm });
           });
 
           // Aimante une valeur à la cible la plus proche, ou à la grille, sous le seuil.
@@ -538,6 +540,24 @@ export const Canvas: React.FC<CanvasProps> = ({
           // (pas de superposition au centre lors d'un resize en coin).
           if (multX !== 0) resizeMeasure.push({ x1: nLeft, y1: nBottom, x2: nRight, y2: nBottom, value: Math.round(nRight - nLeft), kind: 'spacing' });
           if (multY !== 0) resizeMeasure.push({ x1: nRight, y1: nTop, x2: nRight, y2: nBottom, value: Math.round(nBottom - nTop), kind: 'spacing' });
+
+          // Écart au voisin DU CÔTÉ du bord tiré (qui se recouvre sur l'axe perpendiculaire).
+          // L'autre bord étant fixe, seul cet écart varie — on ne montre que celui-là.
+          const cxMid = (nLeft + nRight) / 2, cyMid = (nTop + nBottom) / 2;
+          if (multX > 0) {
+            const n = others.filter((o) => o.top < nBottom && o.bottom > nTop && o.left >= nRight - 0.5).sort((a, b) => a.left - b.left)[0];
+            if (n) { const gap = Math.round(n.left - nRight); if (gap > 0) resizeMeasure.push({ x1: nRight, y1: cyMid, x2: n.left, y2: cyMid, value: gap, kind: 'equal' }); }
+          } else if (multX < 0) {
+            const n = others.filter((o) => o.top < nBottom && o.bottom > nTop && o.right <= nLeft + 0.5).sort((a, b) => b.right - a.right)[0];
+            if (n) { const gap = Math.round(nLeft - n.right); if (gap > 0) resizeMeasure.push({ x1: n.right, y1: cyMid, x2: nLeft, y2: cyMid, value: gap, kind: 'equal' }); }
+          }
+          if (multY > 0) {
+            const n = others.filter((o) => o.left < nRight && o.right > nLeft && o.top >= nBottom - 0.5).sort((a, b) => a.top - b.top)[0];
+            if (n) { const gap = Math.round(n.top - nBottom); if (gap > 0) resizeMeasure.push({ x1: cxMid, y1: nBottom, x2: cxMid, y2: n.top, value: gap, kind: 'equal' }); }
+          } else if (multY < 0) {
+            const n = others.filter((o) => o.left < nRight && o.right > nLeft && o.bottom <= nTop + 0.5).sort((a, b) => b.bottom - a.bottom)[0];
+            if (n) { const gap = Math.round(nTop - n.bottom); if (gap > 0) resizeMeasure.push({ x1: cxMid, y1: n.bottom, x2: cxMid, y2: nTop, value: gap, kind: 'equal' }); }
+          }
         }
 
         setActiveGuides({ x: snapX, y: snapY });

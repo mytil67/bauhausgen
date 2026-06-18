@@ -161,6 +161,11 @@ Multi-sélection = déplacement de groupe sans guides. Resize = aimantation simp
   déplacement) — largeur le long du bord bas, hauteur le long du bord droit (badges
   distincts en resize d'angle). Calculées depuis la boîte résultante (bord fixe + bord
   déplacé). Pas de mesure en mode Alt.
+- **Écart au voisin (resize)** : en plus de la taille, on affiche l'espace entre le bord
+  TIRÉ et le voisin le plus proche qui se recouvre sur l'axe perpendiculaire (seul cet
+  écart varie, l'autre bord étant fixe). Marqué `kind:'equal'` (fond léger surlignant
+  l'espace) pour le distinguer de la taille (`kind:'spacing'`). Pas d'écart vers le bord
+  du canvas (uniquement de vrais voisins).
 
 ## Ajouts (session du 2026-06-15, lot 2)
 - **Modèle** : `BaseElement` a `name?`, `visible?`, `locked?`. Nouveaux `ShapeType` :
