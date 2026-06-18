@@ -236,6 +236,58 @@ export const glyphText = (el: TextElement, fill: string, extra: React.SVGProps<S
   </text>
 );
 
+export interface ElementVisuals {
+  /** Boîte de sélection (coords locales, pré-scale appliqué). */
+  sx: number; sy: number; sw: number; sh: number;
+  /** `url(#filter-shadow-…)` si l'élément a une ombre portée, sinon undefined. */
+  filterUrl?: string;
+  /** Remplissage résolu : 'none' / url(#pattern) / url(#gradient) / couleur. */
+  fill: string;
+  /** CSS text-shadow agrégé (ombres de texte multiples), ou undefined. */
+  textShadowCss?: string;
+}
+
+/**
+ * Calcule les grandeurs visuelles dérivées d'un élément + sa boîte englobante mesurée :
+ * la boîte de SÉLECTION (qui englobe plaque badge/découpe ET débord du contour, que
+ * getBBox ignore), le remplissage résolu, l'URL du filtre d'ombre et le text-shadow CSS.
+ * PURE : aucune dépendance à l'état React. Isolée ici car la math de la boîte de sélection
+ * est subtile (padding badge vs marge de contour selon `strokeAlign`).
+ */
+export const computeElementVisuals = (el: CompositionElement, bbox: DOMRect): ElementVisuals => {
+  // La boîte de sélection englobe la plaque (badge/découpe) ET la partie du contour
+  // qui dépasse de la géométrie (getBBox ignore le stroke), pour que les poignées
+  // entourent toujours le rendu complet — sans manip manuelle.
+  const plateActive = el.type === 'text' && !el.curve && (el.bgEnabled || el.knockout);
+  const bgPad = plateActive ? (el.bgPadding ?? (el.type === 'text' && el.knockout ? 16 : 10)) : 0;
+  const strokeW = el.strokeWidth ?? 0;
+  const strokeMargin = strokeW > 0
+    ? (el.strokeAlign === 'outside' ? strokeW : el.strokeAlign === 'inside' ? 0 : strokeW / 2)
+    : 0;
+  const selPad = Math.max(bgPad, strokeMargin);
+  const sw = (bbox.width + selPad * 2) * el.scaleX;
+  const sh = (bbox.height + selPad * 2) * el.scaleY;
+  const sx = (bbox.x - selPad) * el.scaleX;
+  const sy = (bbox.y - selPad) * el.scaleY;
+
+  const filterUrl = (el.shadowBlur && el.shadowBlur > 0) || (el.shadowOpacity && el.shadowOpacity > 0)
+    ? `url(#filter-shadow-${el.id})`
+    : undefined;
+
+  const fill = el.noFill
+    ? 'none'
+    : el.pattern
+    ? `url(#pattern-${el.id})`
+    : el.gradient ? `url(#gradient-${el.id})` : el.color;
+
+  // Ombres de texte multiples (CSS text-shadow), distinct du filtre drop-shadow
+  const textShadowCss = el.type === 'text' && el.textShadows && el.textShadows.length
+    ? el.textShadows.map((s) => `${s.x}px ${s.y}px ${s.blur}px ${hexToRgba(s.color, s.opacity ?? 1)}`).join(', ')
+    : undefined;
+
+  return { sx, sy, sw, sh, filterUrl, fill, textShadowCss };
+};
+
 export interface ElementContentProps {
   el: CompositionElement;
   /** Remplissage résolu (couleur / url(#gradient) / url(#pattern) / 'none'). */

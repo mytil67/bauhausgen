@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { CompositionElement, ElementBounds } from '../types';
-import { FALLBACK_BBOX, hexToRgba, buildElementDefs, renderElementContent } from './canvas/render';
+import { FALLBACK_BBOX, buildElementDefs, renderElementContent, computeElementVisuals } from './canvas/render';
 import { computeMoveSnap, type Measurement } from './canvas/smartGuides';
 import { CanvasContextMenu } from './canvas/CanvasContextMenu';
 import { ResizeRotateHandles, type ResizeHandle } from './canvas/SelectionHandles';
@@ -696,36 +696,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const innerTransform = `scale(${el.scaleX}, ${el.scaleY})`;
           const bbox = bboxes[el.id] || FALLBACK_BBOX;
 
-          // La boîte de sélection englobe la plaque (badge/découpe) ET la partie du contour
-          // qui dépasse de la géométrie (getBBox ignore le stroke), pour que les poignées
-          // entourent toujours le rendu complet — sans manip manuelle.
-          const plateActive = el.type === 'text' && !el.curve && (el.bgEnabled || el.knockout);
-          const bgPad = plateActive ? (el.bgPadding ?? (el.type === 'text' && el.knockout ? 16 : 10)) : 0;
-          const strokeW = el.strokeWidth ?? 0;
-          const strokeMargin = strokeW > 0
-            ? (el.strokeAlign === 'outside' ? strokeW : el.strokeAlign === 'inside' ? 0 : strokeW / 2)
-            : 0;
-          const selPad = Math.max(bgPad, strokeMargin);
-          const sw = (bbox.width + selPad * 2) * el.scaleX;
-          const sh = (bbox.height + selPad * 2) * el.scaleY;
-          const sx = (bbox.x - selPad) * el.scaleX;
-          const sy = (bbox.y - selPad) * el.scaleY;
-
-          const filterUrl = (el.shadowBlur && el.shadowBlur > 0) || (el.shadowOpacity && el.shadowOpacity > 0)
-            ? `url(#filter-shadow-${el.id})`
-            : undefined;
-
-          const fill = el.noFill
-            ? 'none'
-            : el.pattern
-            ? `url(#pattern-${el.id})`
-            : el.gradient ? `url(#gradient-${el.id})` : el.color;
-
-
-          // Ombres de texte multiples (CSS text-shadow), distinct du filtre drop-shadow
-          const textShadowCss = el.type === 'text' && el.textShadows && el.textShadows.length
-            ? el.textShadows.map((s) => `${s.x}px ${s.y}px ${s.blur}px ${hexToRgba(s.color, s.opacity ?? 1)}`).join(', ')
-            : undefined;
+          const { sx, sy, sw, sh, filterUrl, fill, textShadowCss } = computeElementVisuals(el, bbox);
 
           return (
             <g
