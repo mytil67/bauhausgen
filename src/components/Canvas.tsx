@@ -5,6 +5,7 @@ import { computeMoveSnap, type Measurement } from './canvas/smartGuides';
 import { CanvasContextMenu } from './canvas/CanvasContextMenu';
 import { ResizeRotateHandles, type ResizeHandle } from './canvas/SelectionHandles';
 import { GuidesOverlay } from './canvas/GuidesOverlay';
+import { ManualGuides } from './canvas/ManualGuides';
 
 interface CanvasProps {
   elements: CompositionElement[];
@@ -801,27 +802,15 @@ export const Canvas: React.FC<CanvasProps> = ({
         />
 
         {/* Repères manuels (guides) — déplaçables, sortir du canvas = supprimer */}
-        {guides && (guides.x.length > 0 || guides.y.length > 0) && (
-          <g className="export-ignore">
-            {guides.x.map((gx, i) => (
-              <React.Fragment key={`guide-x-${i}`}>
-                <line x1={gx} y1={0} x2={gx} y2={height} stroke="#14b8a6" strokeWidth={strokeGuide} className="pointer-events-none" />
-                <line x1={gx} y1={0} x2={gx} y2={height} stroke="#14b8a6" strokeOpacity={0} strokeWidth={14 / zoom}
-                  style={{ cursor: 'ew-resize', pointerEvents: 'stroke' }}
-                  onMouseDown={(e) => { e.stopPropagation(); setGuideDrag({ axis: 'x', index: i }); }}
-                  onTouchStart={(e) => { e.stopPropagation(); setGuideDrag({ axis: 'x', index: i }); }} />
-              </React.Fragment>
-            ))}
-            {guides.y.map((gy, i) => (
-              <React.Fragment key={`guide-y-${i}`}>
-                <line x1={0} y1={gy} x2={width} y2={gy} stroke="#14b8a6" strokeWidth={strokeGuide} className="pointer-events-none" />
-                <line x1={0} y1={gy} x2={width} y2={gy} stroke="#14b8a6" strokeOpacity={0} strokeWidth={14 / zoom}
-                  style={{ cursor: 'ns-resize', pointerEvents: 'stroke' }}
-                  onMouseDown={(e) => { e.stopPropagation(); setGuideDrag({ axis: 'y', index: i }); }}
-                  onTouchStart={(e) => { e.stopPropagation(); setGuideDrag({ axis: 'y', index: i }); }} />
-              </React.Fragment>
-            ))}
-          </g>
+        {guides && (
+          <ManualGuides
+            guides={guides}
+            width={width}
+            height={height}
+            strokeGuide={strokeGuide}
+            zoom={zoom}
+            onStartDrag={(axis, index) => setGuideDrag({ axis, index })}
+          />
         )}
 
         {/* Cadre de sélection (rubber-band) — très discret */}

@@ -47,6 +47,8 @@ npm run preview  # prévisualise le build
   - `canvas/GuidesOverlay.tsx` — overlay présentationnel des smart guides pendant le drag :
     lignes d'alignement (rouge) + doubles flèches d'espacement à badge (rose). Affiche
     seulement ce que `computeMoveSnap` a produit.
+  - `canvas/ManualGuides.tsx` — repères manuels déplaçables (teal). Le drag/suppression
+    reste géré par Canvas (effet `guideDrag`) via le callback `onStartDrag`.
   Reste inline dans `Canvas.tsx` (~800 lignes) : la boucle `elements.map` (le `<g>` externe
   transform/rotation, les calculs de boîte de sélection, l'aiguillage vers
   `renderElementContent` et les poignées), et les gestionnaires de gestes (mouse/touch :
