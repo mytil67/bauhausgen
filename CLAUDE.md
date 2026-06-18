@@ -101,6 +101,13 @@ Refonte effectuée — build/lint/tsc OK. Ce qui a été fait :
 - **Undo/Redo** : historique (max 50) dans `useComposition` via `commit`/`beginHistory`/
   `live`. Gestes canvas (drag/resize/rotate) et sliders sidebar = 1 entrée par geste
   (begin au début + maj `live` ensuite). Raccourcis Ctrl+Z / Ctrl+Maj+Z / Ctrl+Y.
+  **`beginHistory` est PARESSEUX** (depuis 2026-06-18) : il mémorise l'état courant dans
+  `pendingRef` mais ne l'empile qu'au **premier changement réel** dans `live`. Conséquence :
+  un focus de champ, un clic-sélection ou un double-clic sans édition ne créent **aucune
+  entrée vide** ; et les saisies number/texte (qui font `onFocus={beginHistory}` +
+  `onUpdateElementLive`) sont coalescées = 1 entrée par session d'édition. `commit`/`undo`/
+  `redo` réinitialisent `pendingRef`. `liveNoHistory` = mutation live qui n'interagit JAMAIS
+  avec l'historique (taille canvas, nom de projet) — ne consomme pas un snapshot en attente.
 - **Multi-sélection** : Maj+clic (toggle), Ctrl+A (tout), Échap (désélection), **cadre de
   sélection** (rubber-band) en tirant sur le fond — Maj fusionne ; clic simple désélectionne
   (`selectMany`, hit-test par croisement de boîtes, rotation ignorée). Déplacement
@@ -255,8 +262,8 @@ Implémentation du « Lot 1 » de `TYPOGRAPHY_ROADMAP.md`. Nouvelles props sur `
 ajoutées à `copyStyle`, contrôlées dans la barre de style + sliders de la Sidebar. Le texte
 courbé (`curve`) est désactivé quand `writingMode === 'vertical'`. Prochain : Lot 2.
 
-## Dette restante / idées (mis à jour 2026-06-17)
-- Coalescing d'historique sur les inputs number/text (1 entrée par caractère actuellement).
+## Dette restante / idées (mis à jour 2026-06-18)
+- ~~Coalescing d'historique sur les inputs number/text~~ ✓ (beginHistory paresseux, 2026-06-18).
 - Export Google Fonts dépend d'un fetch réseau (CORS) — peut retomber sur système hors-ligne.
 - Pas de redimensionnement multi (resize n'agit qu'en sélection unique).
 - Mobile : pinch-to-zoom, poignées plus grosses, marquee tactile, double-tap pour éditer.

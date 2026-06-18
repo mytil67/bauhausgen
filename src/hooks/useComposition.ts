@@ -112,6 +112,9 @@ export const useComposition = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>(initial.selectedIds);
   const [past, setPast] = useState<DocState[]>([]);
   const [future, setFuture] = useState<DocState[]>([]);
+  // Snapshot d'historique « en attente » : posé par beginHistory, empilé seulement au
+  // PREMIER changement réel (coalescing + zéro entrée vide sur un focus/clic sans édition).
+  const pendingRef = useRef<DocState | null>(null);
 
   // Persistance avec debounce
   const saveTimeoutRef = useRef<number | null>(null);
@@ -143,6 +146,7 @@ export const useComposition = () => {
 
   /** Applique une mutation au document EN enregistrant un point d'historique. */
   const commit = useCallback((updater: (d: DocState) => DocState) => {
+    pendingRef.current = null; // un commit discret annule tout snapshot de geste en attente
     setDoc((prev) => {
       const next = updater(prev);
       if (next === prev) return prev;
@@ -152,21 +156,37 @@ export const useComposition = () => {
     });
   }, []);
 
-  /** Snapshot manuel : à appeler au DÉBUT d'un geste (drag/resize/rotate). */
+  /** Marque le DÉBUT d'un geste (drag/resize/slider/focus de champ). Capture paresseuse :
+   *  on mémorise l'état courant mais on ne l'empile qu'au premier changement réel (`live`),
+   *  pour ne PAS créer d'entrée d'historique vide si le geste ne modifie rien. */
   const beginHistory = useCallback(() => {
+    setDoc((prev) => { pendingRef.current = prev; return prev; });
+  }, []);
+
+  /** Mutation « live » (pendant un geste). Si un snapshot est en attente (beginHistory) et
+   *  que la mutation change réellement le document, on empile ce snapshot UNE fois. */
+  const live = useCallback((updater: (d: DocState) => DocState) => {
     setDoc((prev) => {
-      setPast((p) => [...p, prev].slice(-MAX_HISTORY));
-      setFuture([]);
-      return prev;
+      const next = updater(prev);
+      if (next === prev) return prev;
+      if (pendingRef.current !== null) {
+        const snap = pendingRef.current;
+        pendingRef.current = null;
+        setPast((p) => [...p, snap].slice(-MAX_HISTORY));
+        setFuture([]);
+      }
+      return next;
     });
   }, []);
 
-  /** Mutation « live » sans historique (pendant un geste). */
-  const live = useCallback((updater: (d: DocState) => DocState) => {
+  /** Mutation live qui n'interagit JAMAIS avec l'historique (taille canvas, nom projet :
+   *  non historisés par design, et ne doivent pas consommer un snapshot de geste en attente). */
+  const liveNoHistory = useCallback((updater: (d: DocState) => DocState) => {
     setDoc(updater);
   }, []);
 
   const undo = useCallback(() => {
+    pendingRef.current = null;
     setPast((p) => {
       if (p.length === 0) return p;
       const previous = p[p.length - 1];
@@ -179,6 +199,7 @@ export const useComposition = () => {
   }, []);
 
   const redo = useCallback(() => {
+    pendingRef.current = null;
     setFuture((f) => {
       if (f.length === 0) return f;
       const next = f[f.length - 1];
@@ -307,8 +328,8 @@ export const useComposition = () => {
 
   /** Renomme le projet (sans historique, comme la taille du canvas). */
   const setProjectName = useCallback((name: string) => {
-    live((prev) => ({ ...prev, name }));
-  }, [live]);
+    liveNoHistory((prev) => ({ ...prev, name }));
+  }, [liveNoHistory]);
 
   const updateElement = useCallback((id: string, updates: Partial<CompositionElement>) => {
     commit((prev) => ({
@@ -447,8 +468,8 @@ export const useComposition = () => {
 
   // --- Canvas & templates ---
   const setCanvasSize = useCallback((w: number, h: number) => {
-    live((prev) => ({ ...prev, canvasWidth: w, canvasHeight: h }));
-  }, [live]);
+    liveNoHistory((prev) => ({ ...prev, canvasWidth: w, canvasHeight: h }));
+  }, [liveNoHistory]);
 
   const loadTemplate = useCallback((tpl: Pick<DocState, 'elements' | 'backgroundColor' | 'canvasWidth' | 'canvasHeight'>) => {
     commit((prev) => ({
