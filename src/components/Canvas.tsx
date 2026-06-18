@@ -282,19 +282,17 @@ export const Canvas: React.FC<CanvasProps> = ({
   }, [measureRef, measureBounds]);
 
   useEffect(() => {
-    const newBboxes: { [key: string]: DOMRect } = {};
-    elements.forEach((el) => {
-      const ref = elementRefs.current[el.id];
-      if (ref) {
-        const content = (ref.querySelector('.measure-target') || ref.querySelector('text, rect, circle, polygon, path, image')) as SVGGraphicsElement;
-        if (content) newBboxes[el.id] = content.getBBox();
-      }
-    });
+    // Même chemin de mesure que l'alignement (`measureBounds`) → pas de divergence possible.
+    const newBboxes = measureBounds();
+    // setState légitime ici : on synchronise l'état React avec une mesure du DOM (getBBox),
+    // impossible avant le rendu. C'est le cas d'usage prévu d'un effet (lecture d'une API
+    // plateforme), pas une cascade de rendus accidentelle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBboxes(newBboxes);
     onBoundsChange(newBboxes);
     // Les bbox ne dépendent que de la géométrie : on NE remesure PAS à chaque
     // changement de sélection (évite un reflow getBBox coûteux à chaque clic).
-  }, [elements, onBoundsChange]);
+  }, [elements, onBoundsChange, measureBounds]);
 
   // Déplacement d'un repère (guide) : maj live ; sorti du canvas au relâcher = supprimé.
   useEffect(() => {
