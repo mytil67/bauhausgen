@@ -39,6 +39,9 @@ npm run preview  # prévisualise le build
     l'aimantation (alignement + espacement égal + voisins) et renvoie `{guidesX, guidesY,
     measurements, dx, dy}`. Le composant applique le résultat (états + `onNudge`).
   - `canvas/CanvasContextMenu.tsx` — menu contextuel (clic droit) présentationnel.
+  - `canvas/SelectionHandles.tsx` — `ResizeRotateHandles` : les 8 poignées de
+    redimensionnement + la rotation, partagées entre sélection unique et groupe (exporte
+    aussi le type `ResizeHandle`). N'inclut pas le contour (bleu/rose gardé par l'appelant).
   Reste inline dans `Canvas.tsx` (~1055 lignes) : le rendu des éléments (texte/forme/image
   + poignées de sélection/groupe) et les gestionnaires de gestes. Candidat suivant au
   découpage : un composant `ElementView` pour le rendu d'un élément.

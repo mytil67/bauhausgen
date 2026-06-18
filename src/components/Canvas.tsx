@@ -3,6 +3,7 @@ import type { CompositionElement, ElementBounds } from '../types';
 import { FALLBACK_BBOX, shapeGeom, hexToRgba, curveRadius, glyphText, buildElementDefs } from './canvas/render';
 import { computeMoveSnap, type Measurement } from './canvas/smartGuides';
 import { CanvasContextMenu } from './canvas/CanvasContextMenu';
+import { ResizeRotateHandles, type ResizeHandle } from './canvas/SelectionHandles';
 
 interface CanvasProps {
   elements: CompositionElement[];
@@ -44,7 +45,6 @@ interface CanvasProps {
 interface Marquee { x1: number; y1: number; x2: number; y2: number; additive: boolean; }
 interface ContextMenuState { x: number; y: number; visible: boolean; }
 
-type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 type DragMode = 'move' | 'rotate' | ResizeHandle | null;
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -933,21 +933,13 @@ export const Canvas: React.FC<CanvasProps> = ({
               {/* Poignées (sélection unique uniquement) */}
               {showHandles && (
                 <g className="export-ignore">
-                  {/* Poignée de rotation */}
-                  <line x1={sx + sw / 2} y1={sy - ho} x2={sx + sw / 2} y2={sy - 28 / zoom} stroke="#3b82f6" strokeWidth={strokeZ} className="pointer-events-none" />
-                  <circle cx={sx + sw / 2} cy={sy - 32 / zoom} r={6 / zoom} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e, el.id)} />
-
-                  {/* Coins */}
-                  <rect x={sx - hz} y={sy - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'nw', el.id)} />
-                  <rect x={sx + sw} y={sy - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'ne', el.id)} />
-                  <rect x={sx - hz} y={sy + sh} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'sw', el.id)} />
-                  <rect x={sx + sw} y={sy + sh} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'se', el.id)} />
-
-                  {/* Milieux */}
-                  <rect x={sx + sw / 2 - ho} y={sy - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'n', el.id)} />
-                  <rect x={sx + sw / 2 - ho} y={sy + sh} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 's', el.id)} />
-                  <rect x={sx - hz} y={sy + sh / 2 - ho} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'w', el.id)} />
-                  <rect x={sx + sw} y={sy + sh / 2 - ho} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'e', el.id)} />
+                  <ResizeRotateHandles
+                    x={sx} y={sy} w={sw} h={sh}
+                    hz={hz} ho={ho} strokeZ={strokeZ} zoom={zoom}
+                    targetId={el.id}
+                    onResize={handleResizeMouseDown}
+                    onRotate={handleRotateMouseDown}
+                  />
                 </g>
               )}
             </g>
@@ -968,20 +960,12 @@ export const Canvas: React.FC<CanvasProps> = ({
               strokeDasharray={`${6 / zoom} ${4 / zoom}`}
               className="pointer-events-none"
             />
-            {/* Coins */}
-            <rect x={groupAABB.x - hz} y={groupAABB.y - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'nw')} />
-            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'ne')} />
-            <rect x={groupAABB.x - hz} y={groupAABB.y + groupAABB.height} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nesw-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'sw')} />
-            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y + groupAABB.height} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-nwse-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'se')} />
-            {/* Milieux */}
-            <rect x={groupAABB.x + groupAABB.width / 2 - ho} y={groupAABB.y - hz} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'n')} />
-            <rect x={groupAABB.x + groupAABB.width / 2 - ho} y={groupAABB.y + groupAABB.height} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ns-resize" onMouseDown={(e) => handleResizeMouseDown(e, 's')} />
-            <rect x={groupAABB.x - hz} y={groupAABB.y + groupAABB.height / 2 - ho} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'w')} />
-            <rect x={groupAABB.x + groupAABB.width} y={groupAABB.y + groupAABB.height / 2 - ho} width={hz} height={hz} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} className="cursor-ew-resize" onMouseDown={(e) => handleResizeMouseDown(e, 'e')} />
-
-            {/* Rotation de groupe */}
-            <line x1={groupAABB.x + groupAABB.width / 2} y1={groupAABB.y - ho} x2={groupAABB.x + groupAABB.width / 2} y2={groupAABB.y - 28 / zoom} stroke="#3b82f6" strokeWidth={strokeZ} className="pointer-events-none" />
-            <circle cx={groupAABB.x + groupAABB.width / 2} cy={groupAABB.y - 32 / zoom} r={6 / zoom} fill="white" stroke="#3b82f6" strokeWidth={strokeZ} style={{ cursor: 'grab' }} onMouseDown={(e) => handleRotateMouseDown(e)} />
+            <ResizeRotateHandles
+              x={groupAABB.x} y={groupAABB.y} w={groupAABB.width} h={groupAABB.height}
+              hz={hz} ho={ho} strokeZ={strokeZ} zoom={zoom}
+              onResize={handleResizeMouseDown}
+              onRotate={handleRotateMouseDown}
+            />
           </g>
         )}
 
