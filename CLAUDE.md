@@ -52,11 +52,15 @@ npm run preview  # prévisualise le build
   - `canvas/geometry.ts` — `getGroupAABB(selectedIds, elements, bboxes)` : boîte
     englobante de la sélection (rotation ignorée), fonction PURE. + helper
     `computeElementVisuals(el, bbox)` côté `render.tsx` (boîte de sélection, fill, ombres).
-  Reste inline dans `Canvas.tsx` (~800 lignes) : la boucle `elements.map` (le `<g>` externe
-  transform/rotation, les calculs de boîte de sélection, l'aiguillage vers
-  `renderElementContent` et les poignées), et les gestionnaires de gestes (mouse/touch :
-  move/resize/rotate, marquee, drag de repères). Candidat suivant : isoler ces gestes dans
-  un hook `useCanvasGestures`.
+  - `canvas/useCanvasGestures.ts` — **hook** qui contient TOUTE l'interaction : drag /
+    resize (ancré) / rotation au pointeur ET au tactile, marquee, repères déplaçables,
+    édition inline, menu contextuel, mesure des bbox (getBBox), smart guides. Reçoit les
+    props/callbacks du Canvas et renvoie l'état + les handlers consommés par le rendu.
+  Du coup **`Canvas.tsx` ≈ 284 lignes = rendu SVG PUR** (defs, éléments, poignées,
+  overlays, menu) qui consomme `useCanvasGestures`. Le refactor est terminé.
+  `Canvas.tsx` ne contient plus que le rendu (boucle `elements.map` : `<g>` externe
+  transform/rotation, `computeElementVisuals`, `renderElementContent`, poignées) ; toute
+  la logique de gestes est dans `canvas/useCanvasGestures.ts`.
 - `components/Sidebar.tsx` — panneau gauche : ajout d'éléments, alignement auto,
   upload de police, couleurs, propriétés de l'élément sélectionné, export.
 - `types/index.ts` — `CompositionElement = TextElement | ShapeElement`, `CompositionState`.

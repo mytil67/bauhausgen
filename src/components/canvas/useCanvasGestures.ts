@@ -1,0 +1,691 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
+import type { CompositionElement, ElementBounds } from '../../types';
+import { FALLBACK_BBOX } from './render';
+import { computeMoveSnap, type Measurement } from './smartGuides';
+import type { ResizeHandle } from './SelectionHandles';
+import { getGroupAABB } from './geometry';
+
+interface Marquee { x1: number; y1: number; x2: number; y2: number; additive: boolean; }
+interface ContextMenuState { x: number; y: number; visible: boolean; }
+
+export type DragMode = 'move' | 'rotate' | ResizeHandle | null;
+
+export interface UseCanvasGesturesParams {
+  elements: CompositionElement[];
+  selectedIds: string[];
+  width: number;
+  height: number;
+  gridSize: number;
+  snapToGrid?: boolean;
+  guides?: { x: number[]; y: number[] };
+  onSelect: (id: string | null, additive?: boolean) => void;
+  onSelectMany: (ids: string[], additive?: boolean) => void;
+  onUpdateLive: (id: string, updates: Partial<CompositionElement>) => void;
+  onUpdateElementsLive: (updates: Record<string, Partial<CompositionElement>>) => void;
+  onNudge: (dx: number, dy: number, ids: string[]) => void;
+  onRemoveSelection: (ids: string[]) => void;
+  onBeginHistory: () => void;
+  onBoundsChange: (bounds: ElementBounds) => void;
+  onGuidesChange?: React.Dispatch<React.SetStateAction<{ x: number[]; y: number[] }>>;
+  measureRef?: React.MutableRefObject<(() => ElementBounds) | null>;
+}
+
+/**
+ * Toute la logique d'interaction du Canvas : déplacement / redimensionnement (ancré) /
+ * rotation au pointeur ET au tactile, cadre de sélection (marquee), repères déplaçables,
+ * édition de texte inline, menu contextuel, mesure des boîtes englobantes et smart guides.
+ * Le composant Canvas n'en garde que le rendu SVG, qui consomme l'état retourné ici.
+ * Code déplacé verbatim depuis Canvas.tsx (comportement inchangé).
+ */
+export const useCanvasGestures = (p: UseCanvasGesturesParams) => {
+  const {
+    elements, selectedIds, width, height, gridSize, snapToGrid, guides,
+    onSelect, onSelectMany, onUpdateLive, onUpdateElementsLive, onNudge,
+    onRemoveSelection, onBeginHistory, onBoundsChange, onGuidesChange, measureRef,
+  } = p;
+
+  const [dragMode, setDragMode] = useState<DragMode>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  // x/y = position de l'élément au début du geste (resize) → permet d'ancrer le bord
+  // opposé à la poignée sans accumuler les décalages entre deux frames.
+  const [initialSize, setInitialSize] = useState({ width: 0, height: 0, scaleX: 1, scaleY: 1, x: 0, y: 0 });
+  const [activeGuides, setActiveGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] });
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [marquee, setMarquee] = useState<Marquee | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false });
+  const [guideDrag, setGuideDrag] = useState<{ axis: 'x' | 'y'; index: number } | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const elementRefs = useRef<{ [key: string]: SVGGElement | null }>({});
+  const [bboxes, setBboxes] = useState<{ [key: string]: DOMRect }>({});
+
+  const selectionCount = selectedIds.length;
+  const singleSelected = selectionCount === 1;
+  const marqueeActive = marquee !== null;
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, visible: true });
+  };
+
+  const closeContextMenu = () => {
+    if (contextMenu.visible) setContextMenu({ ...contextMenu, visible: false });
+  };
+
+  const groupAABB = getGroupAABB(selectedIds, elements, bboxes);
+
+  // Focus + sélection du texte quand on entre en édition
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
+
+  // Entrer en édition de texte (double-clic)
+  const startEditing = (el: CompositionElement) => {
+    if (el.type !== 'text' || el.locked) return;
+    onSelect(el.id);
+    onBeginHistory();
+    setEditingId(el.id);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedIds.length === 0) return;
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+
+      const step = e.shiftKey ? 10 : 1;
+      switch (e.key) {
+        case 'Delete':
+        case 'Backspace':
+          e.preventDefault();
+          onRemoveSelection(selectedIds);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          onBeginHistory();
+          onNudge(-step, 0, selectedIds);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          onBeginHistory();
+          onNudge(step, 0, selectedIds);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          onBeginHistory();
+          onNudge(0, -step, selectedIds);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          onBeginHistory();
+          onNudge(0, step, selectedIds);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIds, onRemoveSelection, onNudge, onBeginHistory]);
+
+  // Stables (ne dépendent que de svgRef) : permet de les lister dans les deps des effets
+  // sans provoquer de réabonnement à chaque render.
+  const getPositionFromClient = useCallback((clientX: number, clientY: number) => {
+    if (!svgRef.current) return { x: 0, y: 0 };
+    const CTM = svgRef.current.getScreenCTM();
+    if (!CTM) return { x: 0, y: 0 };
+    return {
+      x: (clientX - CTM.e) / CTM.a,
+      y: (clientY - CTM.f) / CTM.d,
+    };
+  }, []);
+
+  const getMousePosition = useCallback((e: React.MouseEvent | MouseEvent) => {
+    return getPositionFromClient(e.clientX, e.clientY);
+  }, [getPositionFromClient]);
+
+  const getTouchPosition = useCallback((e: React.TouchEvent | TouchEvent) => {
+    const touch = e.touches[0] || e.changedTouches[0];
+    if (!touch) return { x: 0, y: 0 };
+    return getPositionFromClient(touch.clientX, touch.clientY);
+  }, [getPositionFromClient]);
+
+  // Démarre un cadre de sélection sur le fond du canvas
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    closeContextMenu();
+    if (e.target !== svgRef.current) return;
+    const pos = getMousePosition(e);
+    setMarquee({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, additive: e.shiftKey });
+  };
+
+  // Touch : tap sur le fond = désélection
+  const handleCanvasTouchStart = (e: React.TouchEvent) => {
+    closeContextMenu();
+    if (e.target !== svgRef.current) return;
+    if (e.touches.length === 1) {
+      onSelect(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!marqueeActive) return;
+
+    const move = (e: MouseEvent) => {
+      const pos = getMousePosition(e);
+      setMarquee((m) => (m ? { ...m, x2: pos.x, y2: pos.y } : m));
+    };
+
+    const up = () => {
+      setMarquee((m) => {
+        if (!m) return null;
+        const minX = Math.min(m.x1, m.x2);
+        const maxX = Math.max(m.x1, m.x2);
+        const minY = Math.min(m.y1, m.y2);
+        const maxY = Math.max(m.y1, m.y2);
+
+        // Simple clic (cadre négligeable) : désélection
+        if (maxX - minX < 3 && maxY - minY < 3) {
+          if (!m.additive) onSelect(null);
+          return null;
+        }
+
+        // Sélectionne tout élément dont la boîte croise le cadre
+        const ids = elements
+          .filter((el) => {
+            if (el.locked || el.visible === false) return false;
+            const bbox = bboxes[el.id] || FALLBACK_BBOX;
+            const left = el.x + bbox.x * el.scaleX;
+            const top = el.y + bbox.y * el.scaleY;
+            const right = left + bbox.width * el.scaleX;
+            const bottom = top + bbox.height * el.scaleY;
+            return left < maxX && right > minX && top < maxY && bottom > minY;
+          })
+          .map((el) => el.id);
+
+        onSelectMany(ids, m.additive);
+        return null;
+      });
+    };
+
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, [marqueeActive, elements, bboxes, onSelect, onSelectMany, getMousePosition]);
+
+  // Mesure fraîche des boîtes englobantes (getBBox) de tous les éléments, à la demande.
+  const measureBounds = useCallback((): { [key: string]: DOMRect } => {
+    const nb: { [key: string]: DOMRect } = {};
+    elements.forEach((el) => {
+      const ref = elementRefs.current[el.id];
+      if (ref) {
+        const content = (ref.querySelector('.measure-target') || ref.querySelector('text, rect, circle, polygon, path, image')) as SVGGraphicsElement;
+        if (content) nb[el.id] = content.getBBox();
+      }
+    });
+    return nb;
+  }, [elements]);
+
+  // Expose une mesure fraîche pour l'alignement (évite d'utiliser un cache périmé).
+  useEffect(() => {
+    if (measureRef) measureRef.current = measureBounds;
+  }, [measureRef, measureBounds]);
+
+  useEffect(() => {
+    // Même chemin de mesure que l'alignement (`measureBounds`) → pas de divergence possible.
+    const newBboxes = measureBounds();
+    // setState légitime ici : on synchronise l'état React avec une mesure du DOM (getBBox),
+    // impossible avant le rendu. C'est le cas d'usage prévu d'un effet (lecture d'une API
+    // plateforme), pas une cascade de rendus accidentelle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBboxes(newBboxes);
+    onBoundsChange(newBboxes);
+    // Les bbox ne dépendent que de la géométrie : on NE remesure PAS à chaque
+    // changement de sélection (évite un reflow getBBox coûteux à chaque clic).
+  }, [elements, onBoundsChange, measureBounds]);
+
+  // Déplacement d'un repère (guide) : maj live ; sorti du canvas au relâcher = supprimé.
+  useEffect(() => {
+    if (!guideDrag || !onGuidesChange) return;
+    const apply = (clientX: number, clientY: number, finalize: boolean) => {
+      const pos = getPositionFromClient(clientX, clientY);
+      const { axis, index } = guideDrag;
+      const val = axis === 'x' ? pos.x : pos.y;
+      const lim = axis === 'x' ? width : height;
+      onGuidesChange((prev) => {
+        const arr = [...prev[axis]];
+        if (finalize && (val < -4 || val > lim + 4)) arr.splice(index, 1);
+        else arr[index] = Math.round(Math.max(0, Math.min(lim, val)));
+        return { ...prev, [axis]: arr };
+      });
+    };
+    const move = (e: MouseEvent) => apply(e.clientX, e.clientY, false);
+    const up = (e: MouseEvent) => { apply(e.clientX, e.clientY, true); setGuideDrag(null); };
+    const tmove = (e: TouchEvent) => { const t = e.touches[0]; if (t) { e.preventDefault(); apply(t.clientX, t.clientY, false); } };
+    const tend = (e: TouchEvent) => { const t = e.changedTouches[0]; if (t) apply(t.clientX, t.clientY, true); setGuideDrag(null); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', tmove, { passive: false });
+    window.addEventListener('touchend', tend);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', tmove);
+      window.removeEventListener('touchend', tend);
+    };
+  }, [guideDrag, onGuidesChange, width, height, getPositionFromClient]);
+
+  const handleMouseDown = (e: React.MouseEvent, el: CompositionElement) => {
+    e.stopPropagation();
+    if (el.locked) return;
+    if (e.shiftKey) {
+      onSelect(el.id, true);
+      return;
+    }
+    if (!selectedIds.includes(el.id)) {
+      onSelect(el.id);
+    }
+    onBeginHistory();
+    setActiveId(el.id);
+    setDragMode('move');
+    const pos = getMousePosition(e);
+    setDragOffset({ x: pos.x - el.x, y: pos.y - el.y });
+  };
+
+  // Touch : sélection + déplacement d'un élément
+  const handleTouchStart = (e: React.TouchEvent, el: CompositionElement) => {
+    e.stopPropagation();
+    if (el.locked) return;
+    if (e.touches.length !== 1) return;
+    if (!selectedIds.includes(el.id)) {
+      onSelect(el.id);
+    }
+    onBeginHistory();
+    setActiveId(el.id);
+    setDragMode('move');
+    const pos = getTouchPosition(e);
+    setDragOffset({ x: pos.x - el.x, y: pos.y - el.y });
+  };
+
+  const [initialElements, setInitialElements] = useState<CompositionElement[]>([]);
+
+  const handleResizeMouseDown = (e: React.MouseEvent, handle: ResizeHandle, targetId?: string) => {
+    e.stopPropagation();
+    onBeginHistory();
+    setDragMode(handle);
+    const pos = getMousePosition(e);
+    setDragOffset({ x: pos.x, y: pos.y });
+
+    if (singleSelected || targetId) {
+      const id = targetId || selectedIds[0];
+      setActiveId(id);
+      const el = elements.find(item => item.id === id);
+      if (el) {
+        const bbox = bboxes[el.id] || FALLBACK_BBOX;
+        setInitialSize({ width: bbox.width, height: bbox.height, scaleX: el.scaleX, scaleY: el.scaleY, x: el.x, y: el.y });
+      }
+    } else {
+      // Multi-sélection : on mémorise l'état de tous les éléments sélectionnés
+      const selected = elements.filter(el => selectedIds.includes(el.id));
+      setInitialElements(selected);
+      const g = getGroupAABB(selectedIds, elements, bboxes);
+      if (g) setInitialSize({ width: g.width, height: g.height, scaleX: 1, scaleY: 1, x: 0, y: 0 });
+      setActiveId('group');
+    }
+  };
+
+  const handleRotateMouseDown = (e: React.MouseEvent, targetId?: string) => {
+    e.stopPropagation();
+    onBeginHistory();
+    setDragMode('rotate');
+    const pos = getMousePosition(e);
+
+    const isGroup = selectionCount > 1 && !targetId;
+    const target = !isGroup ? elements.find(el => el.id === (targetId || selectedIds[0])) : null;
+    const center = target ? { x: target.x, y: target.y } : (groupAABB ? { x: groupAABB.cx, y: groupAABB.cy } : { x: 0, y: 0 });
+
+    // On stocke l'angle initial de la souris et le centre de rotation
+    const mouseAngle = Math.atan2(pos.y - center.y, pos.x - center.x) * (180 / Math.PI);
+    setDragOffset({ x: mouseAngle, y: 0 });
+    setInitialSize({ width: center.x, height: center.y, scaleX: 0, scaleY: 0, x: 0, y: 0 });
+
+    const selected = elements.filter(el => selectedIds.includes(el.id));
+    setInitialElements(isGroup ? selected : (target ? [target] : []));
+    setActiveId(isGroup ? 'group' : (target?.id || null));
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragMode || !activeId) return;
+      const el = activeId === 'group' ? null : elements.find((item) => item.id === activeId);
+      if (!el && singleSelected && activeId !== 'group') return;
+
+      const pos = getMousePosition(e);
+      const SNAP_DISTANCE = 8;
+
+      if (dragMode === 'rotate') {
+        const cx = initialSize.width;
+        const cy = initialSize.height;
+        const startMouseAngle = dragOffset.x;
+        const currentMouseAngle = Math.atan2(pos.y - cy, pos.x - cx) * (180 / Math.PI);
+        let deltaAngle = currentMouseAngle - startMouseAngle;
+
+        if (e.shiftKey) deltaAngle = Math.round(deltaAngle / 15) * 15;
+
+        const bulkUpdates: Record<string, Partial<CompositionElement>> = {};
+        initialElements.forEach((initEl) => {
+          if (activeId === 'group') {
+            // Rotation orbitale autour du centre du groupe
+            const rad = (deltaAngle * Math.PI) / 180;
+            const dx = initEl.x - cx;
+            const dy = initEl.y - cy;
+            bulkUpdates[initEl.id] = {
+              x: cx + dx * Math.cos(rad) - dy * Math.sin(rad),
+              y: cy + dx * Math.sin(rad) + dy * Math.cos(rad),
+              rotation: (initEl.rotation + deltaAngle + 360) % 360
+            };
+          } else {
+            // Rotation simple sur le centre de l'élément
+            bulkUpdates[initEl.id] = {
+              rotation: (initEl.rotation + deltaAngle + 360) % 360
+            };
+          }
+        });
+        onUpdateElementsLive(bulkUpdates);
+        return;
+      }
+
+      if (dragMode === 'move') {
+        // Calcul de l'aimantation (smart guides) délégué à un module pur.
+        const res = computeMoveSnap({
+          mouseX: pos.x - dragOffset.x,
+          mouseY: pos.y - dragOffset.y,
+          singleSelected, el, activeId, groupAABB,
+          elements, bboxes, selectedIds, width, height, guides, snapToGrid, gridSize,
+        });
+        if (!res) return;
+        setActiveGuides({ x: res.guidesX, y: res.guidesY });
+        setMeasurements(res.measurements);
+        onNudge(res.dx, res.dy, selectedIds);
+      }
+ else {
+        // Redimensionnement
+        const shift = e.shiftKey; // maintient les proportions (uniforme), façon Photoshop
+        // Par défaut on ancre le bord OPPOSÉ à la poignée (façon Figma/Canva) : tirer la
+        // poignée droite ne déplace que le bord droit. Alt = redimensionnement symétrique
+        // depuis le centre (ancien comportement).
+        const fromCenter = e.altKey;
+        const grow = fromCenter ? 2 : 1;
+        let dx = pos.x - dragOffset.x;
+        let dy = pos.y - dragOffset.y;
+        const snapX: number[] = [];
+        const snapY: number[] = [];
+
+        let multX = 0; let multY = 0;
+        if (dragMode.includes('e')) multX = 1;
+        if (dragMode.includes('w')) multX = -1;
+        if (dragMode.includes('s')) multY = 1;
+        if (dragMode.includes('n')) multY = -1;
+
+        // Mesures de dimension (taille en px) affichées pendant le resize ancré.
+        const resizeMeasure: Measurement[] = [];
+
+        // Aimantation du BORD tiré (sélection unique, mode ancré) : on aligne le bord qui
+        // bouge — pas la souris — sur la grille, les bords/centres des autres éléments et
+        // les bords/centre du canvas. Le bord opposé étant fixe, le résultat reste net.
+        if (singleSelected && !fromCenter) {
+          const lb = bboxes[activeId] || FALLBACK_BBOX;
+          const sclX = initialSize.scaleX, sclY = initialSize.scaleY;
+          const leftAbs0 = initialSize.x + lb.x * sclX;
+          const rightAbs0 = initialSize.x + (lb.x + lb.width) * sclX;
+          const topAbs0 = initialSize.y + lb.y * sclY;
+          const bottomAbs0 = initialSize.y + (lb.y + lb.height) * sclY;
+
+          const xT = [0, width / 2, width];
+          const yT = [0, height / 2, height];
+          const others: { left: number; right: number; top: number; bottom: number }[] = [];
+          elements.forEach((o) => {
+            if (o.id === activeId) return;
+            const ob = bboxes[o.id] || FALLBACK_BBOX;
+            const ol = o.x + ob.x * o.scaleX, or = ol + ob.width * o.scaleX;
+            const ot = o.y + ob.y * o.scaleY, obm = ot + ob.height * o.scaleY;
+            xT.push(ol, (ol + or) / 2, or);
+            yT.push(ot, (ot + obm) / 2, obm);
+            others.push({ left: ol, right: or, top: ot, bottom: obm });
+          });
+
+          // Aimante une valeur à la cible la plus proche, ou à la grille, sous le seuil.
+          const snap = (val: number, targets: number[]): number => {
+            let best = SNAP_DISTANCE, out = val;
+            for (const t of targets) { const d = Math.abs(val - t); if (d < best) { best = d; out = t; } }
+            if (snapToGrid && gridSize > 0) {
+              const g = Math.round(val / gridSize) * gridSize;
+              if (Math.abs(val - g) < best) out = g;
+            }
+            return out;
+          };
+
+          if (multX !== 0) {
+            const edge0 = multX > 0 ? rightAbs0 : leftAbs0;
+            const snapped = snap(edge0 + dx, xT);
+            if (snapped !== edge0 + dx) snapX.push(snapped);
+            dx = snapped - edge0;
+          }
+          if (multY !== 0) {
+            const edge0 = multY > 0 ? bottomAbs0 : topAbs0;
+            const snapped = snap(edge0 + dy, yT);
+            if (snapped !== edge0 + dy) snapY.push(snapped);
+            dy = snapped - edge0;
+          }
+
+          // Boîte absolue résultante (bord opposé fixe + bord tiré déplacé de dx/dy) →
+          // double flèche de la largeur et/ou hauteur, avec la valeur en px.
+          const nLeft = multX < 0 ? leftAbs0 + dx : leftAbs0;
+          const nRight = multX > 0 ? rightAbs0 + dx : rightAbs0;
+          const nTop = multY < 0 ? topAbs0 + dy : topAbs0;
+          const nBottom = multY > 0 ? bottomAbs0 + dy : bottomAbs0;
+          // Largeur le long du bord bas, hauteur le long du bord droit : badges distincts
+          // (pas de superposition au centre lors d'un resize en coin).
+          if (multX !== 0) resizeMeasure.push({ x1: nLeft, y1: nBottom, x2: nRight, y2: nBottom, value: Math.round(nRight - nLeft), kind: 'spacing' });
+          if (multY !== 0) resizeMeasure.push({ x1: nRight, y1: nTop, x2: nRight, y2: nBottom, value: Math.round(nBottom - nTop), kind: 'spacing' });
+
+          // Écart au voisin DU CÔTÉ du bord tiré (qui se recouvre sur l'axe perpendiculaire).
+          // L'autre bord étant fixe, seul cet écart varie — on ne montre que celui-là.
+          const cxMid = (nLeft + nRight) / 2, cyMid = (nTop + nBottom) / 2;
+          if (multX > 0) {
+            const n = others.filter((o) => o.top < nBottom && o.bottom > nTop && o.left >= nRight - 0.5).sort((a, b) => a.left - b.left)[0];
+            if (n) { const gap = Math.round(n.left - nRight); if (gap > 0) resizeMeasure.push({ x1: nRight, y1: cyMid, x2: n.left, y2: cyMid, value: gap, kind: 'equal' }); }
+          } else if (multX < 0) {
+            const n = others.filter((o) => o.top < nBottom && o.bottom > nTop && o.right <= nLeft + 0.5).sort((a, b) => b.right - a.right)[0];
+            if (n) { const gap = Math.round(nLeft - n.right); if (gap > 0) resizeMeasure.push({ x1: n.right, y1: cyMid, x2: nLeft, y2: cyMid, value: gap, kind: 'equal' }); }
+          }
+          if (multY > 0) {
+            const n = others.filter((o) => o.left < nRight && o.right > nLeft && o.top >= nBottom - 0.5).sort((a, b) => a.top - b.top)[0];
+            if (n) { const gap = Math.round(n.top - nBottom); if (gap > 0) resizeMeasure.push({ x1: cxMid, y1: nBottom, x2: cxMid, y2: n.top, value: gap, kind: 'equal' }); }
+          } else if (multY < 0) {
+            const n = others.filter((o) => o.left < nRight && o.right > nLeft && o.bottom <= nTop + 0.5).sort((a, b) => b.bottom - a.bottom)[0];
+            if (n) { const gap = Math.round(nTop - n.bottom); if (gap > 0) resizeMeasure.push({ x1: cxMid, y1: n.bottom, x2: cxMid, y2: nTop, value: gap, kind: 'equal' }); }
+          }
+        }
+
+        setActiveGuides({ x: snapX, y: snapY });
+        setMeasurements(resizeMeasure);
+
+        if (singleSelected) {
+          if (!el) return;
+          if (el.type === 'text') {
+            const ratioX = 1 + (dx * multX * grow) / Math.max(1, initialSize.width);
+            const ratioY = 1 + (dy * multY * grow) / Math.max(1, initialSize.height);
+            const updates: Partial<CompositionElement> = {};
+            let nScaleX = initialSize.scaleX;
+            let nScaleY = initialSize.scaleY;
+            if (shift) {
+              // Échelle uniforme : même ratio sur les deux axes
+              const r = (multX !== 0 && multY !== 0)
+                ? (Math.abs(ratioX) >= Math.abs(ratioY) ? ratioX : ratioY)
+                : (multX !== 0 ? ratioX : ratioY);
+              nScaleX = Math.max(0.1, initialSize.scaleX * r);
+              nScaleY = Math.max(0.1, initialSize.scaleY * r);
+              updates.scaleX = nScaleX;
+              updates.scaleY = nScaleY;
+            } else {
+              if (multX !== 0) { nScaleX = Math.max(0.1, initialSize.scaleX * ratioX); updates.scaleX = nScaleX; }
+              if (multY !== 0) { nScaleY = Math.max(0.1, initialSize.scaleY * ratioY); updates.scaleY = nScaleY; }
+            }
+            // Ancrage du bord opposé : on compense l'origine (x,y) du décalage du bord
+            // fixe, calculé depuis la boîte locale (pré-scale, stable pendant le geste).
+            if (!fromCenter) {
+              const lb = bboxes[activeId] || FALLBACK_BBOX;
+              // coord locale du bord à garder fixe (gauche si on tire à droite, etc.)
+              const anchorLX = multX > 0 ? lb.x : lb.x + lb.width;
+              const anchorLY = multY > 0 ? lb.y : lb.y + lb.height;
+              if (multX !== 0) updates.x = initialSize.x + anchorLX * (initialSize.scaleX - nScaleX);
+              if (multY !== 0) updates.y = initialSize.y + anchorLY * (initialSize.scaleY - nScaleY);
+            }
+            onUpdateLive(activeId, updates);
+          } else if (el.type === 'circle') {
+            const delta = Math.max(dx * multX, dy * multY);
+            if (multX !== 0 || multY !== 0) {
+              const size = Math.max(10, initialSize.width + delta * grow);
+              const updates: { width?: number; height?: number; x?: number; y?: number } = { width: size, height: size };
+              // Ancrage : décale le centre de la moitié de la variation, côté poignée.
+              if (!fromCenter) {
+                const dS = size - initialSize.width;
+                if (multX !== 0) updates.x = initialSize.x + (dS / 2) * multX * el.scaleX;
+                if (multY !== 0) updates.y = initialSize.y + (dS / 2) * multY * el.scaleY;
+              }
+              onUpdateLive(activeId, updates);
+            }
+          } else {
+            // Rectangle / image / autres formes : largeur & hauteur
+            const aspect = initialSize.width / Math.max(1, initialSize.height);
+            let newW = multX !== 0 ? Math.max(10, initialSize.width + dx * multX * grow) : initialSize.width;
+            let newH = multY !== 0 ? Math.max(10, initialSize.height + dy * multY * grow) : initialSize.height;
+            if (shift) {
+              // Verrouille le ratio largeur/hauteur initial
+              if (multX !== 0 && multY !== 0) {
+                if (newW / initialSize.width >= newH / initialSize.height) newH = newW / aspect;
+                else newW = newH * aspect;
+              } else if (multX !== 0) {
+                newH = newW / aspect;
+              } else if (multY !== 0) {
+                newW = newH * aspect;
+              }
+            }
+            // En mode ancré, c'est le BORD qui est aimanté à la grille (plus haut) ; on
+            // n'arrondit la TAILLE que dans le mode symétrique (Alt), où il n'y a pas de
+            // bord fixe de référence.
+            if (fromCenter && snapToGrid && gridSize > 0 && !shift) {
+              newW = Math.max(gridSize, Math.round(newW / gridSize) * gridSize);
+              newH = Math.max(gridSize, Math.round(newH / gridSize) * gridSize);
+            }
+            const finalW = Math.max(10, newW);
+            const finalH = Math.max(10, newH);
+            const updates: { width?: number; height?: number; x?: number; y?: number } = {};
+            if (shift || multX !== 0) updates.width = finalW;
+            if (shift || multY !== 0) updates.height = finalH;
+            // Ancrage du bord opposé : on décale l'origine de la moitié de la variation,
+            // dans le sens de la poignée (le bord opposé reste donc immobile).
+            if (!fromCenter) {
+              const dW = finalW - initialSize.width;
+              const dH = finalH - initialSize.height;
+              // On n'ancre que l'axe réellement tiré ; l'autre dimension (cas Shift = ratio
+              // verrouillé) croît symétriquement autour de l'axe de la poignée.
+              if (multX !== 0) updates.x = initialSize.x + (dW / 2) * multX * el.scaleX;
+              if (multY !== 0) updates.y = initialSize.y + (dH / 2) * multY * el.scaleY;
+            }
+            onUpdateLive(activeId, updates);
+          }
+        } else {
+          // Redimensionnement de groupe
+          const g = initialSize;
+          let ratioX = multX !== 0 ? Math.max(0.01, 1 + (dx * multX * 2) / Math.max(1, g.width)) : 1;
+          let ratioY = multY !== 0 ? Math.max(0.01, 1 + (dy * multY * 2) / Math.max(1, g.height)) : 1;
+          // Shift sur une poignée d'angle : échelle uniforme du groupe
+          if (shift && multX !== 0 && multY !== 0) {
+            const r = Math.abs(ratioX) >= Math.abs(ratioY) ? ratioX : ratioY;
+            ratioX = r; ratioY = r;
+          }
+
+          // Centre du groupe au début du drag
+          const gcx = dragOffset.x - (multX * g.width) / 2;
+          const gcy = dragOffset.y - (multY * g.height) / 2;
+
+          const bulkUpdates: Record<string, Partial<CompositionElement>> = {};
+          initialElements.forEach((initEl) => {
+            const base = {
+              x: gcx + (initEl.x - gcx) * ratioX,
+              y: gcy + (initEl.y - gcy) * ratioY,
+            };
+            // Le texte se redimensionne via scale ; les formes/images via width & height.
+            bulkUpdates[initEl.id] = initEl.type === 'text'
+              ? { ...base, scaleX: initEl.scaleX * ratioX, scaleY: initEl.scaleY * ratioY }
+              : { ...base, width: initEl.width * ratioX, height: initEl.height * ratioY };
+          });
+          onUpdateElementsLive(bulkUpdates);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setDragMode(null);
+      setActiveId(null);
+      setActiveGuides({ x: [], y: [] });
+      setMeasurements([]);
+    };
+
+    // Touch move/end handlers — réutilise la logique mouse via clientX/clientY
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      // Crée un objet synthétique compatible avec getMousePosition
+      const synth = { clientX: touch.clientX, clientY: touch.clientY, shiftKey: false } as MouseEvent;
+      handleMouseMove(synth);
+    };
+
+    const handleTouchEnd = () => {
+      handleMouseUp();
+    };
+
+    if (dragMode) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
+      window.addEventListener('touchcancel', handleTouchEnd);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [dragMode, activeId, dragOffset, onUpdateLive, onUpdateElementsLive, onNudge, elements, initialSize, width, height, bboxes, selectedIds, singleSelected, initialElements, snapToGrid, gridSize, guides, getMousePosition, groupAABB]);
+
+  return {
+    // refs
+    svgRef, elementRefs, editInputRef,
+    // état dérivé / mesures
+    bboxes, groupAABB, singleSelected, selectionCount,
+    // état de geste
+    dragMode, activeId, activeGuides, measurements, marquee,
+    // édition inline
+    editingId, setEditingId,
+    // menu contextuel
+    contextMenu, handleContextMenu, closeContextMenu,
+    // repères
+    setGuideDrag,
+    // handlers de pointeur / tactile
+    handleCanvasMouseDown, handleCanvasTouchStart,
+    handleMouseDown, handleTouchStart, handleResizeMouseDown, handleRotateMouseDown,
+    startEditing,
+  };
+};
