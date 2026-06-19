@@ -772,10 +772,8 @@ export const useComposition = () => {
   }, [commit]);
 
   const clearCanvas = useCallback(() => {
-    if (window.confirm('Voulez-vous vraiment vider le canvas ?')) {
-      commit((prev) => ({ ...prev, elements: [], backgroundColor: '#ffffff' }));
-      setSelectedIds([]);
-    }
+    commit((prev) => ({ ...prev, elements: [], backgroundColor: '#ffffff' }));
+    setSelectedIds([]);
   }, [commit]);
 
   return {

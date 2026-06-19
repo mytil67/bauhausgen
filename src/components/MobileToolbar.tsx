@@ -400,8 +400,8 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
         </div>
         {/* Annuler / Rétablir collés à droite */}
         <div className="flex items-center border-l border-gray-100 px-1">
-          <button onClick={p.onUndo} disabled={!p.canUndo} className="p-2.5 rounded-xl text-gray-500 disabled:opacity-25 active:bg-gray-100"><Undo2 size={20} /></button>
-          <button onClick={p.onRedo} disabled={!p.canRedo} className="p-2.5 rounded-xl text-gray-500 disabled:opacity-25 active:bg-gray-100"><Redo2 size={20} /></button>
+          <button onClick={p.onUndo} disabled={!p.canUndo} title="Annuler" className="p-2.5 rounded-xl text-gray-500 disabled:opacity-25 active:bg-gray-100"><Undo2 size={20} /></button>
+          <button onClick={p.onRedo} disabled={!p.canRedo} title="Rétablir" className="p-2.5 rounded-xl text-gray-500 disabled:opacity-25 active:bg-gray-100"><Redo2 size={20} /></button>
         </div>
       </div>
     </div>

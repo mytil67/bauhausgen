@@ -179,7 +179,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               onClick={(e) => e.stopPropagation()}
               onDoubleClick={(e) => { e.stopPropagation(); startEditing(el); }}
               style={{
-                cursor: dragMode === 'move' && isSelected ? 'grabbing' : 'grab',
+                cursor: el.locked ? 'not-allowed' : dragMode === 'move' && isSelected ? 'grabbing' : 'grab',
                 opacity: el.opacity,
                 mixBlendMode: el.blendMode as React.CSSProperties['mixBlendMode'] ?? 'normal',
               }}
@@ -190,7 +190,15 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               {/* Contour de sélection (toujours visible si sélectionné) */}
               {isSelected && (
-                <rect x={sx - ho} y={sy - ho} width={sw + hz} height={sh + hz} fill="none" stroke="#3b82f6" strokeWidth={strokeZ} strokeDasharray={showHandles ? '4' : '2'} className="pointer-events-none export-ignore" />
+                <rect x={sx - ho} y={sy - ho} width={sw + hz} height={sh + hz} fill="none" stroke={el.locked ? '#f59e0b' : '#3b82f6'} strokeWidth={strokeZ} strokeDasharray={el.locked ? `${2 / zoom} ${2 / zoom}` : showHandles ? '4' : '2'} className="pointer-events-none export-ignore" />
+              )}
+
+              {/* Indicateur cadenas (éléments verrouillés) */}
+              {el.locked && isSelected && (
+                <g transform={`translate(${sx + sw + 4 / zoom}, ${sy - 4 / zoom}) scale(${1 / zoom})`} className="pointer-events-none export-ignore">
+                  <rect x="-10" y="-10" width="20" height="20" rx="4" fill="#f59e0b" opacity="0.9" />
+                  <path d="M-4,-2 V-4 a4,4 0 0,1 8,0 V-2 M-5,-2 h10 a1,1 0 0,1 1,1 v6 a1,1 0 0,1-1,1 h-10 a1,1 0 0,1-1,-1 v-6 a1,1 0 0,1 1,-1z" fill="white" />
+                </g>
               )}
 
               {/* Poignées (sélection unique uniquement) */}

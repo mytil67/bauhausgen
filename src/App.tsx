@@ -6,8 +6,10 @@ import { Sidebar } from './components/Sidebar';
 import { LayersPanel } from './components/LayersPanel';
 import { ShortcutsHelp } from './components/ShortcutsHelp';
 import { MobileToolbar } from './components/MobileToolbar';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import { Plus, Minus, Menu, Layers, X, Grid3x3, Magnet } from 'lucide-react';
 import type { ElementBounds, AlignDirection, DistributeAxis } from './types';
+import type { Template } from './templates';
 
 // Polices Google utilisées dans l'éditeur (pour tentative d'embarquement à l'export)
 const GOOGLE_FONTS_CSS =
@@ -90,6 +92,14 @@ function App() {
     (axis: DistributeAxis) => distributeElements(axis, selectedIds, freshBounds()),
     [distributeElements, selectedIds, freshBounds],
   );
+
+  // Modale de confirmation (remplace window.confirm)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message?: string; confirmLabel?: string; danger?: boolean; onConfirm: () => void;
+  } | null>(null);
+  const requestConfirm = useCallback((opts: NonNullable<typeof confirmDialog>) => {
+    setConfirmDialog(opts);
+  }, []);
 
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -396,7 +406,13 @@ function App() {
     onExportProject: handleExportProject,
     onImportProject: handleImportProject,
     onImportImage: handleImportImage,
-    onClearCanvas: clearCanvas,
+    onClearCanvas: () => requestConfirm({
+      title: 'Vider le canvas',
+      message: 'Tous les éléments seront supprimés. Cette action est irréversible.',
+      confirmLabel: 'Vider',
+      danger: true,
+      onConfirm: clearCanvas,
+    }),
     onAlign: handleAlign,
     onDistribute: handleDistribute,
     onUndo: undo,
@@ -408,7 +424,12 @@ function App() {
     onPasteStyle: pasteStyle,
     hasCopiedStyle,
     onSetCanvasSize: handleSetCanvasSize,
-    onLoadTemplate: (tpl: Parameters<typeof loadTemplate>[0]) => { setAutoCanvasSize(false); loadTemplate(tpl); },
+    onLoadTemplate: (tpl: Template) => requestConfirm({
+      title: `Charger « ${tpl.name} » ?`,
+      message: 'Le canvas actuel sera remplacé par ce modèle.',
+      confirmLabel: 'Charger',
+      onConfirm: () => { setAutoCanvasSize(false); loadTemplate(tpl); },
+    }),
   };
 
   const layersPanelProps = {
@@ -589,6 +610,7 @@ function App() {
         </div>
 
         {helpOpen && <ShortcutsHelp onClose={() => setHelpOpen(false)} />}
+        {confirmDialog && <ConfirmDialog open title={confirmDialog.title} message={confirmDialog.message} confirmLabel={confirmDialog.confirmLabel} danger={confirmDialog.danger} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} onCancel={() => setConfirmDialog(null)} />}
       </div>
     );
   }
@@ -657,6 +679,7 @@ function App() {
 
       <LayersPanel {...layersPanelProps} />
       {helpOpen && <ShortcutsHelp onClose={() => setHelpOpen(false)} />}
+      {confirmDialog && <ConfirmDialog open title={confirmDialog.title} message={confirmDialog.message} confirmLabel={confirmDialog.confirmLabel} danger={confirmDialog.danger} onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} onCancel={() => setConfirmDialog(null)} />}
     </div>
   );
 }

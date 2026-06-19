@@ -321,10 +321,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <div className="mt-auto flex flex-col gap-1 w-full px-2">
-          <button onClick={onUndo} disabled={!canUndo} title="Annuler" className="w-full aspect-square shrink-0 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
+          <button onClick={onUndo} disabled={!canUndo} title="Annuler (Ctrl+Z)" className="w-full aspect-square shrink-0 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
             <Undo2 size={18} />
           </button>
-          <button onClick={onRedo} disabled={!canRedo} title="Rétablir" className="w-full aspect-square shrink-0 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
+          <button onClick={onRedo} disabled={!canRedo} title="Rétablir (Ctrl+Maj+Z)" className="w-full aspect-square shrink-0 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-20 text-gray-500 transition-colors">
             <Redo2 size={18} />
           </button>
         </div>
@@ -444,7 +444,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 <div className="grid grid-cols-1 gap-2">
                   {TEMPLATES.map((tpl) => (
-                    <button key={tpl.name} onClick={() => { if (window.confirm(`Charger « ${tpl.name} » ?`)) onLoadTemplate(tpl); }} className="text-left px-3 py-2 bg-white hover:bg-blue-50 rounded border border-gray-200 hover:border-blue-200 text-xs font-medium transition-all group">
+                    <button key={tpl.name} onClick={() => onLoadTemplate(tpl)} className="text-left px-3 py-2 bg-white hover:bg-blue-50 rounded border border-gray-200 hover:border-blue-200 text-xs font-medium transition-all group">
                       {tpl.name} <span className="float-right text-gray-300 group-hover:text-blue-400">→</span>
                     </button>
                   ))}
@@ -784,6 +784,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <input type="checkbox" checked={!!selectedElement.knockout} onChange={(e) => onUpdateElement(selectedElement.id, { knockout: e.target.checked })} className="accent-gray-900" />
                                 <span className="text-[9px] font-bold text-gray-400 uppercase">Texte découpé (knockout)</span>
                               </label>
+                              {selectedElement.knockout && selectedElement.curve && (
+                                <p className="text-[8px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">Le knockout est ignoré sur le texte courbé.</p>
+                              )}
                               {selectedElement.knockout && (
                                 <>
                                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
