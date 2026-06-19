@@ -312,7 +312,7 @@ export interface ElementContentProps {
   editingId: string | null;
   onUpdateLive: (id: string, updates: Partial<CompositionElement>) => void;
   setEditingId: (id: string | null) => void;
-  editInputRef: React.RefObject<HTMLInputElement | null>;
+  editInputRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 /**
@@ -445,24 +445,29 @@ export const renderElementContent = ({
       )
     )}
     {el.type === 'text' && editingId === el.id && (() => {
-      const w = Math.max((bboxes[el.id]?.width ?? 200) + 40, 60);
-      const h = el.fontSize * (el.lineHeight ?? 1.4);
+      const w = Math.max((bboxes[el.id]?.width ?? 200) + 40, 120);
+      const lines = (el.text.match(/\n/g)?.length ?? 0) + 1;
+      const lineH = el.fontSize * (el.lineHeight ?? 1.4);
+      const h = Math.max(lineH * lines + 16, lineH + 8);
       return (
         <foreignObject x={-w / 2} y={-h / 2} width={w} height={h} style={{ overflow: 'visible' }}>
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <input
+            <textarea
               ref={editInputRef}
               value={el.text}
+              rows={lines}
               onMouseDown={(e) => e.stopPropagation()}
               onChange={(e) => onUpdateLive(el.id, { text: e.target.value })}
               onBlur={() => setEditingId(null)}
               onKeyDown={(e) => {
                 e.stopPropagation();
-                if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); setEditingId(null); }
+                if (e.key === 'Escape') { e.preventDefault(); setEditingId(null); }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setEditingId(null); }
               }}
               style={{
-                width: '100%', textAlign: (el.textAlign === 'start' ? 'left' : el.textAlign === 'end' ? 'right' : 'center') as React.CSSProperties['textAlign'],
-                padding: 0, margin: 0,
+                width: '100%', height: '100%', resize: 'none',
+                textAlign: (el.textAlign === 'start' ? 'left' : el.textAlign === 'end' ? 'right' : 'center') as React.CSSProperties['textAlign'],
+                padding: '2px 4px', margin: 0,
                 border: 'none', outline: '1px dashed #3b82f6',
                 background: 'rgba(255,255,255,0.5)',
                 fontSize: el.fontSize,

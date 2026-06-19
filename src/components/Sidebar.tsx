@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import type { CompositionElement, ElementType, ShapeType, CustomFont, AlignDirection, DistributeAxis } from '../types';
 import { TEMPLATES, type Template } from '../templates';
 import { SHAPES, PALETTES, GOOGLE_FONTS, CANVAS_PRESETS } from '../constants';
+import { shapeGeom } from './canvas/render';
 import {
   Type,
   Trash2,
@@ -442,10 +443,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-3 flex items-center gap-2">
                   <LayoutTemplate size={14} className="text-gray-400" /> Templates
                 </div>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {TEMPLATES.map((tpl) => (
-                    <button key={tpl.name} onClick={() => onLoadTemplate(tpl)} className="text-left px-3 py-2 bg-white hover:bg-blue-50 rounded border border-gray-200 hover:border-blue-200 text-xs font-medium transition-all group">
-                      {tpl.name} <span className="float-right text-gray-300 group-hover:text-blue-400">→</span>
+                    <button key={tpl.name} onClick={() => onLoadTemplate(tpl)} className="bg-white hover:bg-blue-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-all group overflow-hidden">
+                      <svg viewBox={`0 0 ${tpl.canvasWidth} ${tpl.canvasHeight}`} className="w-full aspect-square" style={{ backgroundColor: tpl.backgroundColor }}>
+                        {tpl.elements.map((el) => (
+                          <g key={el.id} transform={`translate(${el.x}, ${el.y}) rotate(${el.rotation})`} opacity={el.opacity}>
+                            {el.type === 'text' ? (
+                              <text textAnchor="middle" dominantBaseline="central" fill={el.color} fontSize={el.fontSize} fontFamily={el.fontFamily} fontWeight={el.fontWeight as string}>{el.text}</text>
+                            ) : el.type !== 'image' ? (
+                              shapeGeom(el, { fill: el.color })
+                            ) : null}
+                          </g>
+                        ))}
+                      </svg>
+                      <div className="px-2 py-1.5 text-[10px] font-bold text-gray-600 group-hover:text-blue-600 text-center truncate">{tpl.name}</div>
                     </button>
                   ))}
                 </div>

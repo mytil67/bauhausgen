@@ -56,7 +56,7 @@ export const useCanvasGestures = (p: UseCanvasGesturesParams) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false });
   const [guideDrag, setGuideDrag] = useState<{ axis: 'x' | 'y'; index: number } | null>(null);
-  const editInputRef = useRef<HTMLInputElement>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const elementRefs = useRef<{ [key: string]: SVGGElement | null }>({});
   const [bboxes, setBboxes] = useState<{ [key: string]: DOMRect }>({});

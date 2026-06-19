@@ -143,6 +143,42 @@ function App() {
     return () => window.removeEventListener('wheel', handleWheel);
   }, []);
 
+  // Zoom adaptatif
+  const zoomToFit = useCallback(() => {
+    const container = mainRef.current;
+    if (!container) return;
+    const pad = 64;
+    const ratio = Math.min((container.clientWidth - pad) / canvasWidth, (container.clientHeight - pad) / canvasHeight);
+    setZoom(Math.max(0.1, Math.min(5, ratio)));
+  }, [canvasWidth, canvasHeight]);
+
+  const zoomToSelection = useCallback(() => {
+    if (selectedIds.length === 0) { zoomToFit(); return; }
+    const container = mainRef.current;
+    if (!container) return;
+    const bounds = freshBounds();
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const id of selectedIds) {
+      const b = bounds[id];
+      const el = elements.find(e => e.id === id);
+      if (!el) continue;
+      const bx = b ? el.x + b.x : el.x - 50;
+      const by = b ? el.y + b.y : el.y - 25;
+      const bw = b ? b.width : 100;
+      const bh = b ? b.height : 50;
+      minX = Math.min(minX, bx);
+      minY = Math.min(minY, by);
+      maxX = Math.max(maxX, bx + bw);
+      maxY = Math.max(maxY, by + bh);
+    }
+    if (!isFinite(minX)) { zoomToFit(); return; }
+    const pad = 80;
+    const selW = maxX - minX;
+    const selH = maxY - minY;
+    const ratio = Math.min((container.clientWidth - pad) / (selW || 1), (container.clientHeight - pad) / (selH || 1));
+    setZoom(Math.max(0.1, Math.min(5, ratio)));
+  }, [selectedIds, elements, freshBounds, zoomToFit]);
+
   // Raccourcis clavier globaux
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -156,6 +192,8 @@ function App() {
         if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom(z => Math.min(5, z + 0.25)); return; }
         if (e.key === '-') { e.preventDefault(); setZoom(z => Math.max(0.1, z - 0.25)); return; }
         if (e.key === '0') { e.preventDefault(); setZoom(1); return; }
+        if (e.key === '1') { e.preventDefault(); zoomToFit(); return; }
+        if (e.key === '2') { e.preventDefault(); zoomToSelection(); return; }
       }
 
       if (!mod) {
@@ -209,7 +247,7 @@ function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [undo, redo, duplicateSelection, selectAll, selectElement, selectedIds, copySelection, removeSelection, pasteClipboard, groupSelection, ungroupSelection, copyStyle, pasteStyle]);
+  }, [undo, redo, duplicateSelection, selectAll, selectElement, selectedIds, copySelection, removeSelection, pasteClipboard, groupSelection, ungroupSelection, copyStyle, pasteStyle, zoomToFit, zoomToSelection]);
 
   /** Construit une chaîne SVG exportable : UI de sélection retirée + polices embarquées. */
   const buildExportSvg = async (transparent = false): Promise<string | null> => {
@@ -287,7 +325,7 @@ function App() {
     reader.readAsText(file);
   };
 
-  const handleImportImage = (file: File) => {
+  const handleImportImage = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const href = e.target?.result as string;
@@ -297,7 +335,27 @@ function App() {
       img.src = href;
     };
     reader.readAsDataURL(file);
-  };
+  }, [addImage]);
+
+  // Coller une image depuis le presse-papier système
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) handleImportImage(file);
+          return;
+        }
+      }
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [handleImportImage]);
 
   const handleExport = async (format: 'svg' | 'png' | 'jpg', options?: { transparent?: boolean }) => {
     const transparent = !!options?.transparent;
@@ -626,6 +684,8 @@ function App() {
           <button onClick={() => setZoom(z => Math.max(0.1, z - 0.25))} className="p-1 hover:bg-gray-100 rounded" title="Dézoomer (Ctrl + -)"><Minus size={14} /></button>
           <span className="w-12 text-center cursor-pointer hover:bg-gray-100 rounded" onClick={() => setZoom(1)} title="Taille réelle (Ctrl + 0)">{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} className="p-1 hover:bg-gray-100 rounded" title="Zoomer (Ctrl + +)"><Plus size={14} /></button>
+          <span className="w-px h-3.5 bg-gray-200" />
+          <button onClick={zoomToFit} className="px-1.5 py-0.5 hover:bg-gray-100 rounded text-[10px] font-bold" title="Zoom adaptatif (Ctrl+1)">Fit</button>
           <span className="w-px h-3.5 bg-gray-200" />
           <button onClick={() => setHelpOpen(true)} className="w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full font-bold" title="Raccourcis clavier (?)">?</button>
         </div>
