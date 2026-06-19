@@ -357,6 +357,8 @@ function App() {
     return () => window.removeEventListener('paste', handlePaste);
   }, [handleImportImage]);
 
+  const [exportScale, setExportScale] = useState(1);
+
   const handleExport = async (format: 'svg' | 'png' | 'jpg', options?: { transparent?: boolean }) => {
     const transparent = !!options?.transparent;
     const svgData = await buildExportSvg(transparent);
@@ -375,9 +377,13 @@ function App() {
       try { await document.fonts.ready; } catch { /* ignore */ }
     }
 
+    const scale = exportScale;
+    const outW = Math.round(canvasWidth * scale);
+    const outH = Math.round(canvasHeight * scale);
+
     const canvas = document.createElement('canvas');
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
+    canvas.width = outW;
+    canvas.height = outH;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -388,9 +394,9 @@ function App() {
     img.onload = () => {
       if (!transparent) {
         ctx.fillStyle = backgroundColor;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        ctx.fillRect(0, 0, outW, outH);
       }
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, outW, outH);
       URL.revokeObjectURL(url);
       const dataUrl = canvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 1.0);
       downloadUrl(dataUrl, `${fileBase('bauhaus-composition')}.${format}`);
@@ -461,6 +467,8 @@ function App() {
     projectName,
     onSetProjectName: setProjectName,
     onExport: handleExport,
+    exportScale,
+    onSetExportScale: setExportScale,
     onExportProject: handleExportProject,
     onImportProject: handleImportProject,
     onImportImage: handleImportImage,

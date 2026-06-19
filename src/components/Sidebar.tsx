@@ -74,6 +74,8 @@ interface SidebarProps {
   projectName: string;
   onSetProjectName: (name: string) => void;
   onExport: (format: 'svg' | 'png' | 'jpg', options?: { transparent?: boolean }) => void;
+  exportScale: number;
+  onSetExportScale: (scale: number) => void;
   onExportProject: () => void;
   onImportProject: (file: File) => void;
   onImportImage: (file: File) => void;
@@ -213,6 +215,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   projectName,
   onSetProjectName,
   onExport,
+  exportScale,
+  onSetExportScale,
   onExportProject,
   onImportProject,
   onImportImage,
@@ -978,6 +982,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-400 outline-none"
                   />
                   <p className="text-[8px] text-gray-300 mt-1 italic">Utilisé comme nom de fichier (PNG, SVG, JSON).</p>
+                </div>
+                <div className="mb-1">
+                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1.5">Résolution (PNG / JPG)</label>
+                  <div className="grid grid-cols-4 gap-1 p-1 bg-gray-100 rounded">
+                    {([
+                      { label: '1×', value: 1 },
+                      { label: '2×', value: 2 },
+                      { label: '3×', value: 3 },
+                      { label: '4×', value: 4 },
+                    ] as const).map((o) => (
+                      <button key={o.value} onClick={() => onSetExportScale(o.value)}
+                        className={`py-1 rounded text-[9px] font-bold transition-all ${exportScale === o.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                      >{o.label}</button>
+                    ))}
+                  </div>
+                  <p className="text-[8px] text-gray-300 mt-1 italic">{Math.round(canvasWidth * exportScale)} × {Math.round(canvasHeight * exportScale)} px{exportScale >= 3 ? ' — ~300 DPI pour impression' : ''}</p>
                 </div>
                 <button onClick={() => onExport('svg')} className="w-full py-2 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-black transition-all shadow-sm">Exporter en SVG</button>
                 <div className="grid grid-cols-3 gap-2">
