@@ -72,7 +72,7 @@ interface SidebarProps {
   onFlip: (axis: 'horizontal' | 'vertical', ids: string[]) => void;
   projectName: string;
   onSetProjectName: (name: string) => void;
-  onExport: (format: 'svg' | 'png' | 'jpg') => void;
+  onExport: (format: 'svg' | 'png' | 'jpg', options?: { transparent?: boolean }) => void;
   onExportProject: () => void;
   onImportProject: (file: File) => void;
   onImportImage: (file: File) => void;
@@ -239,7 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     transform: true,
     appearance: true,
     text: true,
-    effects: false,
+    effects: true,
     document: true,
     export: true
   });
@@ -965,7 +965,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <p className="text-[8px] text-gray-300 mt-1 italic">Utilisé comme nom de fichier (PNG, SVG, JSON).</p>
                 </div>
                 <button onClick={() => onExport('svg')} className="w-full py-2 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-black transition-all shadow-sm">Exporter en SVG</button>
-                <div className="grid grid-cols-2 gap-2"><button onClick={() => onExport('png')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">PNG</button><button onClick={() => onExport('jpg')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">JPG</button></div>
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => onExport('png')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">PNG</button>
+                  <button onClick={() => onExport('png', { transparent: true })} title="PNG sans fond (transparent)" className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all border border-dashed border-gray-300">PNG ∅</button>
+                  <button onClick={() => onExport('jpg')} className="py-2 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-gray-200 transition-all">JPG</button>
+                </div>
 
                 {/* Projet (sauvegarde/chargement portable .json) */}
                 <div className="pt-2 mt-1 border-t border-gray-100">

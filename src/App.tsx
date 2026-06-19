@@ -202,12 +202,18 @@ function App() {
   }, [undo, redo, duplicateSelection, selectAll, selectElement, selectedIds, copySelection, removeSelection, pasteClipboard, groupSelection, ungroupSelection, copyStyle, pasteStyle]);
 
   /** Construit une chaîne SVG exportable : UI de sélection retirée + polices embarquées. */
-  const buildExportSvg = async (): Promise<string | null> => {
+  const buildExportSvg = async (transparent = false): Promise<string | null> => {
     const svgElement = document.getElementById('bauhaus-svg') as SVGSVGElement | null;
     if (!svgElement) return null;
 
     const clone = svgElement.cloneNode(true) as SVGSVGElement;
     clone.querySelectorAll('.export-ignore').forEach((node) => node.remove());
+
+    // Fond transparent : retirer la couleur de fond et le rect de dégradé
+    if (transparent) {
+      clone.style.backgroundColor = 'transparent';
+      clone.querySelectorAll('rect[fill="url(#bg-gradient)"]').forEach((n) => n.remove());
+    }
 
     // @font-face pour les polices importées (data URL → autonome)
     const faces = customFonts
@@ -283,8 +289,9 @@ function App() {
     reader.readAsDataURL(file);
   };
 
-  const handleExport = async (format: 'svg' | 'png' | 'jpg') => {
-    const svgData = await buildExportSvg();
+  const handleExport = async (format: 'svg' | 'png' | 'jpg', options?: { transparent?: boolean }) => {
+    const transparent = !!options?.transparent;
+    const svgData = await buildExportSvg(transparent);
     if (!svgData) return;
 
     if (format === 'svg') {
@@ -311,8 +318,10 @@ function App() {
     const url = URL.createObjectURL(blob);
 
     img.onload = () => {
-      ctx.fillStyle = backgroundColor;
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      if (!transparent) {
+        ctx.fillStyle = backgroundColor;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
       ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
       const dataUrl = canvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 1.0);

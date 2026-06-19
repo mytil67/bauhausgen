@@ -761,7 +761,8 @@ export const useComposition = () => {
           // Le scale (taille du texte) ne s'applique qu'à une cible texte ; on l'omet
           // pour une forme afin de ne pas la redimensionner involontairement.
           if (el.type !== 'text' && ('scaleX' in style || 'scaleY' in style)) {
-            const { scaleX: _sx, scaleY: _sy, ...rest } = style;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { scaleX, scaleY, ...rest } = style;
             return { ...el, ...rest } as CompositionElement;
           }
           return { ...el, ...style } as CompositionElement;
