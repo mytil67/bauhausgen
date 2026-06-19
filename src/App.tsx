@@ -249,7 +249,7 @@ function App() {
   const handleExportProject = () => {
     const data = JSON.stringify({
       version: 1,
-      elements, backgroundColor, canvasWidth, canvasHeight, customColors, customFonts,
+      elements, backgroundColor, backgroundGradient, canvasWidth, canvasHeight, customColors, customFonts,
     });
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

@@ -107,9 +107,9 @@ const loadInitial = (): { doc: DocState; selectedIds: string[] } => {
 };
 
 export const useComposition = () => {
-  const initial = loadInitial();
-  const [doc, setDoc] = useState<DocState>(initial.doc);
-  const [selectedIds, setSelectedIds] = useState<string[]>(initial.selectedIds);
+  const [{ doc: initialDoc, selectedIds: initialSelectedIds }] = useState(loadInitial);
+  const [doc, setDoc] = useState<DocState>(initialDoc);
+  const [selectedIds, setSelectedIds] = useState<string[]>(initialSelectedIds);
   const [past, setPast] = useState<DocState[]>([]);
   const [future, setFuture] = useState<DocState[]>([]);
   // Snapshot d'historique « en attente » : posé par beginHistory, empilé seulement au
@@ -761,8 +761,7 @@ export const useComposition = () => {
           // Le scale (taille du texte) ne s'applique qu'à une cible texte ; on l'omet
           // pour une forme afin de ne pas la redimensionner involontairement.
           if (el.type !== 'text' && ('scaleX' in style || 'scaleY' in style)) {
-            const { scaleX, scaleY, ...rest } = style;
-            void scaleX; void scaleY;
+            const { scaleX: _sx, scaleY: _sy, ...rest } = style;
             return { ...el, ...rest } as CompositionElement;
           }
           return { ...el, ...style } as CompositionElement;

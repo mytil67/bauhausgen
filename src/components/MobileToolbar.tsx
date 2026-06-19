@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import type { CompositionElement, ElementType, ShapeType, AlignDirection } from '../types';
+import { PALETTES, GOOGLE_FONTS, SHAPE_TYPES, PATTERNS } from '../constants';
 import {
   Type, Image as ImageIcon, Copy, Trash2,
   Palette, CaseUpper, Ruler, Layers as LayersIcon, Sparkles, Move, PenTool, Grid3x3, Magnet,
@@ -10,22 +11,6 @@ import {
   Underline, Strikethrough,
 } from 'lucide-react';
 
-// Constantes locales (compactes pour le mobile)
-const PALETTES: string[][] = [
-  ['#e63946', '#f4a261', '#1d3557', '#1a1a1a', '#f1faee'],
-  ['#d62828', '#fcbf49', '#003049', '#2a9d8f', '#ffffff'],
-  ['#e76f51', '#e9c46a', '#264653', '#8a8a8a', '#000000'],
-];
-const FONTS = [
-  "'Inter', sans-serif", "'Montserrat', sans-serif", "'Outfit', sans-serif", "'Space Grotesk', sans-serif",
-  "'Syne', sans-serif", "'Archivo Black', sans-serif", "'Playfair Display', serif", "'Oswald', sans-serif",
-  "'Bebas Neue', sans-serif", "'Anton', sans-serif", "'Righteous', display", "'Poppins', sans-serif",
-];
-const PATTERNS: { type: 'none' | 'stripes' | 'dots' | 'grid' | 'checker'; label: string }[] = [
-  { type: 'none', label: 'Aucun' }, { type: 'stripes', label: 'Rayures' },
-  { type: 'dots', label: 'Points' }, { type: 'grid', label: 'Grille' }, { type: 'checker', label: 'Damier' },
-];
-const ADD_SHAPES: ShapeType[] = ['rect', 'circle', 'triangle', 'semicircle', 'quarter', 'ring', 'line', 'hexagon', 'diamond', 'star', 'cross', 'arrow'];
 
 const ensureHex = (c: string) => (/^#[0-9A-Fa-f]{6}$/.test(c) ? c : /^#[0-9A-Fa-f]{3}$/.test(c) ? `#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}` : '#000000');
 
@@ -124,7 +109,7 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
               <Section title="Ajouter un élément">
                 <div className="grid grid-cols-5 gap-2">
                   <AddBtn icon={<Type size={20} />} label="Texte" onClick={() => { p.onAddElement('text'); setPanel(null); }} />
-                  {ADD_SHAPES.map((s) => <AddBtn key={s} icon={<ShapeMini type={s} />} label="" onClick={() => { p.onAddElement(s); setPanel(null); }} />)}
+                  {SHAPE_TYPES.map((s) => <AddBtn key={s} icon={<ShapeMini type={s} />} label="" onClick={() => { p.onAddElement(s); setPanel(null); }} />)}
                   <AddBtn icon={<ImageIcon size={20} />} label="Image" onClick={() => imgRef.current?.click()} />
                 </div>
               </Section>
@@ -132,7 +117,7 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
 
             {panel === 'bg' && (
               <Section title="Couleur de fond">
-                <Swatches colors={[...PALETTES.flat(), ...p.customColors]} onPick={(c) => p.onApplyColor(c)} />
+                <Swatches colors={[...PALETTES.flatMap((p) => p.colors), ...p.customColors]} onPick={(c) => p.onApplyColor(c)} />
                 <button onClick={p.onOpenFull} className="mt-3 w-full py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold active:bg-gray-200">Dégradé, formats, modèles…</button>
               </Section>
             )}
@@ -157,7 +142,7 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
 
             {el && panel === 'color' && (
               <Section title="Couleur">
-                <Swatches colors={[...PALETTES.flat(), ...p.customColors]} current={el.color} onPick={(c) => upd({ color: c })} />
+                <Swatches colors={[...PALETTES.flatMap((p) => p.colors), ...p.customColors]} current={el.color} onPick={(c) => upd({ color: c })} />
                 <div className="mt-3 flex items-center gap-2">
                   <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-gray-200 shrink-0">
                     <input type="color" value={ensureHex(el.color)} onChange={(e) => updLive({ color: e.target.value })} className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)]" />
@@ -211,7 +196,7 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = (p) => {
                 <div className="mb-3"><Slider label="Étirement (largeur)" min={50} max={200} step={1} value={el.fontWidth ?? 100} onBegin={p.onBeginHistory} onChange={(v) => updLive({ fontWidth: v })} /></div>
                 {/* Liste des polices */}
                 <div className="space-y-1.5">
-                  {[...FONTS.map((f) => ({ v: f, n: f.split(',')[0].replace(/['"]/g, '') })), ...p.customFonts.map((f) => ({ v: f.name, n: f.name }))].map((f) => (
+                  {[...GOOGLE_FONTS.map((f) => ({ v: f.value, n: f.label })), ...p.customFonts.map((f) => ({ v: f.name, n: f.name }))].map((f) => (
                     <button key={f.v} onClick={() => upd({ fontFamily: f.v })} style={{ fontFamily: f.v }}
                       className={`w-full text-left px-4 py-3 rounded-xl text-lg active:bg-blue-50 ${el.fontFamily === f.v ? 'bg-blue-50 text-blue-600 font-bold' : 'bg-gray-50'}`}>{f.n}</button>
                   ))}

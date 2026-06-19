@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import type { CompositionElement, ElementType, ShapeType, CustomFont, AlignDirection, DistributeAxis } from '../types';
 import { TEMPLATES, type Template } from '../templates';
+import { SHAPES, PALETTES, GOOGLE_FONTS, CANVAS_PRESETS } from '../constants';
 import {
   Type,
   Trash2,
@@ -88,7 +89,6 @@ interface SidebarProps {
   hasCopiedStyle: boolean;
   onSetCanvasSize: (w: number, h: number) => void;
   onLoadTemplate: (tpl: Template) => void;
-  onInteractionChange?: (isInteracting: boolean) => void;
 }
 
 const ensureFullHex = (color: string): string => {
@@ -155,54 +155,6 @@ const ShapeIcon: React.FC<{ type: ShapeType }> = ({ type }) => {
   );
 };
 
-const SHAPES: { type: ShapeType; label: string }[] = [
-  { type: 'rect', label: 'Rectangle' },
-  { type: 'circle', label: 'Cercle' },
-  { type: 'triangle', label: 'Triangle' },
-  { type: 'semicircle', label: 'Demi-cercle' },
-  { type: 'quarter', label: 'Quart' },
-  { type: 'ring', label: 'Anneau' },
-  { type: 'line', label: 'Ligne' },
-  { type: 'hexagon', label: 'Hexagone' },
-  { type: 'diamond', label: 'Losange' },
-  { type: 'star', label: 'Étoile' },
-  { type: 'cross', label: 'Croix' },
-  { type: 'arrow', label: 'Flèche' },
-];
-
-const PALETTES: { name: string; colors: string[] }[] = [
-  { name: 'Primaire', colors: ['#e63946', '#f4a261', '#1d3557', '#1a1a1a', '#f1faee'] },
-  { name: 'Weimar', colors: ['#d62828', '#fcbf49', '#003049', '#eae2b7', '#1a1a1a'] },
-  { name: 'Dessau', colors: ['#e76f51', '#2a9d8f', '#e9c46a', '#264653', '#ffffff'] },
-  { name: 'Mono', colors: ['#1a1a1a', '#4a4a4a', '#8a8a8a', '#cfcfcf', '#ffffff'] },
-];
-
-const CANVAS_PRESETS: { name: string; w: number; h: number }[] = [
-  { name: 'Carré', w: 1080, h: 1080 },
-  { name: 'Story', w: 1080, h: 1920 },
-  { name: 'Post', w: 1080, h: 1350 },
-  { name: 'Bannière', w: 1500, h: 500 },
-  { name: 'A4 ↕', w: 1240, h: 1754 },
-];
-
-const GOOGLE_FONTS = [
-  { label: 'Inter', value: "'Inter', sans-serif" },
-  { label: 'Montserrat', value: "'Montserrat', sans-serif" },
-  { label: 'Outfit', value: "'Outfit', sans-serif" },
-  { label: 'Space Grotesk', value: "'Space Grotesk', sans-serif" },
-  { label: 'Syne', value: "'Syne', sans-serif" },
-  { label: 'Archivo Black', value: "'Archivo Black', sans-serif" },
-  { label: 'Playfair Display', value: "'Playfair Display', serif" },
-  { label: 'Libre Baskerville', value: "'Libre Baskerville', serif" },
-  { label: 'Roboto', value: "'Roboto', sans-serif" },
-  { label: 'Poppins', value: "'Poppins', sans-serif" },
-  { label: 'Oswald', value: "'Oswald', sans-serif" },
-  { label: 'Bebas Neue', value: "'Bebas Neue', sans-serif" },
-  { label: 'Righteous', value: "'Righteous', display" },
-  { label: 'Anton', value: "'Anton', sans-serif" },
-  { label: 'Work Sans', value: "'Work Sans', sans-serif" },
-  { label: 'Roboto Mono', value: "'Roboto Mono', monospace" },
-];
 
 type Shadow = { x: number; y: number; blur: number; color: string; opacity: number };
 // Préréglages d'ombres de texte (stacks de text-shadow)
@@ -610,7 +562,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div>
                           <label className="text-[9px] font-bold text-gray-400 block mb-2 uppercase tracking-wide">Fusion</label>
                           <select value={selectedElement.blendMode ?? 'normal'} onChange={(e) => onUpdateElement(selectedElement.id, { blendMode: e.target.value as CompositionElement['blendMode'] })} className="w-full p-2 bg-gray-50 border border-gray-100 rounded text-xs focus:bg-white outline-none">
-                            <option value="normal">Normal</option><option value="multiply">Produit</option><option value="screen">Superposition</option><option value="overlay">Incrustation</option><option value="difference">Différence</option>
+                            <option value="normal">Normal</option>
+                            <option value="multiply">Produit</option>
+                            <option value="screen">Superposition</option>
+                            <option value="overlay">Incrustation</option>
+                            <option value="darken">Obscurcir</option>
+                            <option value="lighten">Éclaircir</option>
+                            <option value="color-dodge">Densité couleur -</option>
+                            <option value="color-burn">Densité couleur +</option>
+                            <option value="hard-light">Lumière crue</option>
+                            <option value="soft-light">Lumière tamisée</option>
+                            <option value="difference">Différence</option>
+                            <option value="exclusion">Exclusion</option>
+                            <option value="hue">Teinte</option>
+                            <option value="saturation">Saturation</option>
+                            <option value="color">Couleur</option>
+                            <option value="luminosity">Luminosité</option>
                           </select>
                         </div>
                         <div>

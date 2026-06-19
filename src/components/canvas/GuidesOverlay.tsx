@@ -29,7 +29,7 @@ export const GuidesOverlay: React.FC<GuidesOverlayProps> = ({
     {/* Badges d'espacement (bleu) / espacement égal (rose) */}
     {measurements.map((m, i) => {
       const isVertical = m.x1 === m.x2;
-      const color = m.kind === 'equal' ? '#ec4899' : '#ec4899'; // On utilise le rose partout pour un look Canva/Figma cohérent
+      const color = m.kind === 'equal' ? '#ec4899' : '#2563eb'; // rose = espacement égal, bleu = distance au voisin
       const labelW = Math.max(20, String(m.value).length * 6 + 10) / zoom;
       const labelH = 14 / zoom;
       const mx = (m.x1 + m.x2) / 2;
