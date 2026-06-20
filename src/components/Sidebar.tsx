@@ -37,6 +37,7 @@ import {
   Image as ImageIcon,
   Save,
   FolderOpen,
+  LayoutGrid,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -91,6 +92,7 @@ interface SidebarProps {
   onPasteStyle: (ids: string[]) => void;
   hasCopiedStyle: boolean;
   onSetCanvasSize: (w: number, h: number) => void;
+  onArrangeGrid: (ids: string[]) => void;
   onLoadTemplate: (tpl: Template) => void;
 }
 
@@ -231,6 +233,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCopyStyle,
   onPasteStyle,
   hasCopiedStyle,
+  onArrangeGrid,
   onSetCanvasSize,
   onLoadTemplate,
 }) => {
@@ -298,7 +301,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className="w-full md:w-[360px] h-full bg-white border-r border-gray-100 flex shadow-2xl z-10 overflow-hidden shrink-0">
       {/* Inputs fichier (toujours montés, partagés par les boutons d'import) */}
       <input type="file" ref={fileInputRef} onChange={handleFontUpload} accept=".ttf,.otf,.woff,.woff2" className="hidden" />
-      <input type="file" ref={imageInputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportImage(f); e.target.value = ''; }} accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" className="hidden" />
+      <input type="file" ref={imageInputRef} onChange={(e) => { const files = e.target.files; if (files) Array.from(files).forEach(f => onImportImage(f)); e.target.value = ''; }} accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" multiple className="hidden" />
       <input type="file" ref={projectInputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportProject(f); e.target.value = ''; }} accept="application/json,.json" className="hidden" />
       {/* 1. TOOL STRIP (Fixe à gauche) */}
       <aside className="w-14 h-full bg-gray-50 border-r border-gray-100 flex flex-col items-center py-4 gap-4 shrink-0 overflow-y-auto custom-scrollbar">
@@ -491,6 +494,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <button onClick={() => onDistribute('horizontal')} disabled={!canDistribute} className="flex items-center justify-center gap-2 py-1.5 bg-gray-50 border border-gray-100 rounded text-[9px] font-bold uppercase text-gray-500 hover:bg-white disabled:opacity-20 transition-all">Espacer H</button>
                   <button onClick={() => onDistribute('vertical')} disabled={!canDistribute} className="flex items-center justify-center gap-2 py-1.5 bg-gray-50 border border-gray-100 rounded text-[9px] font-bold uppercase text-gray-500 hover:bg-white disabled:opacity-20 transition-all">Espacer V</button>
                 </div>
+                {selectionCount >= 2 && (
+                  <button onClick={() => onArrangeGrid(selectedIds)} className="w-full mt-2 flex items-center justify-center gap-2 py-1.5 bg-blue-50 border border-blue-200 rounded text-[10px] font-bold uppercase text-blue-600 hover:bg-blue-100 transition-all"><LayoutGrid size={14} /> Disposer en grille</button>
+                )}
               </section>
 
               <section>

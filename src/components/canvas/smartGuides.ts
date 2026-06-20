@@ -48,8 +48,14 @@ export function computeMoveSnap(p: MoveSnapParams): MoveSnapResult | null {
   } = p;
   const SNAP_DISTANCE = 8;
 
-  // Référentiel de l'élément (ou du groupe) déplacé
-  const currentBbox = singleSelected ? (bboxes[activeId] || FALLBACK_BBOX) : groupAABB;
+  // Référentiel de l'élément (ou du groupe) déplacé.
+  // Pour les formes/images, on préfère la taille connue (width/height) plutôt que le
+  // fallback bbox qui peut être imprécis juste après l'ajout (getBBox pas encore mesuré).
+  const measuredBbox = bboxes[activeId];
+  const syntheticBbox = singleSelected && el && el.type !== 'text' && 'width' in el
+    ? { x: -el.width / 2, y: -el.height / 2, width: el.width, height: el.height } as DOMRect
+    : null;
+  const currentBbox = singleSelected ? (measuredBbox || syntheticBbox || FALLBACK_BBOX) : groupAABB;
   if (!currentBbox) return null;
   const halfW = (currentBbox.width / 2) * (singleSelected ? el?.scaleX || 1 : 1);
   const halfH = (currentBbox.height / 2) * (singleSelected ? el?.scaleY || 1 : 1);
@@ -86,7 +92,7 @@ export function computeMoveSnap(p: MoveSnapParams): MoveSnapResult | null {
   const others = elements
     .filter((o) => !selectedSet.has(o.id))
     .map((o) => {
-      const ob = bboxes[o.id] || FALLBACK_BBOX;
+      const ob = bboxes[o.id] || (o.type !== 'text' && 'width' in o ? { x: -o.width / 2, y: -o.height / 2, width: o.width, height: o.height } as DOMRect : FALLBACK_BBOX);
       const left = o.x + ob.x * o.scaleX;
       const right = left + ob.width * o.scaleX;
       const top = o.y + ob.y * o.scaleY;

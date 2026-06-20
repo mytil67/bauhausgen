@@ -66,6 +66,7 @@ function App() {
     sendBackward,
     flipSelection,
     clearCanvas,
+    arrangeGrid,
     alignElements,
     distributeElements,
     beginHistory,
@@ -489,6 +490,7 @@ function App() {
     onCopyStyle: copyStyle,
     onPasteStyle: pasteStyle,
     hasCopiedStyle,
+    onArrangeGrid: (ids: string[]) => arrangeGrid(ids, freshBounds()),
     onSetCanvasSize: handleSetCanvasSize,
     onLoadTemplate: (tpl: Template) => requestConfirm({
       title: `Charger « ${tpl.name} » ?`,

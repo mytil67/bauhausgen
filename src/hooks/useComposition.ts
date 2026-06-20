@@ -771,6 +771,45 @@ export const useComposition = () => {
     });
   }, [commit]);
 
+  /** Dispose les éléments sélectionnés en grille régulière, tous à la même taille. */
+  const arrangeGrid = useCallback((ids: string[], bounds: ElementBounds, gap = 20) => {
+    if (ids.length < 2) return;
+    commit((prev) => {
+      const targetEls = ids.map((id) => prev.elements.find((e) => e.id === id)).filter(Boolean) as CompositionElement[];
+      if (targetEls.length < 2) return prev;
+
+      const cols = Math.ceil(Math.sqrt(targetEls.length));
+      const rows = Math.ceil(targetEls.length / cols);
+
+      // Taille de cellule uniforme pour remplir le canvas avec les marges
+      const margin = gap;
+      const cellW = (prev.canvasWidth - margin * (cols + 1)) / cols;
+      const cellH = (prev.canvasHeight - margin * (rows + 1)) / rows;
+
+      const newElements = prev.elements.map((el) => {
+        const idx = ids.indexOf(el.id);
+        if (idx === -1) return el;
+
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        const cx = margin + col * (cellW + margin) + cellW / 2;
+        const cy = margin + row * (cellH + margin) + cellH / 2;
+
+        if (el.type === 'text') {
+          // Texte : ajuste le scale pour tenir dans la cellule
+          const bbox = bounds[el.id];
+          const bw = bbox ? bbox.width * el.scaleX : el.fontSize * el.text.length * 0.6;
+          const bh = bbox ? bbox.height * el.scaleY : el.fontSize * 1.4;
+          const fit = Math.min(cellW / (bw || 1), cellH / (bh || 1), 1);
+          return { ...el, x: cx, y: cy, scaleX: el.scaleX * fit, scaleY: el.scaleY * fit };
+        }
+        // Formes/images : ajuste width/height
+        return { ...el, x: cx, y: cy, width: cellW, height: cellH } as CompositionElement;
+      });
+      return { ...prev, elements: newElements };
+    });
+  }, [commit]);
+
   const clearCanvas = useCallback(() => {
     commit((prev) => ({ ...prev, elements: [], backgroundColor: '#ffffff' }));
     setSelectedIds([]);
@@ -819,6 +858,7 @@ export const useComposition = () => {
     sendBackward,
     flipSelection,
     clearCanvas,
+    arrangeGrid,
     alignElements,
     distributeElements,
     beginHistory,
